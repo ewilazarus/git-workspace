@@ -1,7 +1,7 @@
 [project]
 name = "git-workspace"
 version = "0.1.0"
-description = "Add your description here"
+description = "An opinionated git plugin for managing worktrees"
 readme = "README.md"
 authors = [
     { name = "Gabriel Lima", email = "gvclima@gmail.com" }
