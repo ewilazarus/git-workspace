@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -25,5 +26,5 @@ class Manifest:
     hooks: Hooks | None = None
 
 
-def read_manifest(path: str) -> Manifest:
+def read_manifest(path: Path) -> Manifest:
     raise NotImplementedError
