@@ -1,0 +1,19 @@
+version = 1
+
+base_branch = "main"
+
+[hooks]
+after_setup = ["install-deps.sh"]
+before_activate = []
+after_activate = []
+before_remove = []
+after_remove = []
+
+[[link]]
+source = ".env"
+target = ".env"
+override = true
+
+[[link]]
+source = "docker-compose.override.yml"
+target = "docker-compose.override.yml"
