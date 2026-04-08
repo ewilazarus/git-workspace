@@ -1,9 +1,17 @@
 from pathlib import Path
+import shutil
 
+from git_workspace import git
 from git_workspace.errors import (
     InvalidWorkspaceRootError,
     UnableToResolveWorkspaceRootError,
+    GitCloneError,
+    GitInitError,
+    WorkspaceCreationError,
 )
+
+DEFAULT_CONFIG_URL = "https://github.com/ewilazarus/git-workspace.git"
+DEFAULT_CONFIG_BRANCH = "config/v1"
 
 
 def _validate_root_path(path: Path) -> None:
@@ -78,3 +86,59 @@ def resolve_root_path(raw_path: str | None = None) -> Path:
     return (
         _resolve_user_provided_root_path(raw_path) if raw_path else _resolve_root_path()
     )
+
+
+def create(
+    path: Path,
+    url: str | None = None,
+    config_url: str | None = None,
+) -> None:
+    """
+    Creates a workspace root
+
+    :param path: The path in which the workspace root should be created
+    :param url: The url that should be cloned into the bare repository. If omitted
+        a new bare repository is going to be created.
+    :param config_url: The url of the configuration that should be cloned. If omitted
+        the example configuration repository is going to be cloned.
+    :raises WorkspaceCreationError: If the workspace failed to be created
+    """
+    path.mkdir(parents=True)
+
+    git_path = path / ".git"
+    if url:
+        try:
+            git.clone(url, target=git_path, bare=True)
+        except GitCloneError as e:
+            raise WorkspaceCreationError("Failed to clone bare repository") from e
+    else:
+        try:
+            git.init(git_path, bare=True)
+        except GitInitError as e:
+            raise WorkspaceCreationError("Failed to initialize bare repository") from e
+
+    config_path = path / ".workspace"
+    if config_url:
+        try:
+            git.clone(config_url, target=config_path)
+        except GitCloneError as e:
+            raise WorkspaceCreationError("Failed to clone config repository") from e
+    else:
+        try:
+            git.clone(
+                DEFAULT_CONFIG_URL, target=config_path, branch=DEFAULT_CONFIG_BRANCH
+            )
+        except GitCloneError as e:
+            raise WorkspaceCreationError(
+                "Failed to clone example config repository"
+            ) from e
+
+        config_git_path = config_path / ".git"
+        shutil.rmtree(config_git_path, ignore_errors=True)
+
+        try:
+            git.init(config_path, bare=False)
+        except GitInitError as e:
+            raise WorkspaceCreationError(
+                "Failed to re-initialize example config repository"
+            ) from e

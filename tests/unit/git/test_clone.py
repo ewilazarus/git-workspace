@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -6,7 +7,7 @@ from git_workspace import git
 from git_workspace.errors import GitCloneError
 
 GIT_URL = "https://example.com"
-TARGET_PATH = "target"
+TARGET_PATH = Path("target")
 BRANCH = "branch"
 
 
@@ -53,7 +54,7 @@ def test_when_passing_target_path_then_invokes_git_correctly(
     git.clone(GIT_URL, target=TARGET_PATH)
 
     subprocess.run.assert_called_with(
-        ["git", "clone", GIT_URL, TARGET_PATH],
+        ["git", "clone", GIT_URL, TARGET_PATH.as_posix()],
         capture_output=True,
         text=True,
     )
@@ -73,7 +74,7 @@ def test_when_passing_branch_and_bare_flag_and_target_path_then_invokes_git_corr
             "--single-branch",
             "--bare",
             GIT_URL,
-            TARGET_PATH,
+            TARGET_PATH.as_posix(),
         ],
         capture_output=True,
         text=True,
