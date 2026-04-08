@@ -54,7 +54,7 @@ def test_when_passing_target_path_then_invokes_git_correctly(
     git.clone(GIT_URL, target=TARGET_PATH)
 
     subprocess.run.assert_called_with(
-        ["git", "clone", GIT_URL, TARGET_PATH.as_posix()],
+        ["git", "clone", GIT_URL, str(TARGET_PATH)],
         capture_output=True,
         text=True,
     )
@@ -74,7 +74,7 @@ def test_when_passing_branch_and_bare_flag_and_target_path_then_invokes_git_corr
             "--single-branch",
             "--bare",
             GIT_URL,
-            TARGET_PATH.as_posix(),
+            str(TARGET_PATH),
         ],
         capture_output=True,
         text=True,

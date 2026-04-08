@@ -15,7 +15,7 @@ def test_when_passing_true_bare_flag_then_invokes_git_correctly(
     git.init(TARGET_PATH, bare=True)
 
     subprocess.run.assert_called_with(
-        ["git", "init", "--bare", TARGET_PATH.as_posix()],
+        ["git", "init", "--bare", str(TARGET_PATH)],
         capture_output=True,
         text=True,
     )
@@ -27,7 +27,7 @@ def test_when_passing_false_bare_flag_then_invokes_git_correctly(
     git.init(TARGET_PATH, bare=False)
 
     subprocess.run.assert_called_with(
-        ["git", "init", TARGET_PATH.as_posix()],
+        ["git", "init", str(TARGET_PATH)],
         capture_output=True,
         text=True,
     )

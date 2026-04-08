@@ -53,7 +53,7 @@ def test_when_user_provides_path_to_existing_valid_workspace_root_then_succeeds_
     os.chdir(cwd)
 
     expected = WORKSPACE_1
-    actual = workspace.resolve_root_path(raw_path).as_posix()
+    actual = str(workspace.resolve_root_path(raw_path))
 
     assert actual == expected
 
@@ -121,7 +121,7 @@ def test_when_implicitly_resolving_from_within_a_valid_workspace_root_then_succe
     os.chdir(cwd)
 
     expected = WORKSPACE_1
-    actual = workspace.resolve_root_path().as_posix()
+    actual = str(workspace.resolve_root_path())
 
     assert actual == expected
 

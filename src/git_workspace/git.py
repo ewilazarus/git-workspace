@@ -37,7 +37,7 @@ def clone(
     cmd.append(url)
 
     if target:
-        cmd.append(target.as_posix())
+        cmd.append(str(target))
 
     log.debug("Attempting to clone git repository")
 
@@ -64,7 +64,7 @@ def init(target: Path, bare: bool) -> None:
     if bare:
         cmd.append("--bare")
 
-    cmd.append(target.as_posix())
+    cmd.append(str(target))
 
     log.debug("Attempting to initialize a bare git repository")
 
