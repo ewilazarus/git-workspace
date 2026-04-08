@@ -88,6 +88,44 @@ def resolve_root_path(raw_path: str | None = None) -> Path:
     )
 
 
+def _create_from_remote(url: str, git_path: Path) -> None:
+    try:
+        git.clone(url, target=git_path, bare=True)
+    except GitCloneError as e:
+        raise WorkspaceCreationError("Failed to clone bare repository") from e
+
+
+def _create_new(git_path: Path) -> None:
+    try:
+        git.init(git_path, bare=True)
+    except GitInitError as e:
+        raise WorkspaceCreationError("Failed to initialize bare repository") from e
+
+
+def _create_config_from_remote(config_url: str, config_path: Path) -> None:
+    try:
+        git.clone(config_url, target=config_path)
+    except GitCloneError as e:
+        raise WorkspaceCreationError("Failed to clone config repository") from e
+
+
+def _create_config_new(config_path: Path) -> None:
+    try:
+        git.clone(DEFAULT_CONFIG_URL, target=config_path, branch=DEFAULT_CONFIG_BRANCH)
+    except GitCloneError as e:
+        raise WorkspaceCreationError("Failed to clone example config repository") from e
+
+    config_git_path = config_path / ".git"
+    shutil.rmtree(config_git_path, ignore_errors=True)
+
+    try:
+        git.init(config_path, bare=False)
+    except GitInitError as e:
+        raise WorkspaceCreationError(
+            "Failed to re-initialize example config repository"
+        ) from e
+
+
 def create(
     path: Path,
     url: str | None = None,
@@ -107,38 +145,12 @@ def create(
 
     git_path = path / ".git"
     if url:
-        try:
-            git.clone(url, target=git_path, bare=True)
-        except GitCloneError as e:
-            raise WorkspaceCreationError("Failed to clone bare repository") from e
+        _create_from_remote(url, git_path)
     else:
-        try:
-            git.init(git_path, bare=True)
-        except GitInitError as e:
-            raise WorkspaceCreationError("Failed to initialize bare repository") from e
+        _create_new(git_path)
 
     config_path = path / ".workspace"
     if config_url:
-        try:
-            git.clone(config_url, target=config_path)
-        except GitCloneError as e:
-            raise WorkspaceCreationError("Failed to clone config repository") from e
+        _create_config_from_remote(config_url, config_path)
     else:
-        try:
-            git.clone(
-                DEFAULT_CONFIG_URL, target=config_path, branch=DEFAULT_CONFIG_BRANCH
-            )
-        except GitCloneError as e:
-            raise WorkspaceCreationError(
-                "Failed to clone example config repository"
-            ) from e
-
-        config_git_path = config_path / ".git"
-        shutil.rmtree(config_git_path, ignore_errors=True)
-
-        try:
-            git.init(config_path, bare=False)
-        except GitInitError as e:
-            raise WorkspaceCreationError(
-                "Failed to re-initialize example config repository"
-            ) from e
+        _create_config_new(config_path)
