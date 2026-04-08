@@ -1,2 +1,5 @@
+from git_workspace import cli
+
+
 def main() -> None:
-    print("Hello from git-workspace!")
+    cli.app()

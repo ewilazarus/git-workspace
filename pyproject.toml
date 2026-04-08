@@ -7,7 +7,11 @@ authors = [
     { name = "Gabriel Lima", email = "gvclima@gmail.com" }
 ]
 requires-python = ">=3.15"
-dependencies = []
+dependencies = [
+    "gitpython>=3.1.46",
+    "structlog>=25.5.0",
+    "typer>=0.24.1",
+]
 
 [project.scripts]
 git-workspace = "git_workspace:main"
@@ -15,3 +19,10 @@ git-workspace = "git_workspace:main"
 [build-system]
 requires = ["uv_build>=0.10.9,<0.11.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyfakefs>=6.1.6",
+    "pytest>=9.0.3",
+    "pytest-mock>=3.15.1",
+]
