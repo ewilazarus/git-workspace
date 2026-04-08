@@ -1,12 +1,13 @@
-from git_workspace.errors import (
-    InvalidWorkspaceRootError,
-    UnableToResolveWorkspaceRootError,
-)
 import os
+
 import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
 
 from git_workspace import workspace
+from git_workspace.errors import (
+    InvalidWorkspaceRootError,
+    UnableToResolveWorkspaceRootError,
+)
 
 HOME = "/Users/ewilazarus"
 WORKSPACE_BASE = f"{HOME}/Workspace"

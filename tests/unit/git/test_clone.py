@@ -1,21 +1,13 @@
-from git_workspace.errors import GitCloneError
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_mock import MockerFixture
 
 from git_workspace import git
+from git_workspace.errors import GitCloneError
 
 GIT_URL = "https://example.com"
 TARGET_PATH = "target"
 BRANCH = "branch"
-
-
-@pytest.fixture
-def subprocess(mocker: MockerFixture) -> MagicMock:
-    subprocess = mocker.patch("git_workspace.git.subprocess")
-    subprocess.run.return_value = MagicMock(returncode=0)
-    return subprocess
 
 
 def test_happy_path(subprocess: MagicMock) -> None:

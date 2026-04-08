@@ -1,4 +1,4 @@
-from git_workspace.errors import GitCloneError
+from git_workspace.errors import GitCloneError, GitInitError
 import subprocess
 import structlog
 
@@ -6,7 +6,10 @@ logger = structlog.get_logger(__name__)
 
 
 def clone(
-    url: str, target: str | None = None, branch: str | None = None, bare: bool = False
+    url: str,
+    target: str | None = None,
+    branch: str | None = None,
+    bare: bool = False,
 ) -> None:
     """
     Clones a git repository
@@ -40,3 +43,23 @@ def clone(
         raise GitCloneError(f"Failed to clone {url!r}")
 
     log.debug("Git repository cloned successfully")
+
+
+def init(target: str) -> None:
+    """
+    Initializes a bare git repository at the provided target
+
+    :param target: The target directory to initialize the bare git repository at
+    :raises GitInitError: If the initialization fails
+    """
+    log = logger.bind(target=target)
+
+    cmd = ["git", "init", "--bare", target]
+
+    log.debug("Attempting to initialize a bare git repository")
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise GitInitError("Failed to init bare repository")
+
+    log.debug("Bare git repository initialized successfully")
