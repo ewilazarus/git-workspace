@@ -58,7 +58,11 @@ def test_add_worktree_new_branch_happy_path(subprocess: MagicMock) -> None:
 
 
 def test_add_worktree_new_branch_when_git_fails_raises_error(subprocess: MagicMock) -> None:
-    subprocess.run.return_value = MagicMock(returncode=1, stderr="invalid base")
+    # First call is is_empty_repo (returncode=0 → not empty), second is the worktree add (returncode=1 → fail)
+    subprocess.run.side_effect = [
+        MagicMock(returncode=0),
+        MagicMock(returncode=1, stderr="invalid base"),
+    ]
 
     with pytest.raises(WorktreeCreationError):
         git.add_worktree_new_branch(PATH, BRANCH, BASE)
@@ -72,3 +76,29 @@ def test_add_worktree_new_branch_invokes_git_correctly(subprocess: MagicMock) ->
         capture_output=True,
         text=True,
     )
+
+
+def test_add_worktree_new_branch_in_empty_repo_uses_orphan(subprocess: MagicMock) -> None:
+    # is_empty_repo returns True (returncode=1 for rev-parse HEAD), worktree add succeeds
+    subprocess.run.side_effect = [
+        MagicMock(returncode=1),
+        MagicMock(returncode=0),
+    ]
+
+    git.add_worktree_new_branch(PATH, BRANCH, BASE)
+
+    subprocess.run.assert_called_with(
+        ["git", "worktree", "add", "--orphan", "-b", BRANCH, str(PATH)],
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_add_worktree_new_branch_in_empty_repo_when_git_fails_raises_error(subprocess: MagicMock) -> None:
+    subprocess.run.side_effect = [
+        MagicMock(returncode=1),
+        MagicMock(returncode=1, stderr="fatal: orphan error"),
+    ]
+
+    with pytest.raises(WorktreeCreationError):
+        git.add_worktree_new_branch(PATH, BRANCH, BASE)

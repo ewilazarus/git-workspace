@@ -132,6 +132,20 @@ def has_remote(name: str = "origin") -> bool:
     return name in result.stdout.split()
 
 
+def is_empty_repo() -> bool:
+    """
+    Returns True if the repository has no commits yet.
+
+    :returns: True if the repo is empty (no commits), False otherwise
+    """
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode != 0
+
+
 def fetch_origin() -> None:
     """
     Fetches from origin and prunes stale remote-tracking branches
@@ -233,13 +247,25 @@ def add_worktree_tracking_remote(path: Path, branch: str) -> None:
 
 def add_worktree_new_branch(path: Path, branch: str, base: str) -> None:
     """
-    Creates a worktree with a brand new local branch from a base branch
+    Creates a worktree with a brand new local branch from a base branch.
+
+    If the repository has no commits yet (empty repo), an orphan branch is
+    created instead, since no valid base ref exists.
 
     :param path: The path at which to create the worktree
     :param branch: The new branch name to create
     :param base: The base branch to create from
     :raises WorktreeCreationError: If the worktree cannot be created
     """
+    if is_empty_repo():
+        cmd = ["git", "worktree", "add", "--orphan", "-b", branch, str(path)]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise WorktreeCreationError(
+                f"Failed to create orphan worktree for branch {branch!r} at {path!r}: {result.stderr.strip()}"
+            )
+        return
+
     cmd = ["git", "worktree", "add", "-b", branch, str(path), base]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
