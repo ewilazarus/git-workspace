@@ -126,6 +126,12 @@ def list_worktrees_metadata() -> list[WorktreeMetadata]:
     return worktrees
 
 
+def has_remote(name: str = "origin") -> bool:
+    """Returns True if the given remote is configured."""
+    result = subprocess.run(["git", "remote"], capture_output=True, text=True)
+    return name in result.stdout.split()
+
+
 def fetch_origin() -> None:
     """
     Fetches from origin and prunes stale remote-tracking branches

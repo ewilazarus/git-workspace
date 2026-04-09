@@ -19,6 +19,7 @@ def git_mocks(mocker: MockerFixture):
     mocker.patch("git_workspace.git.list_worktrees_metadata", return_value=[])
     mocker.patch("git_workspace.git.local_branch_exists", return_value=False)
     mocker.patch("git_workspace.git.remote_branch_exists", return_value=False)
+    mocker.patch("git_workspace.git.has_remote", return_value=True)
     mocker.patch("git_workspace.git.fetch_origin")
     mocker.patch("git_workspace.git.get_origin_head", return_value=None)
 
@@ -134,3 +135,20 @@ def test_fetch_error_propagates(mocker: MockerFixture) -> None:
 
     with pytest.raises(GitFetchError):
         worktree.resolve_up_plan(BRANCH)
+
+
+def test_fetch_is_not_called_when_no_remote(mocker: MockerFixture) -> None:
+    mocker.patch("git_workspace.git.has_remote", return_value=False)
+    fetch_mock = mocker.patch("git_workspace.git.fetch_origin")
+
+    worktree.resolve_up_plan(BRANCH)
+
+    fetch_mock.assert_not_called()
+
+
+def test_when_no_remote_and_branch_not_found_then_creates_from_base(mocker: MockerFixture) -> None:
+    mocker.patch("git_workspace.git.has_remote", return_value=False)
+
+    plan = worktree.resolve_up_plan(BRANCH)
+
+    assert plan == UpPlan(action=UpAction.CREATE_FROM_BASE, branch=BRANCH, base_branch="main")

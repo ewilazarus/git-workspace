@@ -86,10 +86,11 @@ def resolve_up_plan(
     if git.remote_branch_exists(branch):
         return UpPlan(action=UpAction.CREATE_FROM_REMOTE, branch=branch)
 
-    git.fetch_origin()
+    if git.has_remote():
+        git.fetch_origin()
 
-    if git.remote_branch_exists(branch):
-        return UpPlan(action=UpAction.CREATE_FROM_REMOTE, branch=branch)
+        if git.remote_branch_exists(branch):
+            return UpPlan(action=UpAction.CREATE_FROM_REMOTE, branch=branch)
 
     base = resolve_base_branch(
         explicit=explicit_base_branch,
