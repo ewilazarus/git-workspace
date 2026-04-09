@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -186,9 +188,49 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
 
 
 
-def _run_hooks(bin_path: Path, hook_names: list[str], cwd: Path) -> None:
+def build_hook_env(
+    branch: str,
+    root: Path,
+    worktree_path: Path,
+    event: str,
+    manifest_vars: dict[str, str] | None = None,
+    user_vars: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """
+    Builds the environment dict for hook execution
+
+    Standard context vars (GW_BRANCH, GW_ROOT, GW_WORKTREE, GW_EVENT) are always
+    set. Manifest vars are applied next, then CLI user vars override them.
+    All user-defined variable names are normalized to uppercase.
+
+    :param branch: The target branch name
+    :param root: The workspace root path
+    :param worktree_path: The worktree root path
+    :param event: The lifecycle event name (e.g. "after_setup", "after_activate")
+    :param manifest_vars: Variables defined in the workspace manifest
+    :param user_vars: Variables provided by the CLI, overriding manifest vars
+    :returns: A merged environment dict suitable for passing to subprocess
+    """
+    env = {
+        **os.environ,
+        "GIT_WORKSPACE_BRANCH": branch,
+        "GIT_WORKSPACE_BRANCH_NO_SLASH": branch.replace("/", "_"),
+        "GIT_WORKSPACE_ROOT": str(root),
+        "GIT_WORKSPACE_WORKTREE": str(worktree_path),
+        "GIT_WORKSPACE_EVENT": event,
+    }
+    for key, value in (manifest_vars or {}).items():
+        normalized = re.sub(r"[^A-Z0-9]", "_", key.upper())
+        env[f"GIT_WORKSPACE_VAR_{normalized}"] = value
+    for key, value in (user_vars or {}).items():
+        normalized = re.sub(r"[^A-Z0-9]", "_", key.upper())
+        env[f"GIT_WORKSPACE_VAR_{normalized}"] = value
+    return env
+
+
+def _run_hooks(bin_path: Path, hook_names: list[str], cwd: Path, env: dict[str, str]) -> None:
     for hook_name in hook_names:
-        result = subprocess.run([str(bin_path / hook_name)], cwd=str(cwd))
+        result = subprocess.run([str(bin_path / hook_name)], cwd=str(cwd), env=env)
         if result.returncode != 0:
             raise HookExecutionError(
                 f"Hook {hook_name!r} failed with exit code {result.returncode}"
@@ -199,6 +241,9 @@ def run_setup_hooks(
     root: Path,
     worktree_result: WorktreeResult,
     hooks: Hooks,
+    branch: str,
+    manifest_vars: dict[str, str] | None = None,
+    user_vars: dict[str, str] | None = None,
     skip_hooks: bool = False,
 ) -> None:
     """
@@ -210,15 +255,27 @@ def run_setup_hooks(
     :param root: The workspace root path
     :param worktree_result: The result of the worktree creation/resume step
     :param hooks: The hooks configuration from the manifest
+    :param branch: The target branch name, injected into hook environment
+    :param manifest_vars: Variables from the manifest, exposed to hooks
+    :param user_vars: CLI variables, override manifest vars
     :param skip_hooks: If True, suppresses hook execution
     :raises HookExecutionError: If any hook exits with a non-zero status
     """
     if not worktree_result.is_new or skip_hooks:
         return
+    env = build_hook_env(
+        branch=branch,
+        root=root,
+        worktree_path=worktree_result.path,
+        event="after_setup",
+        manifest_vars=manifest_vars,
+        user_vars=user_vars,
+    )
     _run_hooks(
         bin_path=root / ".workspace" / "bin",
         hook_names=hooks.after_setup,
         cwd=worktree_result.path,
+        env=env,
     )
 
 
@@ -226,6 +283,9 @@ def run_activation_hooks(
     root: Path,
     worktree_result: WorktreeResult,
     hooks: Hooks,
+    branch: str,
+    manifest_vars: dict[str, str] | None = None,
+    user_vars: dict[str, str] | None = None,
     skip_hooks: bool = False,
 ) -> None:
     """
@@ -237,15 +297,27 @@ def run_activation_hooks(
     :param root: The workspace root path
     :param worktree_result: The result of the worktree creation/resume step
     :param hooks: The hooks configuration from the manifest
+    :param branch: The target branch name, injected into hook environment
+    :param manifest_vars: Variables from the manifest, exposed to hooks
+    :param user_vars: CLI variables, override manifest vars
     :param skip_hooks: If True, suppresses hook execution
     :raises HookExecutionError: If any hook exits with a non-zero status
     """
     if skip_hooks:
         return
+    env = build_hook_env(
+        branch=branch,
+        root=root,
+        worktree_path=worktree_result.path,
+        event="after_activate",
+        manifest_vars=manifest_vars,
+        user_vars=user_vars,
+    )
     _run_hooks(
         bin_path=root / ".workspace" / "bin",
         hook_names=hooks.after_activate,
         cwd=worktree_result.path,
+        env=env,
     )
 
 
