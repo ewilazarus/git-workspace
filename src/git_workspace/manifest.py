@@ -20,16 +20,16 @@ class Hooks:
 
 @dataclass
 class Prune:
-    older_than_days: int
-    exclude_branches: list[str]
+    older_than_days: int = 30
+    exclude_branches: list[str] = field(default_factory=list)
 
 
 @dataclass
 class Manifest:
-    version: int
-    base_branch: str | None = None
-    links: list[Link] = field(default_factory=list)
+    version: int = 1
+    base_branch: str = "main"
     hooks: Hooks | None = None
+    links: list[Link] = field(default_factory=list)
     prune: Prune | None = None
 
 
