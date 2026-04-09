@@ -1,12 +1,24 @@
+from pathlib import Path
+from typing import Annotated
+
 import typer
+
+from git_workspace import workspace
 
 app = typer.Typer()
 
 
 @app.command()
 def init(
-    root: str,
-    config_url: str | None = None,
+    path: Annotated[
+        str, typer.Argument(help="The path in which to init the workspace")
+    ],
+    config_url: Annotated[
+        str | None,
+        typer.Option(
+            help="The configuration URL to be cloned. If ommitted, defaults to the example configuration URL",
+        ),
+    ] = None,
 ) -> None:
     """
     Initialize a repository in workspace format.
@@ -15,4 +27,5 @@ def init(
 
     Use this when starting a new project from scratch using the workspace model.
     """
-    pass
+    resolved_path = Path(path)
+    workspace.create(resolved_path, config_url=config_url)
