@@ -175,6 +175,24 @@ def remote_branch_exists(branch: str) -> bool:
     return result.returncode == 0
 
 
+def skip_worktree(path: str, cwd: Path) -> None:
+    """
+    Marks a file with git update-index --skip-worktree so local changes are ignored
+
+    Runs as a best-effort operation; failures are silently ignored since the file
+    may not be tracked.
+
+    :param path: The file path relative to the worktree root
+    :param cwd: The worktree root directory
+    """
+    subprocess.run(
+        ["git", "update-index", "--skip-worktree", path],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+
+
 def add_worktree(path: Path, branch: str) -> None:
     """
     Creates a worktree for an existing local branch

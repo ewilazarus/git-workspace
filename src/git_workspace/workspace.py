@@ -10,7 +10,9 @@ from git_workspace.errors import (
     GitCloneError,
     GitInitError,
     WorkspaceCreationError,
+    WorkspaceLinkError,
 )
+from git_workspace.manifest import Link
 
 DEFAULT_CONFIG_URL = "https://github.com/ewilazarus/git-workspace.git"
 DEFAULT_CONFIG_BRANCH = "config/v1"
@@ -179,6 +181,46 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
 
     return git.get_current_branch(worktree_root)
 
+
+
+def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
+    """
+    Applies symbolic links from the workspace configuration into a worktree
+
+    Normal links fail if the target already exists and is not already the desired
+    symlink. Override links replace any existing target, first marking the file
+    with git update-index --skip-worktree. Parent directories are created as needed.
+
+    :param root: The workspace root path
+    :param worktree_path: The worktree root path
+    :param links: The list of links to apply
+    :raises WorkspaceLinkError: If a normal link target already exists and is not the correct symlink
+    """
+    files_root = root / ".workspace" / "files"
+
+    for link in links:
+        source = files_root / link.source
+        target = worktree_path / link.target
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        if link.override:
+            git.skip_worktree(link.target, cwd=worktree_path)
+            if target.exists() or target.is_symlink():
+                target.unlink()
+            target.symlink_to(source)
+        else:
+            if target.is_symlink():
+                if target.readlink() == source:
+                    continue
+                raise WorkspaceLinkError(
+                    f"Cannot create link: {target!r} already points elsewhere"
+                )
+            if target.exists():
+                raise WorkspaceLinkError(
+                    f"Cannot create link: {target!r} already exists"
+                )
+            target.symlink_to(source)
 
 
 def sync_exclude_block(worktree_path: Path, non_override_targets: list[str]) -> None:
