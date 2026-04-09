@@ -1,7 +1,8 @@
-from pathlib import Path
-from git_workspace.cli.parsers import parse_vars
 from typing import Annotated
+
 import typer
+
+from git_workspace.cli.parsers import parse_vars
 
 app = typer.Typer()
 

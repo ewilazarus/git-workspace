@@ -1,4 +1,3 @@
-from tkinter import W
 from pathlib import Path
 import shutil
 

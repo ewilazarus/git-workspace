@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Annotated
+
 import typer
 
 from git_workspace import utils, workspace
