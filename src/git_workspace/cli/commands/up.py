@@ -11,7 +11,7 @@ from git_workspace.errors import (
     UnableToResolveWorkspaceRootError,
     WorktreeCreationError,
 )
-from git_workspace.manifest import Hooks, read_manifest
+from git_workspace.manifest import read_manifest
 from git_workspace.worktree import (
     UpAction,
     create_worktree_from_base,
@@ -98,31 +98,20 @@ def up(
     if branch is None:
         branch = workspace.resolve_branch(root_path)
         if branch is None:
-            typer.echo("error: branch could not be inferred from the current directory; provide it explicitly", err=True)
+            typer.echo(
+                "error: branch could not be inferred from the current directory; provide it explicitly",
+                err=True,
+            )
             raise typer.Exit(1)
 
-    manifest_path = root_path / ".workspace" / "manifest.toml"
-    try:
-        manifest = read_manifest(manifest_path)
-        hooks = manifest.hooks
-        manifest_vars: dict[str, str] = manifest.vars
-        manifest_base_branch: str | None = manifest.base_branch
-    except NotImplementedError:
-        hooks = Hooks()
-        manifest_vars = {}
-        manifest_base_branch = None
+    manifest = read_manifest(root_path / ".workspace" / "manifest.toml")
+    user_vars: dict[str, str] = dict(vars) if vars else {}
 
-    user_vars: dict[str, str] = vars or {}  # type: ignore[assignment]
-
-    try:
-        plan = resolve_up_plan(
-            branch=branch,
-            explicit_base_branch=base_branch,
-            manifest_base_branch=manifest_base_branch,
-        )
-    except Exception as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
+    plan = resolve_up_plan(
+        branch=branch,
+        explicit_base_branch=base_branch,
+        manifest_base_branch=manifest.base_branch,
+    )
 
     try:
         if plan.action == UpAction.RESUME:
@@ -139,31 +128,26 @@ def up(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    try:
-        _manifest = read_manifest(manifest_path)
-        workspace.apply_links(root_path, result.path, _manifest.links)
-        non_override_targets = [link.target for link in _manifest.links if not link.override]
-    except NotImplementedError:
-        non_override_targets = []
-
+    workspace.apply_links(root_path, result.path, manifest.links)
+    non_override_targets = [link.target for link in manifest.links if not link.override]
     workspace.sync_exclude_block(result.path, non_override_targets)
 
     try:
         workspace.run_setup_hooks(
             root=root_path,
             worktree_result=result,
-            hooks=hooks,
+            hooks=manifest.hooks,
             branch=branch,
-            manifest_vars=manifest_vars,
+            manifest_vars=manifest.vars,
             user_vars=user_vars,
             skip_hooks=skip_hooks,
         )
         workspace.run_activation_hooks(
             root=root_path,
             worktree_result=result,
-            hooks=hooks,
+            hooks=manifest.hooks,
             branch=branch,
-            manifest_vars=manifest_vars,
+            manifest_vars=manifest.vars,
             user_vars=user_vars,
             skip_hooks=skip_hooks,
         )
@@ -172,10 +156,14 @@ def up(
         raise typer.Exit(1)
 
     if json_output:
-        typer.echo(json.dumps({
-            "branch": branch,
-            "path": str(result.path),
-            "is_new": result.is_new,
-        }))
+        typer.echo(
+            json.dumps(
+                {
+                    "branch": branch,
+                    "path": str(result.path),
+                    "is_new": result.is_new,
+                }
+            )
+        )
     else:
         typer.echo(str(result.path))

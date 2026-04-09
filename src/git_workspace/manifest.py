@@ -1,3 +1,4 @@
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -93,15 +94,58 @@ class Manifest:
     prune: Prune | None = None
 
 
+_DEFAULT_MANIFEST = Manifest(version=1, base_branch="main")
+
+
 def read_manifest(path: Path) -> Manifest:
     """
     Reads and parses a workspace manifest from disk.
 
     The manifest is expected to be a TOML file located under `.workspace`,
     describing workspace configuration such as hooks, links, and prune rules.
+    If the file cannot be read or parsed, sane defaults are returned.
 
     :param path: Path to the manifest file
     :returns: Parsed Manifest instance
-    :raises ValueError: If the manifest is invalid or cannot be parsed
     """
-    raise NotImplementedError
+    try:
+        data = tomllib.loads(path.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return _DEFAULT_MANIFEST
+
+    hooks_data = data.get("hooks", {})
+    hooks = Hooks(
+        after_setup=hooks_data.get("after_setup", []),
+        before_activate=hooks_data.get("before_activate", []),
+        after_activate=hooks_data.get("after_activate", []),
+        before_remove=hooks_data.get("before_remove", []),
+        after_remove=hooks_data.get("after_remove", []),
+    )
+
+    links = [
+        Link(
+            source=lnk["source"],
+            target=lnk["target"],
+            override=lnk.get("override", False),
+        )
+        for lnk in data.get("links", [])
+    ]
+
+    prune_data = data.get("prune")
+    prune = (
+        Prune(
+            older_than_days=prune_data.get("older_than_days", 30),
+            exclude_branches=prune_data.get("exclude_branches", []),
+        )
+        if prune_data is not None
+        else None
+    )
+
+    return Manifest(
+        version=data.get("version", 1),
+        base_branch=data.get("base_branch", "main"),
+        links=links,
+        vars=data.get("vars", {}),
+        hooks=hooks,
+        prune=prune,
+    )
