@@ -1,13 +1,32 @@
+from pathlib import Path
+from typing import Annotated
 import typer
+
+from git_workspace import utils, workspace
 
 app = typer.Typer()
 
 
 @app.command()
 def clone(
-    url: str,
-    config_url: str | None = None,
-    root: str | None = None,
+    url: Annotated[
+        str,
+        typer.Argument(
+            help="The repository URL to be cloned",
+        ),
+    ],
+    path: Annotated[
+        str | None,
+        typer.Argument(
+            help='An optional name of the folder to be used. If omitted, the "humanish" part of the repository URL will be used'
+        ),
+    ] = None,
+    config_url: Annotated[
+        str | None,
+        typer.Option(
+            help="The configuration URL to be cloned. If ommitted, defaults to the example configuration URL"
+        ),
+    ] = None,
 ) -> None:
     """
     Clone a repository into workspace format.
@@ -16,4 +35,5 @@ def clone(
 
     Use this when starting from an existing remote repository.
     """
-    pass
+    resolved_path = Path(path or utils.extract_humanish_suffix(url))
+    workspace.create(resolved_path, url=url, config_url=config_url)

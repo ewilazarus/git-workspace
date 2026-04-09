@@ -1,5 +1,8 @@
+from tkinter import W
 from pathlib import Path
 import shutil
+
+import structlog
 
 from git_workspace import git
 from git_workspace.errors import (
@@ -12,6 +15,8 @@ from git_workspace.errors import (
 
 DEFAULT_CONFIG_URL = "https://github.com/ewilazarus/git-workspace.git"
 DEFAULT_CONFIG_BRANCH = "config/v1"
+
+logger = structlog.get_logger(__name__)
 
 
 def _validate_root_path(path: Path) -> None:
@@ -83,9 +88,17 @@ def resolve_root_path(raw_path: str | None = None) -> Path:
         directory isn't a child of a workspace root)
     :returns: The resolved `pathlib.Path` for the workspace root path
     """
-    return (
+    log = logger.bind(raw_path=raw_path)
+
+    log.debug("Attempting to resolve workspace root path")
+
+    result = (
         _resolve_user_provided_root_path(raw_path) if raw_path else _resolve_root_path()
     )
+
+    log.debug("Successfully resolved workspace root path", result=result)
+
+    return result
 
 
 def _create_from_remote(url: str, git_path: Path) -> None:
@@ -141,6 +154,10 @@ def create(
         the example configuration repository is going to be cloned.
     :raises WorkspaceCreationError: If the workspace failed to be created
     """
+    log = logger.bind(path=path, url=url, config_url=config_url)
+
+    log.debug("Attempting to create workspace")
+
     path.mkdir(parents=True)
 
     git_path = path / ".git"
@@ -154,3 +171,5 @@ def create(
         _create_config_from_remote(config_url, config_path)
     else:
         _create_config_new(config_path)
+
+    log.debug("Successfully created workspace")

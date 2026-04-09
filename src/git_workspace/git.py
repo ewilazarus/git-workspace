@@ -57,7 +57,7 @@ def init(target: Path, bare: bool) -> None:
         be bare or not.
     :raises GitInitError: If the initialization fails
     """
-    log = logger.bind(target=target)
+    log = logger.bind(target=target, bare=bare)
 
     cmd = ["git", "init"]
 
@@ -66,10 +66,10 @@ def init(target: Path, bare: bool) -> None:
 
     cmd.append(str(target))
 
-    log.debug("Attempting to initialize a bare git repository")
+    log.debug("Attempting to initialize a git repository")
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise GitInitError("Failed to init bare repository")
+        raise GitInitError("Failed to init repository")
 
-    log.debug("Bare git repository initialized successfully")
+    log.debug("Git repository initialized successfully")
