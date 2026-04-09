@@ -430,6 +430,13 @@ def sync_exclude_block(worktree_path: Path, non_override_targets: list[str]) -> 
     git_file = worktree_path / ".git"
     git_dir_ref = git_file.read_text().strip()
     git_dir = Path(git_dir_ref.removeprefix("gitdir: "))
+    log.debug("Resolved worktree git dir", git_dir=str(git_dir))
+
+    commondir_file = git_dir / "commondir"
+    if commondir_file.exists():
+        commondir = commondir_file.read_text().strip()
+        git_dir = (git_dir / commondir).resolve()
+        log.debug("Resolved common git dir via commondir", git_dir=str(git_dir))
 
     exclude_path = git_dir / "info" / "exclude"
     log.debug("Resolved exclude file", exclude_path=str(exclude_path))

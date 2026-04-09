@@ -9,6 +9,9 @@ WORKTREE = Path("/workspace/feat/001")
 GIT_DIR = Path("/workspace/.git/worktrees/feat-001")
 EXCLUDE_PATH = GIT_DIR / "info" / "exclude"
 
+COMMON_GIT_DIR = Path("/workspace/.git")
+COMMON_EXCLUDE_PATH = COMMON_GIT_DIR / "info" / "exclude"
+
 MANAGED_BEGIN = "# >>> git-workspace managed >>>"
 MANAGED_END = "# <<< git-workspace managed <<<"
 
@@ -71,4 +74,38 @@ def test_empty_targets_writes_empty_managed_block(fs: FakeFilesystem) -> None:
 
     content = EXCLUDE_PATH.read_text()
     assert MANAGED_BEGIN in content
+    assert MANAGED_END in content
+
+
+# --- commondir resolution ---
+
+@pytest.fixture
+def worktree_with_commondir(fs: FakeFilesystem) -> None:
+    fs.create_dir(COMMON_GIT_DIR / "info")
+    fs.create_file(
+        GIT_DIR / "commondir",
+        contents="../..\n",
+    )
+
+
+def test_commondir_writes_to_common_git_dir(fs: FakeFilesystem, worktree_with_commondir) -> None:
+    workspace.sync_exclude_block(WORKTREE, [".env"])
+
+    assert COMMON_EXCLUDE_PATH.exists()
+    assert ".env" in COMMON_EXCLUDE_PATH.read_text()
+
+
+def test_commondir_does_not_write_to_worktree_git_dir(fs: FakeFilesystem, worktree_with_commondir) -> None:
+    workspace.sync_exclude_block(WORKTREE, [".env"])
+
+    assert not EXCLUDE_PATH.exists()
+
+
+def test_commondir_managed_block_written_correctly(fs: FakeFilesystem, worktree_with_commondir) -> None:
+    workspace.sync_exclude_block(WORKTREE, [".env", "local.json"])
+
+    content = COMMON_EXCLUDE_PATH.read_text()
+    assert MANAGED_BEGIN in content
+    assert ".env" in content
+    assert "local.json" in content
     assert MANAGED_END in content
