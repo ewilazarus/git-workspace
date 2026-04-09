@@ -424,14 +424,20 @@ def sync_exclude_block(worktree_path: Path, non_override_targets: list[str]) -> 
     :param worktree_path: The root of the worktree
     :param non_override_targets: Link targets to include in the managed block
     """
+    log = logger.bind(worktree=str(worktree_path), targets=non_override_targets)
+    log.debug("Syncing exclude block")
+
     git_file = worktree_path / ".git"
     git_dir_ref = git_file.read_text().strip()
     git_dir = Path(git_dir_ref.removeprefix("gitdir: "))
 
     exclude_path = git_dir / "info" / "exclude"
+    log.debug("Resolved exclude file", exclude_path=str(exclude_path))
+
     exclude_path.parent.mkdir(parents=True, exist_ok=True)
 
     existing = exclude_path.read_text() if exclude_path.exists() else ""
+    log.debug("Read existing exclude file", num_lines=len(existing.splitlines()))
 
     kept: list[str] = []
     inside_managed = False
@@ -449,6 +455,8 @@ def sync_exclude_block(worktree_path: Path, non_override_targets: list[str]) -> 
     managed = [_EXCLUDE_BEGIN] + non_override_targets + [_EXCLUDE_END]
     parts = kept + ([""] if kept else []) + managed
     exclude_path.write_text("\n".join(parts) + "\n")
+
+    log.debug("Exclude block synced", managed_entries=non_override_targets)
 
 
 def create(
