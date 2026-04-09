@@ -1,6 +1,9 @@
 from typing import Annotated
 
+import click
 import typer
+
+from git_workspace import workspace
 
 app = typer.Typer()
 
@@ -23,4 +26,5 @@ def edit(
 
     The editor is resolved using standard environment variables (e.g. VISUAL or EDITOR). The command does not modify any files—it only launches the editor.
     """
-    pass
+    resolved_root = workspace.resolve_root_path(root)
+    click.edit(filename=str(resolved_root / ".workspace"))

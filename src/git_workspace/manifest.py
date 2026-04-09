@@ -81,12 +81,15 @@ class Manifest:
     - hooks: optional lifecycle hooks configuration
     - links: symbolic links applied to each worktree
     - prune: optional prune configuration for workspace cleanup
+    - vars: optional set of variables to be injected as environment variables
+        during hooks execution
     """
 
-    version: int = 1
-    base_branch: str = "main"
-    hooks: Hooks | None = None
+    version: int
+    base_branch: str
     links: list[Link] = field(default_factory=list)
+    vars: dict[str, str] = field(default_factory=dict)
+    hooks: Hooks = field(default_factory=Hooks)
     prune: Prune | None = None
 
 
