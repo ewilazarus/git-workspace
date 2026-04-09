@@ -4,7 +4,7 @@ from pathlib import Path
 
 import structlog
 
-from git_workspace.errors import GitCloneError, GitInitError
+from git_workspace.errors import GitCloneError, GitFetchError, GitInitError
 
 logger = structlog.get_logger(__name__)
 
@@ -124,6 +124,18 @@ def list_worktrees_metadata() -> list[WorktreeMetadata]:
         )
 
     return worktrees
+
+
+def fetch_origin() -> None:
+    """
+    Fetches from origin and prunes stale remote-tracking branches
+
+    :raises GitFetchError: If the fetch fails
+    """
+    cmd = ["git", "fetch", "origin", "--prune"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise GitFetchError(f"Failed to fetch from origin: {result.stderr.strip()}")
 
 
 def get_origin_head() -> str | None:
