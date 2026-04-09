@@ -138,6 +138,44 @@ def _create_config_new(config_path: Path) -> None:
         ) from e
 
 
+def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
+    """
+    Resolves the target branch from the current working directory
+
+    Infers which workspace worktree the user is in by examining the current working
+    directory relative to the workspace root. The `.workspace` and `.git` directories
+    are excluded. Intermediate directories that are not worktree roots (e.g.
+    `feat/` when branches like `feat/001` and `feat/002` exist) return None.
+
+    :param root: The workspace root path
+    :param cwd: The current working directory. If None, uses Path.cwd().
+    :returns: The branch name if the cwd is inside a workspace worktree, None otherwise
+    """
+    if cwd is None:
+        cwd = Path.cwd().resolve()
+
+    for excluded in [root / ".workspace", root / ".git"]:
+        try:
+            cwd.relative_to(excluded)
+            return None
+        except ValueError:
+            pass
+
+    try:
+        relative = cwd.relative_to(root)
+    except ValueError:
+        return None
+
+    if relative == Path("."):
+        return None
+
+    worktree_root = git.get_worktree_root(cwd)
+    if worktree_root is None:
+        return None
+
+    return git.get_current_branch(worktree_root)
+
+
 def create(
     path: Path,
     url: str | None = None,

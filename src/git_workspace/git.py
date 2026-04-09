@@ -85,3 +85,42 @@ class WorktreeMetadata:
 
 def list_worktrees_metadata() -> list[WorktreeMetadata]:
     raise NotImplementedError
+
+
+def get_worktree_root(cwd: Path | None = None) -> Path | None:
+    """
+    Returns the root path of the worktree the given directory belongs to
+
+    :param cwd: Directory to run git from. If None, uses the current directory.
+    :returns: The worktree root path, or None if not inside a worktree
+    """
+    cmd = ["git", "rev-parse", "--show-toplevel"]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=str(cwd) if cwd else None,
+    )
+    if result.returncode != 0:
+        return None
+    return Path(result.stdout.strip())
+
+
+def get_current_branch(cwd: Path | None = None) -> str | None:
+    """
+    Returns the name of the currently checked out branch
+
+    :param cwd: Directory to run git from. If None, uses the current directory.
+    :returns: The branch name, or None if HEAD is detached or the command fails
+    """
+    cmd = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=str(cwd) if cwd else None,
+    )
+    if result.returncode != 0:
+        return None
+    branch = result.stdout.strip()
+    return branch if branch != "HEAD" else None
