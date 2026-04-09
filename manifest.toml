@@ -17,3 +17,8 @@ override = true
 [[link]]
 source = "docker-compose.override.yml"
 target = "docker-compose.override.yml"
+
+[prune]
+older_than_days = 30
+exclude_branches = ["main"]
+
