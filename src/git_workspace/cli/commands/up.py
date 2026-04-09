@@ -9,6 +9,7 @@ from git_workspace.errors import (
     HookExecutionError,
     InvalidWorkspaceRootError,
     UnableToResolveWorkspaceRootError,
+    WorkspaceLinkError,
     WorktreeCreationError,
 )
 from git_workspace.manifest import read_manifest
@@ -120,7 +121,12 @@ def up(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    workspace.apply_links(root_path, result.path, manifest.links)
+    try:
+        workspace.apply_links(root_path, result.path, manifest.links)
+    except WorkspaceLinkError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+
     non_override_targets = [link.target for link in manifest.links if not link.override]
     workspace.sync_exclude_block(result.path, non_override_targets)
 
