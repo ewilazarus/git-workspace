@@ -114,11 +114,11 @@ def test_parses_links(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
         """
-[[links]]
+[[link]]
 source = "env"
 target = ".env"
 
-[[links]]
+[[link]]
 source = "secrets"
 target = ".secrets"
 override = true
@@ -137,7 +137,7 @@ def test_link_override_defaults_to_false(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
         """
-[[links]]
+[[link]]
 source = "env"
 target = ".env"
 """,
@@ -200,7 +200,7 @@ db_url = "sqlite://"
 after_setup = ["install.sh"]
 after_activate = ["activate.sh"]
 
-[[links]]
+[[link]]
 source = "env"
 target = ".env"
 

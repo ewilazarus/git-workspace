@@ -140,7 +140,7 @@ def read_manifest(path: Path) -> Manifest:
             target=lnk["target"],
             override=lnk.get("override", False),
         )
-        for lnk in data.get("links", [])
+        for lnk in data.get("link", [])
     ]
 
     prune_data = data.get("prune")
