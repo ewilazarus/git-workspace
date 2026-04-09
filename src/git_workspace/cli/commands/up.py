@@ -1,8 +1,25 @@
+import json
 from typing import Annotated
 
 import typer
 
+from git_workspace import workspace
 from git_workspace.cli.parsers import parse_vars
+from git_workspace.errors import (
+    HookExecutionError,
+    InvalidWorkspaceRootError,
+    UnableToResolveWorkspaceRootError,
+    WorktreeCreationError,
+)
+from git_workspace.manifest import Hooks, read_manifest
+from git_workspace.worktree import (
+    UpAction,
+    create_worktree_from_base,
+    create_worktree_from_local,
+    create_worktree_from_remote,
+    resolve_up_plan,
+    resume_worktree,
+)
 
 app = typer.Typer()
 
@@ -54,6 +71,14 @@ def up(
             help="Skip execution of workspace hooks",
         ),
     ] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help="Emit structured JSON output instead of human-readable text",
+            is_flag=True,
+        ),
+    ] = False,
 ) -> None:
     """
     Open a worktree, setting it up first if needed.
@@ -64,5 +89,93 @@ def up(
 
     This is the primary command for day-to-day usage.
     """
-    print(vars)
-    pass
+    try:
+        root_path = workspace.resolve_root_path(root)
+    except (InvalidWorkspaceRootError, UnableToResolveWorkspaceRootError) as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+
+    if branch is None:
+        branch = workspace.resolve_branch(root_path)
+        if branch is None:
+            typer.echo("error: branch could not be inferred from the current directory; provide it explicitly", err=True)
+            raise typer.Exit(1)
+
+    manifest_path = root_path / ".workspace" / "manifest.toml"
+    try:
+        manifest = read_manifest(manifest_path)
+        hooks = manifest.hooks
+        manifest_vars: dict[str, str] = manifest.vars
+        manifest_base_branch: str | None = manifest.base_branch
+    except NotImplementedError:
+        hooks = Hooks()
+        manifest_vars = {}
+        manifest_base_branch = None
+
+    user_vars: dict[str, str] = vars or {}  # type: ignore[assignment]
+
+    try:
+        plan = resolve_up_plan(
+            branch=branch,
+            explicit_base_branch=base_branch,
+            manifest_base_branch=manifest_base_branch,
+        )
+    except Exception as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        if plan.action == UpAction.RESUME:
+            assert plan.existing_worktree_path is not None
+            result = resume_worktree(plan.existing_worktree_path)
+        elif plan.action == UpAction.CREATE_FROM_LOCAL:
+            result = create_worktree_from_local(root_path, branch)
+        elif plan.action == UpAction.CREATE_FROM_REMOTE:
+            result = create_worktree_from_remote(root_path, branch)
+        else:
+            assert plan.base_branch is not None
+            result = create_worktree_from_base(root_path, branch, plan.base_branch)
+    except WorktreeCreationError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        _manifest = read_manifest(manifest_path)
+        workspace.apply_links(root_path, result.path, _manifest.links)
+        non_override_targets = [link.target for link in _manifest.links if not link.override]
+    except NotImplementedError:
+        non_override_targets = []
+
+    workspace.sync_exclude_block(result.path, non_override_targets)
+
+    try:
+        workspace.run_setup_hooks(
+            root=root_path,
+            worktree_result=result,
+            hooks=hooks,
+            branch=branch,
+            manifest_vars=manifest_vars,
+            user_vars=user_vars,
+            skip_hooks=skip_hooks,
+        )
+        workspace.run_activation_hooks(
+            root=root_path,
+            worktree_result=result,
+            hooks=hooks,
+            branch=branch,
+            manifest_vars=manifest_vars,
+            user_vars=user_vars,
+            skip_hooks=skip_hooks,
+        )
+    except HookExecutionError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+
+    if json_output:
+        typer.echo(json.dumps({
+            "branch": branch,
+            "path": str(result.path),
+            "is_new": result.is_new,
+        }))
+    else:
+        typer.echo(str(result.path))

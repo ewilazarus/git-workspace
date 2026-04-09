@@ -27,7 +27,7 @@ def _executables(mock_subprocess: MagicMock) -> list[str]:
     return [call.args[0][0] for call in mock_subprocess.call_args_list]
 
 
-def test_runs_for_new_worktree(mock_subprocess: MagicMock) -> None:
+def test_runs_after_activate_for_new_worktree(mock_subprocess: MagicMock) -> None:
     hooks = Hooks(after_activate=["activate.sh"])
 
     workspace.run_activation_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
@@ -35,12 +35,39 @@ def test_runs_for_new_worktree(mock_subprocess: MagicMock) -> None:
     assert _executables(mock_subprocess) == [str(BIN_PATH / "activate.sh")]
 
 
-def test_runs_for_existing_worktree(mock_subprocess: MagicMock) -> None:
+def test_runs_after_activate_for_existing_worktree(mock_subprocess: MagicMock) -> None:
     hooks = Hooks(after_activate=["activate.sh"])
 
     workspace.run_activation_hooks(ROOT, EXISTING_RESULT, hooks, branch=BRANCH)
 
     assert _executables(mock_subprocess) == [str(BIN_PATH / "activate.sh")]
+
+
+def test_runs_before_activate_for_new_worktree(mock_subprocess: MagicMock) -> None:
+    hooks = Hooks(before_activate=["pre.sh"])
+
+    workspace.run_activation_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
+
+    assert _executables(mock_subprocess) == [str(BIN_PATH / "pre.sh")]
+
+
+def test_runs_before_activate_for_existing_worktree(mock_subprocess: MagicMock) -> None:
+    hooks = Hooks(before_activate=["pre.sh"])
+
+    workspace.run_activation_hooks(ROOT, EXISTING_RESULT, hooks, branch=BRANCH)
+
+    assert _executables(mock_subprocess) == [str(BIN_PATH / "pre.sh")]
+
+
+def test_before_activate_runs_before_after_activate(mock_subprocess: MagicMock) -> None:
+    hooks = Hooks(before_activate=["pre.sh"], after_activate=["post.sh"])
+
+    workspace.run_activation_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
+
+    assert _executables(mock_subprocess) == [
+        str(BIN_PATH / "pre.sh"),
+        str(BIN_PATH / "post.sh"),
+    ]
 
 
 def test_hooks_execute_in_configured_order(mock_subprocess: MagicMock) -> None:
@@ -56,7 +83,7 @@ def test_hooks_execute_in_configured_order(mock_subprocess: MagicMock) -> None:
 
 
 def test_skips_hooks_when_skip_hooks_is_true(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(after_activate=["activate.sh"])
+    hooks = Hooks(before_activate=["pre.sh"], after_activate=["activate.sh"])
 
     workspace.run_activation_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH, skip_hooks=True)
 
@@ -64,7 +91,7 @@ def test_skips_hooks_when_skip_hooks_is_true(mock_subprocess: MagicMock) -> None
 
 
 def test_skips_hooks_when_skip_hooks_is_true_for_existing_worktree(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(after_activate=["activate.sh"])
+    hooks = Hooks(before_activate=["pre.sh"], after_activate=["activate.sh"])
 
     workspace.run_activation_hooks(ROOT, EXISTING_RESULT, hooks, branch=BRANCH, skip_hooks=True)
 
@@ -77,6 +104,16 @@ def test_hook_failure_raises_hook_execution_error(mock_subprocess: MagicMock) ->
 
     with pytest.raises(HookExecutionError):
         workspace.run_activation_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
+
+
+def test_before_activate_failure_stops_execution(mock_subprocess: MagicMock) -> None:
+    mock_subprocess.return_value = MagicMock(returncode=1)
+    hooks = Hooks(before_activate=["pre.sh"], after_activate=["post.sh"])
+
+    with pytest.raises(HookExecutionError):
+        workspace.run_activation_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
+
+    assert mock_subprocess.call_count == 1
 
 
 def test_hook_failure_stops_execution(mock_subprocess: MagicMock) -> None:

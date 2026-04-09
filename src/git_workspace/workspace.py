@@ -289,10 +289,11 @@ def run_activation_hooks(
     skip_hooks: bool = False,
 ) -> None:
     """
-    Runs after_activate hooks for all up flows
+    Runs before_activate and after_activate hooks for all up flows
 
     Activation hooks run regardless of whether the worktree is new or resumed.
-    They are suppressed only when skip_hooks is True.
+    They are suppressed only when skip_hooks is True. before_activate runs
+    before the worktree is entered; after_activate runs after.
 
     :param root: The workspace root path
     :param worktree_result: The result of the worktree creation/resume step
@@ -305,19 +306,33 @@ def run_activation_hooks(
     """
     if skip_hooks:
         return
-    env = build_hook_env(
-        branch=branch,
-        root=root,
-        worktree_path=worktree_result.path,
-        event="after_activate",
-        manifest_vars=manifest_vars,
-        user_vars=user_vars,
+    bin_path = root / ".workspace" / "bin"
+    cwd = worktree_result.path
+    _run_hooks(
+        bin_path=bin_path,
+        hook_names=hooks.before_activate,
+        cwd=cwd,
+        env=build_hook_env(
+            branch=branch,
+            root=root,
+            worktree_path=cwd,
+            event="before_activate",
+            manifest_vars=manifest_vars,
+            user_vars=user_vars,
+        ),
     )
     _run_hooks(
-        bin_path=root / ".workspace" / "bin",
+        bin_path=bin_path,
         hook_names=hooks.after_activate,
-        cwd=worktree_result.path,
-        env=env,
+        cwd=cwd,
+        env=build_hook_env(
+            branch=branch,
+            root=root,
+            worktree_path=cwd,
+            event="after_activate",
+            manifest_vars=manifest_vars,
+            user_vars=user_vars,
+        ),
     )
 
 
