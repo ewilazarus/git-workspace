@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from git_workspace.manifest import Hooks, Link, Manifest, Prune, read_manifest
 
 
@@ -32,10 +30,13 @@ def test_returns_defaults_when_file_is_invalid_toml(tmp_path: Path) -> None:
 
 
 def test_parses_version_and_base_branch(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 version = 2
 base_branch = "develop"
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 
@@ -53,11 +54,14 @@ def test_missing_fields_use_defaults(tmp_path: Path) -> None:
 
 
 def test_parses_vars(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 [vars]
 db_url = "postgres://localhost/mydb"
 api_key = "secret"
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 
@@ -65,14 +69,17 @@ api_key = "secret"
 
 
 def test_parses_hooks(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 [hooks]
 after_setup = ["install.sh", "configure.sh"]
 before_activate = ["pre.sh"]
 after_activate = ["activate.sh"]
 before_remove = ["teardown.sh"]
 after_remove = ["cleanup.sh"]
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 
@@ -86,10 +93,13 @@ after_remove = ["cleanup.sh"]
 
 
 def test_missing_hook_fields_default_to_empty(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 [hooks]
 after_setup = ["install.sh"]
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 
@@ -101,7 +111,9 @@ after_setup = ["install.sh"]
 
 
 def test_parses_links(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 [[links]]
 source = "env"
 target = ".env"
@@ -110,7 +122,8 @@ target = ".env"
 source = "secrets"
 target = ".secrets"
 override = true
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 
@@ -121,11 +134,14 @@ override = true
 
 
 def test_link_override_defaults_to_false(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 [[links]]
 source = "env"
 target = ".env"
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 
@@ -133,21 +149,29 @@ target = ".env"
 
 
 def test_parses_prune(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 [prune]
 older_than_days = 14
 exclude_branches = ["main", "develop"]
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 
-    assert manifest.prune == Prune(older_than_days=14, exclude_branches=["main", "develop"])
+    assert manifest.prune == Prune(
+        older_than_days=14, exclude_branches=["main", "develop"]
+    )
 
 
 def test_prune_fields_default_when_section_present(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 [prune]
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 
@@ -163,7 +187,9 @@ def test_prune_is_none_when_section_absent(tmp_path: Path) -> None:
 
 
 def test_parses_full_manifest(tmp_path: Path) -> None:
-    path = _write(tmp_path, """
+    path = _write(
+        tmp_path,
+        """
 version = 1
 base_branch = "main"
 
@@ -181,7 +207,8 @@ target = ".env"
 [prune]
 older_than_days = 7
 exclude_branches = ["main"]
-""")
+""",
+    )
 
     manifest = read_manifest(path)
 

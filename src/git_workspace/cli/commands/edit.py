@@ -1,3 +1,7 @@
+from git_workspace.errors import (
+    InvalidWorkspaceRootError,
+    UnableToResolveWorkspaceRootError,
+)
 from typing import Annotated
 
 import click
@@ -26,7 +30,11 @@ def edit(
 
     The editor is resolved using standard environment variables (e.g. VISUAL or EDITOR). The command does not modify any files—it only launches the editor.
     """
-    resolved_root = workspace.resolve_root_path(root)
-    click.edit(
-        filename=str(resolved_root / ".workspace"),
-    )
+    try:
+        resolved_root = workspace.resolve_root_path(root)
+        click.edit(
+            filename=str(resolved_root / ".workspace"),
+        )
+    except (InvalidWorkspaceRootError, UnableToResolveWorkspaceRootError) as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)

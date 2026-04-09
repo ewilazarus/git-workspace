@@ -48,14 +48,6 @@ def up(
             help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
         ),
     ] = None,
-    force: Annotated[
-        bool,
-        typer.Option(
-            "-f",
-            "--force/--no-force",
-            help="A flag indicating whether to checkout a branch that's already in use",
-        ),
-    ] = False,
     vars: Annotated[
         list[str] | None,
         typer.Option(
@@ -105,7 +97,7 @@ def up(
             raise typer.Exit(1)
 
     manifest = read_manifest(root_path / ".workspace" / "manifest.toml")
-    user_vars: dict[str, str] = dict(vars) if vars else {}
+    user_vars: dict[str, str] = dict(vars) if vars else {}  # type: ignore
 
     plan = resolve_up_plan(
         branch=branch,
