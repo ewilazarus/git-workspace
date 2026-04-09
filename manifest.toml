@@ -1,38 +1,63 @@
 # The manifest schema version. Used to ensure compatibility with the CLI.
+
 version = 1
 
 # The base branch to use when creating a new branch that does not already exist
 # locally or on the remote. Existing local or remote branches are used as-is.
 # This can be overridden with the `-b/--base` flag in `setup` and `up`.
+
 base_branch = "main"
 
-# Hook entries are relative paths to executables in `.workspace/bin`.
-# Each hook is executed in the order listed.
-[hooks]
-after_setup = ["install-deps.sh"]
-before_activate = []
-after_activate = []
-before_remove = []
-after_remove = []
-
-# Links are symbolic links relative from `.workspace/files` to your project 
+# Links are symbolic links relative from `.workspace/assets` to your project 
 # root.
 # For overridden links, `git update-index --skip-worktree {target}` is called
 # before the symbolic link is created.
 # Non-overridden links are automatically added to `.git/info/exclude` so they
 # do not leak into source control by accident.
-[[link]]
-source = ".env"
-target = ".env"
-override = true
+# Examples:
 
-[[link]]
-source = "docker-compose.override.yml"
-target = "docker-compose.override.yml"
+# [[link]]
+# source = ".envrc"
+# target = ".envrc"
+#
+# [[link]]
+# source = "docker-compose.override.yml"
+# target = "deployments/docker-compose.override.yml"
+#
+# [[link]]
+# source = "config.yaml"
+# target = "config.yaml"
+# override = true
+
+# Variables are automatically injected into all hook scripts as environment 
+# variables.
+# Each variable is normalized (uppercased, non-alphanumeric characters replaced
+# with `_`) and exposed with the `GIT_WORKSPACE_VAR_` prefix.
+# For example, `env_file` will become `GIT_WORKSPACE_VAR_ENV_FILE`
+# Variables can also be provided at runtime using the --var option in commands
+# such as `up`, `reset`, and `rm`.
+# Values passed via the CLI take precedence over those defined in manifest.toml.
+# Examples:
+
+# [vars]
+# env_file = ".env.local"
+
+# Hook entries are relative paths to executables in `.workspace/bin`.
+# Each hook is executed in the order listed.
+# Examples:
+
+# [hooks]
+# after_setup = ["after-setup.sh"]
+# before_activate = ["before-activate.sh"]
+# after_activate = ["after-activate.sh"]
+# before_remove = ["before-remove.sh"]
+# after_remove = ["after-remove.sh"]
 
 # Prune defines the rules used by the `prune` command. Maximum age can be
 # overridden with the `--older-than-days` flag.
 # Excluded branches are never pruned, regardless of age.
-[prune]
-older_than_days = 30
-exclude_branches = ["main"]
+# Example:
+
+# [prune]
+# older_than_days = 30
+# exclude_branches = ["main"]
