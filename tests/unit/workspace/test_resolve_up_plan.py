@@ -31,7 +31,7 @@ def test_when_worktree_exists_then_resumes(mocker: MockerFixture) -> None:
 
     plan = workspace.resolve_up_plan(BRANCH)
 
-    assert plan == UpPlan(action=UpAction.RESUME, branch=BRANCH)
+    assert plan == UpPlan(action=UpAction.RESUME, branch=BRANCH, existing_worktree_path=WORKTREE_PATH)
 
 
 def test_existing_worktree_wins_over_local_branch(mocker: MockerFixture) -> None:

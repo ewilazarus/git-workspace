@@ -4,7 +4,7 @@ from pathlib import Path
 
 import structlog
 
-from git_workspace.errors import GitCloneError, GitFetchError, GitInitError
+from git_workspace.errors import GitCloneError, GitFetchError, GitInitError, WorktreeCreationError
 
 logger = structlog.get_logger(__name__)
 
@@ -173,6 +173,55 @@ def remote_branch_exists(branch: str) -> bool:
     cmd = ["git", "rev-parse", "--verify", f"refs/remotes/origin/{branch}"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     return result.returncode == 0
+
+
+def add_worktree(path: Path, branch: str) -> None:
+    """
+    Creates a worktree for an existing local branch
+
+    :param path: The path at which to create the worktree
+    :param branch: The existing local branch to check out
+    :raises WorktreeCreationError: If the worktree cannot be created
+    """
+    cmd = ["git", "worktree", "add", str(path), branch]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise WorktreeCreationError(
+            f"Failed to create worktree for branch {branch!r} at {path!r}: {result.stderr.strip()}"
+        )
+
+
+def add_worktree_tracking_remote(path: Path, branch: str) -> None:
+    """
+    Creates a worktree with a new local branch tracking origin/<branch>
+
+    :param path: The path at which to create the worktree
+    :param branch: The remote branch name to track
+    :raises WorktreeCreationError: If the worktree cannot be created
+    """
+    cmd = ["git", "worktree", "add", "--track", "-b", branch, str(path), f"origin/{branch}"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise WorktreeCreationError(
+            f"Failed to create worktree tracking origin/{branch!r} at {path!r}: {result.stderr.strip()}"
+        )
+
+
+def add_worktree_new_branch(path: Path, branch: str, base: str) -> None:
+    """
+    Creates a worktree with a brand new local branch from a base branch
+
+    :param path: The path at which to create the worktree
+    :param branch: The new branch name to create
+    :param base: The base branch to create from
+    :raises WorktreeCreationError: If the worktree cannot be created
+    """
+    cmd = ["git", "worktree", "add", "-b", branch, str(path), base]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise WorktreeCreationError(
+            f"Failed to create worktree with new branch {branch!r} from {base!r} at {path!r}: {result.stderr.strip()}"
+        )
 
 
 def get_worktree_root(cwd: Path | None = None) -> Path | None:

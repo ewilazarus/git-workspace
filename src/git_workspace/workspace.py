@@ -12,6 +12,7 @@ from git_workspace.errors import (
     GitCloneError,
     GitInitError,
     WorkspaceCreationError,
+    WorktreeCreationError,
 )
 
 DEFAULT_CONFIG_URL = "https://github.com/ewilazarus/git-workspace.git"
@@ -152,6 +153,7 @@ class UpPlan:
     action: UpAction
     branch: str
     base_branch: str | None = None
+    existing_worktree_path: Path | None = None
 
 
 def resolve_up_plan(
@@ -175,8 +177,9 @@ def resolve_up_plan(
     :returns: An UpPlan describing the action to take
     """
     worktrees = git.list_worktrees_metadata()
-    if any(wt.branch == branch for wt in worktrees):
-        return UpPlan(action=UpAction.RESUME, branch=branch)
+    matching = next((wt for wt in worktrees if wt.branch == branch), None)
+    if matching:
+        return UpPlan(action=UpAction.RESUME, branch=branch, existing_worktree_path=matching.path)
 
     if git.local_branch_exists(branch):
         return UpPlan(action=UpAction.CREATE_FROM_LOCAL, branch=branch)
@@ -259,6 +262,110 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
         return None
 
     return git.get_current_branch(worktree_root)
+
+
+@dataclass
+class WorktreeResult:
+    path: Path
+    is_new: bool
+
+
+_EXCLUDE_BEGIN = "# BEGIN git-workspace managed"
+_EXCLUDE_END = "# END git-workspace managed"
+
+
+def _worktree_path(root: Path, branch: str) -> Path:
+    return root / branch
+
+
+def resume_worktree(worktree_path: Path) -> WorktreeResult:
+    """
+    Returns the result for an existing worktree without performing any setup
+
+    :param worktree_path: The path to the existing worktree
+    :returns: A WorktreeResult with is_new=False
+    """
+    return WorktreeResult(path=worktree_path, is_new=False)
+
+
+def create_worktree_from_local(root: Path, branch: str) -> WorktreeResult:
+    """
+    Creates a worktree for an existing local branch at the canonical path
+
+    :param root: The workspace root path
+    :param branch: The existing local branch to check out
+    :raises WorktreeCreationError: If the worktree cannot be created
+    :returns: A WorktreeResult with is_new=True
+    """
+    path = _worktree_path(root, branch)
+    git.add_worktree(path, branch)
+    return WorktreeResult(path=path, is_new=True)
+
+
+def create_worktree_from_remote(root: Path, branch: str) -> WorktreeResult:
+    """
+    Creates a worktree with a new local tracking branch from origin/<branch>
+
+    :param root: The workspace root path
+    :param branch: The remote branch name to track
+    :raises WorktreeCreationError: If the worktree cannot be created
+    :returns: A WorktreeResult with is_new=True
+    """
+    path = _worktree_path(root, branch)
+    git.add_worktree_tracking_remote(path, branch)
+    return WorktreeResult(path=path, is_new=True)
+
+
+def create_worktree_from_base(root: Path, branch: str, base: str) -> WorktreeResult:
+    """
+    Creates a worktree with a brand new local branch from a base branch
+
+    :param root: The workspace root path
+    :param branch: The new branch name to create
+    :param base: The base branch to create from
+    :raises WorktreeCreationError: If the worktree cannot be created
+    :returns: A WorktreeResult with is_new=True
+    """
+    path = _worktree_path(root, branch)
+    git.add_worktree_new_branch(path, branch, base)
+    return WorktreeResult(path=path, is_new=True)
+
+
+def sync_exclude_block(worktree_path: Path, non_override_targets: list[str]) -> None:
+    """
+    Synchronizes the managed git-workspace section in the worktree's exclude file
+
+    Rewrites only the managed block delimited by BEGIN/END markers, leaving
+    all other entries untouched. The operation is idempotent.
+
+    :param worktree_path: The root of the worktree
+    :param non_override_targets: Link targets to include in the managed block
+    """
+    git_file = worktree_path / ".git"
+    git_dir_ref = git_file.read_text().strip()
+    git_dir = Path(git_dir_ref.removeprefix("gitdir: "))
+
+    exclude_path = git_dir / "info" / "exclude"
+    exclude_path.parent.mkdir(parents=True, exist_ok=True)
+
+    existing = exclude_path.read_text() if exclude_path.exists() else ""
+
+    kept: list[str] = []
+    inside_managed = False
+    for line in existing.splitlines():
+        if line == _EXCLUDE_BEGIN:
+            inside_managed = True
+        elif line == _EXCLUDE_END:
+            inside_managed = False
+        elif not inside_managed:
+            kept.append(line)
+
+    while kept and kept[-1] == "":
+        kept.pop()
+
+    managed = [_EXCLUDE_BEGIN] + non_override_targets + [_EXCLUDE_END]
+    parts = kept + ([""] if kept else []) + managed
+    exclude_path.write_text("\n".join(parts) + "\n")
 
 
 def create(
