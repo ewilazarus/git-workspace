@@ -84,7 +84,83 @@ class WorktreeMetadata:
 
 
 def list_worktrees_metadata() -> list[WorktreeMetadata]:
-    raise NotImplementedError
+    """
+    Returns metadata for all worktrees in the current repository
+
+    Uses git worktree list --porcelain and parses each block by key rather than
+    line position. Detached worktrees are ignored.
+
+    :returns: A list of WorktreeMetadata with path and branch for each worktree
+    """
+    cmd = ["git", "worktree", "list", "--porcelain"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        return []
+
+    worktrees = []
+    for block in result.stdout.split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+
+        fields: dict[str, str] = {}
+        for line in block.splitlines():
+            if " " in line:
+                key, _, value = line.partition(" ")
+                fields[key] = value
+            else:
+                fields[line] = ""
+
+        if "branch" not in fields:
+            continue
+
+        branch = fields["branch"].removeprefix("refs/heads/")
+        worktrees.append(
+            WorktreeMetadata(
+                path=Path(fields["worktree"]),
+                head=fields["HEAD"],
+                branch=branch,
+            )
+        )
+
+    return worktrees
+
+
+def get_origin_head() -> str | None:
+    """
+    Returns the default branch on origin by resolving origin/HEAD
+
+    :returns: The default branch name (e.g. "main"), or None if origin/HEAD is not set
+    """
+    cmd = ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip().removeprefix("refs/remotes/origin/")
+
+
+def local_branch_exists(branch: str) -> bool:
+    """
+    Returns whether a local branch exists
+
+    :param branch: The branch name to check
+    :returns: True if the branch exists locally, False otherwise
+    """
+    cmd = ["git", "rev-parse", "--verify", f"refs/heads/{branch}"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.returncode == 0
+
+
+def remote_branch_exists(branch: str) -> bool:
+    """
+    Returns whether a branch exists on origin
+
+    :param branch: The branch name to check
+    :returns: True if the branch exists on origin, False otherwise
+    """
+    cmd = ["git", "rev-parse", "--verify", f"refs/remotes/origin/{branch}"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.returncode == 0
 
 
 def get_worktree_root(cwd: Path | None = None) -> Path | None:

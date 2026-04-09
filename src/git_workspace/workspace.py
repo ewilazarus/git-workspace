@@ -138,6 +138,33 @@ def _create_config_new(config_path: Path) -> None:
         ) from e
 
 
+def resolve_base_branch(
+    explicit: str | None = None,
+    manifest_base_branch: str | None = None,
+) -> str:
+    """
+    Resolves the base branch to use when creating a new local branch
+
+    Resolution order:
+    1. Explicit value provided by the caller (e.g. CLI --base option)
+    2. base_branch from the workspace manifest
+    3. Default branch inferred from origin/HEAD
+    4. Hardcoded fallback: "main"
+
+    :param explicit: Branch name explicitly requested by the user
+    :param manifest_base_branch: base_branch value from the workspace manifest
+    :returns: The resolved base branch name
+    """
+    if explicit is not None:
+        return explicit
+    if manifest_base_branch is not None:
+        return manifest_base_branch
+    origin_head = git.get_origin_head()
+    if origin_head is not None:
+        return origin_head
+    return "main"
+
+
 def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
     """
     Resolves the target branch from the current working directory
