@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
 import shutil
 
@@ -136,6 +138,62 @@ def _create_config_new(config_path: Path) -> None:
         raise WorkspaceCreationError(
             "Failed to re-initialize example config repository"
         ) from e
+
+
+class UpAction(Enum):
+    RESUME = auto()
+    CREATE_FROM_LOCAL = auto()
+    CREATE_FROM_REMOTE = auto()
+    CREATE_FROM_BASE = auto()
+
+
+@dataclass
+class UpPlan:
+    action: UpAction
+    branch: str
+    base_branch: str | None = None
+
+
+def resolve_up_plan(
+    branch: str,
+    explicit_base_branch: str | None = None,
+    manifest_base_branch: str | None = None,
+) -> UpPlan:
+    """
+    Determines what the up command should do for a given branch
+
+    Resolution order:
+    1. If an existing worktree already tracks the branch → RESUME
+    2. If a local branch exists → CREATE_FROM_LOCAL
+    3. If a remote branch exists (known refs) → CREATE_FROM_REMOTE
+    4. Fetch origin, then retry remote check → CREATE_FROM_REMOTE
+    5. Otherwise → CREATE_FROM_BASE
+
+    :param branch: The target branch name
+    :param explicit_base_branch: Base branch explicitly provided by the caller
+    :param manifest_base_branch: Base branch from the workspace manifest
+    :returns: An UpPlan describing the action to take
+    """
+    worktrees = git.list_worktrees_metadata()
+    if any(wt.branch == branch for wt in worktrees):
+        return UpPlan(action=UpAction.RESUME, branch=branch)
+
+    if git.local_branch_exists(branch):
+        return UpPlan(action=UpAction.CREATE_FROM_LOCAL, branch=branch)
+
+    if git.remote_branch_exists(branch):
+        return UpPlan(action=UpAction.CREATE_FROM_REMOTE, branch=branch)
+
+    git.fetch_origin()
+
+    if git.remote_branch_exists(branch):
+        return UpPlan(action=UpAction.CREATE_FROM_REMOTE, branch=branch)
+
+    base = resolve_base_branch(
+        explicit=explicit_base_branch,
+        manifest_base_branch=manifest_base_branch,
+    )
+    return UpPlan(action=UpAction.CREATE_FROM_BASE, branch=branch, base_branch=base)
 
 
 def resolve_base_branch(
