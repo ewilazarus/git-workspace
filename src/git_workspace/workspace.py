@@ -384,7 +384,7 @@ def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
     for link in links:
         source = assets_root / link.source
         target = worktree_path / link.target
-        link_log = log.bind(source=source, target=target, override=link.override)
+        link_log = log.bind(source=str(source), target=str(target), override=link.override)
 
         target.parent.mkdir(parents=True, exist_ok=True)
 
