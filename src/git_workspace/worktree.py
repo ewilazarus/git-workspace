@@ -6,9 +6,6 @@ from git_workspace import git
 from git_workspace.errors import WorktreeCreationError  # noqa: F401 — re-exported for callers
 
 
-_EXCLUDE_BEGIN = "# BEGIN git-workspace managed"
-_EXCLUDE_END = "# END git-workspace managed"
-
 
 class UpAction(Enum):
     RESUME = auto()
@@ -158,38 +155,3 @@ def create_worktree_from_base(root: Path, branch: str, base: str) -> WorktreeRes
     return WorktreeResult(path=path, is_new=True)
 
 
-def sync_exclude_block(worktree_path: Path, non_override_targets: list[str]) -> None:
-    """
-    Synchronizes the managed git-workspace section in the worktree's exclude file
-
-    Rewrites only the managed block delimited by BEGIN/END markers, leaving
-    all other entries untouched. The operation is idempotent.
-
-    :param worktree_path: The root of the worktree
-    :param non_override_targets: Link targets to include in the managed block
-    """
-    git_file = worktree_path / ".git"
-    git_dir_ref = git_file.read_text().strip()
-    git_dir = Path(git_dir_ref.removeprefix("gitdir: "))
-
-    exclude_path = git_dir / "info" / "exclude"
-    exclude_path.parent.mkdir(parents=True, exist_ok=True)
-
-    existing = exclude_path.read_text() if exclude_path.exists() else ""
-
-    kept: list[str] = []
-    inside_managed = False
-    for line in existing.splitlines():
-        if line == _EXCLUDE_BEGIN:
-            inside_managed = True
-        elif line == _EXCLUDE_END:
-            inside_managed = False
-        elif not inside_managed:
-            kept.append(line)
-
-    while kept and kept[-1] == "":
-        kept.pop()
-
-    managed = [_EXCLUDE_BEGIN] + non_override_targets + [_EXCLUDE_END]
-    parts = kept + ([""] if kept else []) + managed
-    exclude_path.write_text("\n".join(parts) + "\n")
