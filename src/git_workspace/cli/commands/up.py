@@ -39,7 +39,7 @@ def up(
             help="A flag indicating whether to checkout a branch that's already in use",
         ),
     ] = False,
-    context: Annotated[
+    vars: Annotated[
         list[str] | None,
         typer.Option(
             "-v",
@@ -48,6 +48,12 @@ def up(
             callback=parse_vars,
         ),
     ] = None,
+    skip_hooks: Annotated[
+        bool,
+        typer.Option(
+            help="Skip execution of workspace hooks",
+        ),
+    ] = False,
 ) -> None:
     """
     Open a worktree, setting it up first if needed.
@@ -58,5 +64,5 @@ def up(
 
     This is the primary command for day-to-day usage.
     """
-    print(context)
+    print(vars)
     pass

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import subprocess
 from pathlib import Path
 
@@ -73,3 +74,14 @@ def init(target: Path, bare: bool) -> None:
         raise GitInitError("Failed to init repository")
 
     log.debug("Git repository initialized successfully")
+
+
+@dataclass
+class WorktreeMetadata:
+    path: Path
+    head: str
+    branch: str
+
+
+def list_worktrees_metadata() -> list[WorktreeMetadata]:
+    raise NotImplementedError

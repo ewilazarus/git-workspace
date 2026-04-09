@@ -16,16 +16,16 @@ def clone(
             help="The repository URL to be cloned",
         ),
     ],
-    path: Annotated[
+    directory: Annotated[
         str | None,
         typer.Argument(
-            help='An optional name of the folder to be used. If omitted, the "humanish" part of the repository URL will be used'
+            help='An optional name of the directory to be used. If omitted, the "humanish" part of the repository URL will be used'
         ),
     ] = None,
     config_url: Annotated[
         str | None,
         typer.Option(
-            help="The configuration URL to be cloned. If ommitted, defaults to the example configuration URL"
+            help="The configuration URL to be cloned. If ommitted, uses the default configuration"
         ),
     ] = None,
 ) -> None:
@@ -36,5 +36,8 @@ def clone(
 
     Use this when starting from an existing remote repository.
     """
-    resolved_path = Path(path or utils.extract_humanish_suffix(url))
-    workspace.create(resolved_path, url=url, config_url=config_url)
+    workspace.create(
+        path=Path(directory or utils.extract_humanish_suffix(url)),
+        url=url,
+        config_url=config_url,
+    )

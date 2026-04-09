@@ -48,9 +48,9 @@ def _validate_root_path(path: Path) -> None:
 
 
 def _resolve_root_path() -> Path:
-    current = Path.cwd().resolve()
+    cwd = Path.cwd().resolve()
 
-    for candidate in [current, *current.parents]:
+    for candidate in [cwd, *cwd.parents]:
         try:
             _validate_root_path(candidate)
             return candidate
@@ -58,7 +58,7 @@ def _resolve_root_path() -> Path:
             continue
 
     raise UnableToResolveWorkspaceRootError(
-        f"Unable to resolve workspace root path from current working directory: {current!r}"
+        f"Unable to resolve workspace root path from current working directory: {cwd!r}"
     )
 
 
