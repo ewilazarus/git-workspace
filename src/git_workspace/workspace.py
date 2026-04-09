@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import subprocess
 
 import structlog
 
@@ -9,10 +10,12 @@ from git_workspace.errors import (
     UnableToResolveWorkspaceRootError,
     GitCloneError,
     GitInitError,
+    HookExecutionError,
     WorkspaceCreationError,
     WorkspaceLinkError,
 )
-from git_workspace.manifest import Link
+from git_workspace.manifest import Hooks, Link
+from git_workspace.worktree import WorktreeResult
 
 DEFAULT_CONFIG_URL = "https://github.com/ewilazarus/git-workspace.git"
 DEFAULT_CONFIG_BRANCH = "config/v1"
@@ -181,6 +184,42 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
 
     return git.get_current_branch(worktree_root)
 
+
+
+def _run_hooks(bin_path: Path, hook_names: list[str], cwd: Path) -> None:
+    for hook_name in hook_names:
+        result = subprocess.run([str(bin_path / hook_name)], cwd=str(cwd))
+        if result.returncode != 0:
+            raise HookExecutionError(
+                f"Hook {hook_name!r} failed with exit code {result.returncode}"
+            )
+
+
+def run_setup_hooks(
+    root: Path,
+    worktree_result: WorktreeResult,
+    hooks: Hooks,
+    skip_hooks: bool = False,
+) -> None:
+    """
+    Runs after_setup hooks for newly created worktrees
+
+    Setup hooks are skipped when resuming an existing worktree or when
+    skip_hooks is True. Core setup logic is not affected by skip_hooks.
+
+    :param root: The workspace root path
+    :param worktree_result: The result of the worktree creation/resume step
+    :param hooks: The hooks configuration from the manifest
+    :param skip_hooks: If True, suppresses hook execution
+    :raises HookExecutionError: If any hook exits with a non-zero status
+    """
+    if not worktree_result.is_new or skip_hooks:
+        return
+    _run_hooks(
+        bin_path=root / ".workspace" / "bin",
+        hook_names=hooks.after_setup,
+        cwd=worktree_result.path,
+    )
 
 
 def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
