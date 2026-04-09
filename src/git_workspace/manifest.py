@@ -2,6 +2,10 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 @dataclass
 class Link:
@@ -108,9 +112,17 @@ def read_manifest(path: Path) -> Manifest:
     :param path: Path to the manifest file
     :returns: Parsed Manifest instance
     """
+    log = logger.bind(path=str(path))
+
+    log.debug("Attempting to read manifest")
+
     try:
         data = tomllib.loads(path.read_text())
-    except (OSError, tomllib.TOMLDecodeError):
+    except OSError as e:
+        log.debug("Manifest file unreadable, using defaults", error=str(e))
+        return _DEFAULT_MANIFEST
+    except tomllib.TOMLDecodeError as e:
+        log.debug("Manifest file unparseable, using defaults", error=str(e))
         return _DEFAULT_MANIFEST
 
     hooks_data = data.get("hooks", {})
@@ -141,7 +153,7 @@ def read_manifest(path: Path) -> Manifest:
         else None
     )
 
-    return Manifest(
+    manifest = Manifest(
         version=data.get("version", 1),
         base_branch=data.get("base_branch", "main"),
         links=links,
@@ -149,3 +161,15 @@ def read_manifest(path: Path) -> Manifest:
         hooks=hooks,
         prune=prune,
     )
+
+    log.debug(
+        "Manifest read successfully",
+        version=manifest.version,
+        base_branch=manifest.base_branch,
+        num_links=len(manifest.links),
+        hooks=hooks,
+        vars=list(manifest.vars.keys()),
+        prune=prune,
+    )
+
+    return manifest
