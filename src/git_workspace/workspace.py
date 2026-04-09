@@ -222,6 +222,33 @@ def run_setup_hooks(
     )
 
 
+def run_activation_hooks(
+    root: Path,
+    worktree_result: WorktreeResult,
+    hooks: Hooks,
+    skip_hooks: bool = False,
+) -> None:
+    """
+    Runs after_activate hooks for all up flows
+
+    Activation hooks run regardless of whether the worktree is new or resumed.
+    They are suppressed only when skip_hooks is True.
+
+    :param root: The workspace root path
+    :param worktree_result: The result of the worktree creation/resume step
+    :param hooks: The hooks configuration from the manifest
+    :param skip_hooks: If True, suppresses hook execution
+    :raises HookExecutionError: If any hook exits with a non-zero status
+    """
+    if skip_hooks:
+        return
+    _run_hooks(
+        bin_path=root / ".workspace" / "bin",
+        hook_names=hooks.after_activate,
+        cwd=worktree_result.path,
+    )
+
+
 def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
     """
     Applies symbolic links from the workspace configuration into a worktree
