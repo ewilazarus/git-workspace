@@ -15,8 +15,8 @@ from git_workspace.errors import (
 DEFAULT_CONFIG_URL = "https://github.com/ewilazarus/git-workspace.git"
 DEFAULT_CONFIG_BRANCH = "config/v1"
 
-_EXCLUDE_BEGIN = "# BEGIN git-workspace managed"
-_EXCLUDE_END = "# END git-workspace managed"
+_EXCLUDE_BEGIN = "# >>> git-workspace managed >>>"
+_EXCLUDE_END = "# <<< git-workspace managed <<<"
 
 logger = structlog.get_logger(__name__)
 

@@ -9,8 +9,8 @@ WORKTREE = Path("/workspace/feat/001")
 GIT_DIR = Path("/workspace/.git/worktrees/feat-001")
 EXCLUDE_PATH = GIT_DIR / "info" / "exclude"
 
-MANAGED_BEGIN = "# BEGIN git-workspace managed"
-MANAGED_END = "# END git-workspace managed"
+MANAGED_BEGIN = "# >>> git-workspace managed >>>"
+MANAGED_END = "# <<< git-workspace managed <<<"
 
 
 @pytest.fixture(autouse=True)
