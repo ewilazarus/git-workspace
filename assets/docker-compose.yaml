@@ -1,4 +1,0 @@
-services:
-  api:
-    env:
-      - MY_SECRET_VARIABLE

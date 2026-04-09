@@ -1,3 +1,0 @@
-app_env: development
-database_url: postgres://localhost:5432/my_app_dev
-debug: true
