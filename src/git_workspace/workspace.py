@@ -229,12 +229,21 @@ def build_hook_env(
 def _run_hooks(
     bin_path: Path, hook_names: list[str], cwd: Path, env: dict[str, str]
 ) -> None:
+    log = logger.bind(bin_path=bin_path, cwd=cwd)
+
+    if not hook_names:
+        log.debug("No hooks to run")
+        return
+
     for hook_name in hook_names:
+        log.debug("Running hook", hook=hook_name)
         result = subprocess.run([str(bin_path / hook_name)], cwd=str(cwd), env=env)
         if result.returncode != 0:
+            log.debug("Hook failed", hook=hook_name, exit_code=result.returncode)
             raise HookExecutionError(
                 f"Hook {hook_name!r} failed with exit code {result.returncode}"
             )
+        log.debug("Hook succeeded", hook=hook_name)
 
 
 def run_setup_hooks(
@@ -261,8 +270,16 @@ def run_setup_hooks(
     :param skip_hooks: If True, suppresses hook execution
     :raises HookExecutionError: If any hook exits with a non-zero status
     """
-    if not worktree_result.is_new or skip_hooks:
+    log = logger.bind(branch=branch, worktree=worktree_result.path)
+
+    if not worktree_result.is_new:
+        log.debug("Skipping setup hooks: worktree already exists")
         return
+    if skip_hooks:
+        log.debug("Skipping setup hooks: skip_hooks=True")
+        return
+
+    log.debug("Running setup hooks")
     env = build_hook_env(
         branch=branch,
         root=root,
@@ -277,6 +294,7 @@ def run_setup_hooks(
         cwd=worktree_result.path,
         env=env,
     )
+    log.debug("Setup hooks completed")
 
 
 def run_activation_hooks(
@@ -304,10 +322,16 @@ def run_activation_hooks(
     :param skip_hooks: If True, suppresses hook execution
     :raises HookExecutionError: If any hook exits with a non-zero status
     """
+    log = logger.bind(branch=branch, worktree=worktree_result.path)
+
     if skip_hooks:
+        log.debug("Skipping activation hooks: skip_hooks=True")
         return
+
     bin_path = root / ".workspace" / "bin"
     cwd = worktree_result.path
+
+    log.debug("Running before_activate hooks")
     _run_hooks(
         bin_path=bin_path,
         hook_names=hooks.before_activate,
@@ -321,6 +345,8 @@ def run_activation_hooks(
             user_vars=user_vars,
         ),
     )
+
+    log.debug("Running after_activate hooks")
     _run_hooks(
         bin_path=bin_path,
         hook_names=hooks.after_activate,
@@ -334,6 +360,7 @@ def run_activation_hooks(
             user_vars=user_vars,
         ),
     )
+    log.debug("Activation hooks completed")
 
 
 def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
@@ -349,22 +376,29 @@ def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
     :param links: The list of links to apply
     :raises WorkspaceLinkError: If a normal link target already exists and is not the correct symlink
     """
+    log = logger.bind(worktree=worktree_path, num_links=len(links))
+    log.debug("Applying links")
+
     assets_root = root / ".workspace" / "assets"
 
     for link in links:
         source = assets_root / link.source
         target = worktree_path / link.target
+        link_log = log.bind(source=source, target=target, override=link.override)
 
         target.parent.mkdir(parents=True, exist_ok=True)
 
         if link.override:
+            link_log.debug("Applying override link")
             git.skip_worktree(link.target, cwd=worktree_path)
             if target.exists() or target.is_symlink():
                 target.unlink()
             target.symlink_to(source)
+            link_log.debug("Override link applied")
         else:
             if target.is_symlink():
                 if target.readlink() == source:
+                    link_log.debug("Link already up to date, skipping")
                     continue
                 raise WorkspaceLinkError(
                     f"Cannot create link: {target!r} already points elsewhere"
@@ -373,7 +407,11 @@ def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
                 raise WorkspaceLinkError(
                     f"Cannot create link: {target!r} already exists"
                 )
+            link_log.debug("Applying link")
             target.symlink_to(source)
+            link_log.debug("Link applied")
+
+    log.debug("Links applied")
 
 
 def sync_exclude_block(worktree_path: Path, non_override_targets: list[str]) -> None:
