@@ -11,8 +11,11 @@ app = typer.Typer()
 @app.command()
 def init(
     directory: Annotated[
-        str, typer.Argument(help="The directory in which to initialize the workspace")
-    ],
+        str | None,
+        typer.Argument(
+            help="The directory in which to initialize the workspace. If ommitted, will default to the current working directory"
+        ),
+    ] = None,
     config_url: Annotated[
         str | None,
         typer.Option(
@@ -28,6 +31,6 @@ def init(
     Use this when starting a new project from scratch using the workspace model.
     """
     workspace.create(
-        path=Path(directory),
+        path=Path(directory) if directory else Path.cwd().resolve(),
         config_url=config_url,
     )

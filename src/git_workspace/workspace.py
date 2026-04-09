@@ -157,7 +157,7 @@ def create(
 
     log.debug("Attempting to create workspace")
 
-    path.mkdir(parents=True)
+    path.mkdir(parents=True, exist_ok=True)
 
     git_path = path / ".git"
     if url:

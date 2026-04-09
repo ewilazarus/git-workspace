@@ -27,4 +27,6 @@ def edit(
     The editor is resolved using standard environment variables (e.g. VISUAL or EDITOR). The command does not modify any files—it only launches the editor.
     """
     resolved_root = workspace.resolve_root_path(root)
-    click.edit(filename=str(resolved_root / ".workspace"))
+    click.edit(
+        filename=str(resolved_root / ".workspace"),
+    )
