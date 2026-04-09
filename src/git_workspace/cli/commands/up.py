@@ -1,19 +1,20 @@
-from pathlib import Path
-from git_workspace.cli.parsers import parse_vars
 from typing import Annotated
+
 import typer
+
+from git_workspace.cli.parsers import parse_vars
 
 app = typer.Typer()
 
 
 @app.command()
-def activate(
+def up(
     branch: Annotated[
-        str,
+        str | None,
         typer.Argument(
             help="The target git branch to be activated in the workspace",
         ),
-    ],
+    ] = None,
     base_branch: Annotated[
         str | None,
         typer.Option(
@@ -35,7 +36,7 @@ def activate(
         typer.Option(
             "-f",
             "--force/--no-force",
-            help="A flag indicating whether to checkout a branch that's already in use.",
+            help="A flag indicating whether to checkout a branch that's already in use",
         ),
     ] = False,
     context: Annotated[
@@ -48,5 +49,14 @@ def activate(
         ),
     ] = None,
 ) -> None:
+    """
+    Open a worktree, setting it up first if needed.
+
+    Ensures that a worktree exists for the target branch and then performs lightweight actions to enter or resume working in that workspace (for example, opening a session, editor, or environment).
+
+    If the worktree does not exist, setup is executed first. If it already exists, only the lightweight activation steps are performed.
+
+    This is the primary command for day-to-day usage.
+    """
     print(context)
     pass

@@ -19,11 +19,18 @@ class Hooks:
 
 
 @dataclass
+class Prune:
+    older_than_days: int
+    exclude_branches: list[str]
+
+
+@dataclass
 class Manifest:
     version: int
     base_branch: str | None = None
     links: list[Link] = field(default_factory=list)
     hooks: Hooks | None = None
+    prune: Prune | None = None
 
 
 def read_manifest(path: Path) -> Manifest:

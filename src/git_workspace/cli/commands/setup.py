@@ -9,11 +9,11 @@ app = typer.Typer()
 @app.command()
 def setup(
     branch: Annotated[
-        str,
+        str | None,
         typer.Argument(
-            help="The target git branch to be activated in the workspace",
+            help="The target git branch to be activated in the workspace. If ommited, the target git branch will be inferred from the current working directory",
         ),
-    ],
+    ] = None,
     base_branch: Annotated[
         str | None,
         typer.Option(
@@ -48,5 +48,16 @@ def setup(
         ),
     ] = None,
 ) -> None:
+    """
+    Ensure a worktree exists and run its setup steps.
+
+    Ensures that a worktree exists for the given branch. If the worktree does not exist, it is created first.
+
+    Once the worktree is available, configured setup hooks are executed. These hooks can be used to install dependencies, initialize the environment, or run any other project-specific setup logic.
+
+    In most cases, you should use `git-workspace up`, which will run this command automatically when needed.
+
+    Use `setup` when you want to explicitly create a worktree or rerun its setup steps.
+    """
     print(vars)
     pass
