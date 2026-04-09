@@ -10,8 +10,8 @@ from git_workspace.manifest import Link
 
 ROOT = Path("/workspace")
 WORKTREE = ROOT / "feat" / "001"
-FILES_ROOT = ROOT / ".workspace" / "files"
-SOURCE = FILES_ROOT / "env"
+ASSETS_ROOT = ROOT / ".workspace" / "assets"
+SOURCE = ASSETS_ROOT / "env"
 TARGET = WORKTREE / ".env"
 
 
@@ -49,7 +49,7 @@ def test_normal_link_fails_if_target_exists_as_file(fs: FakeFilesystem) -> None:
 
 
 def test_normal_link_fails_if_target_is_wrong_symlink(fs: FakeFilesystem) -> None:
-    other = FILES_ROOT / "other"
+    other = ASSETS_ROOT / "other"
     fs.create_file(other)
     TARGET.symlink_to(other)
 
@@ -59,7 +59,7 @@ def test_normal_link_fails_if_target_is_wrong_symlink(fs: FakeFilesystem) -> Non
 
 def test_normal_link_creates_parent_directories(fs: FakeFilesystem) -> None:
     nested_target = WORKTREE / "config" / "settings.json"
-    source = FILES_ROOT / "settings.json"
+    source = ASSETS_ROOT / "settings.json"
     fs.create_file(source)
 
     workspace.apply_links(ROOT, WORKTREE, [Link(source="settings.json", target="config/settings.json")])
@@ -91,7 +91,7 @@ def test_override_link_replaces_existing_file(fs: FakeFilesystem) -> None:
 
 
 def test_override_link_replaces_existing_symlink(fs: FakeFilesystem) -> None:
-    other = FILES_ROOT / "other"
+    other = ASSETS_ROOT / "other"
     fs.create_file(other)
     TARGET.symlink_to(other)
 

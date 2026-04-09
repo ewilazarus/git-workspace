@@ -148,7 +148,6 @@ def _create_config_new(config_path: Path) -> None:
         ) from e
 
 
-
 def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
     """
     Resolves the target branch from the current working directory
@@ -185,7 +184,6 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
         return None
 
     return git.get_current_branch(worktree_root)
-
 
 
 def build_hook_env(
@@ -228,7 +226,9 @@ def build_hook_env(
     return env
 
 
-def _run_hooks(bin_path: Path, hook_names: list[str], cwd: Path, env: dict[str, str]) -> None:
+def _run_hooks(
+    bin_path: Path, hook_names: list[str], cwd: Path, env: dict[str, str]
+) -> None:
     for hook_name in hook_names:
         result = subprocess.run([str(bin_path / hook_name)], cwd=str(cwd), env=env)
         if result.returncode != 0:
@@ -349,10 +349,10 @@ def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
     :param links: The list of links to apply
     :raises WorkspaceLinkError: If a normal link target already exists and is not the correct symlink
     """
-    files_root = root / ".workspace" / "files"
+    assets_root = root / ".workspace" / "assets"
 
     for link in links:
-        source = files_root / link.source
+        source = assets_root / link.source
         target = worktree_path / link.target
 
         target.parent.mkdir(parents=True, exist_ok=True)
