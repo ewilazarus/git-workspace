@@ -342,6 +342,47 @@ def is_worktree_dirty(path: Path) -> bool:
     return bool(result.stdout.strip())
 
 
+def get_commit_timestamp(path: Path, ref: str = "HEAD") -> int | None:
+    """
+    Returns the Unix timestamp of a commit in the given worktree.
+
+    :param path: The worktree directory
+    :param ref: The git ref to query (default: HEAD)
+    :returns: Unix timestamp as int, or None if unavailable
+    """
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%ct", ref],
+        capture_output=True,
+        text=True,
+        cwd=str(path),
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        return int(result.stdout.strip())
+    except ValueError:
+        return None
+
+
+def get_short_commit_id(path: Path, ref: str = "HEAD") -> str | None:
+    """
+    Returns the short commit ID (7 chars) for a ref in the given worktree.
+
+    :param path: The worktree directory
+    :param ref: The git ref to query (default: HEAD)
+    :returns: Short commit ID string, or None if unavailable
+    """
+    result = subprocess.run(
+        ["git", "rev-parse", "--short=7", ref],
+        capture_output=True,
+        text=True,
+        cwd=str(path),
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
 def remove_worktree(path: Path, force: bool = False) -> None:
     """
     Removes a git worktree without deleting the branch.
