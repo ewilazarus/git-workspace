@@ -45,9 +45,9 @@ def list(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    wt_list = list_worktrees(root_path)
+    worktrees = list_worktrees(root_path)
 
     if json_output:
-        typer.echo(format_json(wt_list))
+        typer.echo(format_json(worktrees))
     else:
-        typer.echo(format_table(wt_list))
+        typer.echo(format_table(worktrees))
