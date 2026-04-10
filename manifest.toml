@@ -50,7 +50,8 @@ base_branch = "main"
 # on_setup = ["01-on-setup.sh"]
 # on_activate = ["02-on-activate.sh"]
 # on_attach = ["03-on-attach.sh"]
-# on_remove = ["04-on-remove.sh"]
+# on_deactivate = ["04-on-activate.sh"]
+# on_remove = ["05-on-remove.sh"]
 
 # Prune defines the rules used by the `prune` command. Maximum age can be
 # overridden with the `--older-than-days` flag.
