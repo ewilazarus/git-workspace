@@ -138,24 +138,21 @@ def up(
 
     if result.is_new:
         try:
-            workspace.apply_links(root_path, result.path, manifest.links)
-        except WorkspaceLinkError as e:
+            workspace.setup_worktree(
+                root=root_path,
+                worktree_path=result.path,
+                links=manifest.links,
+                hooks=manifest.hooks,
+                branch=branch,
+                manifest_vars=manifest.vars,
+                user_vars=user_vars,
+                skip_hooks=skip_hooks,
+            )
+        except (WorkspaceLinkError, HookExecutionError) as e:
             typer.echo(f"error: {e}", err=True)
             raise typer.Exit(1)
 
-        non_override_targets = [link.target for link in manifest.links if not link.override]
-        workspace.sync_exclude_block(result.path, non_override_targets)
-
     try:
-        workspace.run_on_setup_hooks(
-            root=root_path,
-            worktree_result=result,
-            hooks=manifest.hooks,
-            branch=branch,
-            manifest_vars=manifest.vars,
-            user_vars=user_vars,
-            skip_hooks=skip_hooks,
-        )
         workspace.run_on_activate_hooks(
             root=root_path,
             worktree_result=result,

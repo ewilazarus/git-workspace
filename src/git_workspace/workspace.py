@@ -261,55 +261,6 @@ def _run_hooks(
         log.debug("Hook succeeded", hook=hook_name)
 
 
-def run_on_setup_hooks(
-    root: Path,
-    worktree_result: WorktreeResult,
-    hooks: Hooks,
-    branch: str,
-    manifest_vars: dict[str, str] | None = None,
-    user_vars: dict[str, str] | None = None,
-    skip_hooks: bool = False,
-) -> None:
-    """
-    Runs on_setup hooks for newly created worktrees.
-
-    Skipped when resuming an existing worktree or when skip_hooks is True.
-
-    :param root: The workspace root path
-    :param worktree_result: The result of the worktree creation/resume step
-    :param hooks: The hooks configuration from the manifest
-    :param branch: The target branch name, injected into hook environment
-    :param manifest_vars: Variables from the manifest, exposed to hooks
-    :param user_vars: CLI variables, override manifest vars
-    :param skip_hooks: If True, suppresses hook execution
-    :raises HookExecutionError: If any hook exits with a non-zero status
-    """
-    log = logger.bind(branch=branch, worktree=worktree_result.path)
-
-    if not worktree_result.is_new:
-        log.debug("Skipping on_setup hooks: worktree already exists")
-        return
-    if skip_hooks:
-        log.debug("Skipping on_setup hooks: skip_hooks=True")
-        return
-
-    log.debug("Running on_setup hooks")
-    _run_hooks(
-        bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.on_setup,
-        cwd=worktree_result.path,
-        env=build_hook_env(
-            branch=branch,
-            root=root,
-            worktree_path=worktree_result.path,
-            event="on_setup",
-            manifest_vars=manifest_vars,
-            user_vars=user_vars,
-        ),
-    )
-    log.debug("on_setup hooks completed")
-
-
 def run_on_activate_hooks(
     root: Path,
     worktree_result: WorktreeResult,
@@ -529,9 +480,10 @@ def find_worktree_path(branch: str, cwd: Path | None = None) -> Path:
     return matching.path
 
 
-def run_on_setup_hooks_for_reset(
+def setup_worktree(
     root: Path,
     worktree_path: Path,
+    links: list[Link],
     hooks: Hooks,
     branch: str,
     manifest_vars: dict[str, str] | None = None,
@@ -539,27 +491,36 @@ def run_on_setup_hooks_for_reset(
     skip_hooks: bool = False,
 ) -> None:
     """
-    Runs on_setup hooks unconditionally for the reset command.
+    Applies workspace configuration to a worktree: links, exclude rules, and on_setup hooks.
 
-    Unlike run_on_setup_hooks, this always executes regardless of whether
-    the worktree is new or existing, since reset re-applies workspace state.
+    This is the shared setup path used by both `up` (for newly created worktrees)
+    and `reset` (unconditionally re-applies state). Callers are responsible for
+    deciding when to invoke this.
 
     :param root: The workspace root path
     :param worktree_path: The worktree root path
+    :param links: The list of links to apply from the manifest
     :param hooks: The hooks configuration from the manifest
     :param branch: The target branch name, injected into hook environment
     :param manifest_vars: Variables from the manifest, exposed to hooks
     :param user_vars: CLI variables, override manifest vars
     :param skip_hooks: If True, suppresses hook execution
+    :raises WorkspaceLinkError: If a link cannot be applied
     :raises HookExecutionError: If any hook exits with a non-zero status
     """
     log = logger.bind(branch=branch, worktree=str(worktree_path))
+    log.debug("Setting up worktree")
+
+    apply_links(root, worktree_path, links)
+
+    non_override_targets = [link.target for link in links if not link.override]
+    sync_exclude_block(worktree_path, non_override_targets)
 
     if skip_hooks:
-        log.debug("Skipping on_setup hooks (reset): skip_hooks=True")
+        log.debug("Skipping on_setup hooks: skip_hooks=True")
         return
 
-    log.debug("Running on_setup hooks (reset)")
+    log.debug("Running on_setup hooks")
     _run_hooks(
         bin_path=root / ".workspace" / "bin",
         hook_names=hooks.on_setup,
@@ -573,7 +534,7 @@ def run_on_setup_hooks_for_reset(
             user_vars=user_vars,
         ),
     )
-    log.debug("on_setup hooks (reset) completed")
+    log.debug("Worktree setup complete")
 
 
 def cleanup_empty_parent_dirs(path: Path, stop_at: Path) -> None:
