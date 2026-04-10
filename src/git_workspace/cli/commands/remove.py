@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -86,6 +87,9 @@ def remove(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
+    from pathlib import Path
+    user_in_worktree = Path.cwd().is_relative_to(worktree_path)
+
     if not force and git.is_worktree_dirty(worktree_path):
         typer.echo(
             f"error: worktree for {branch!r} at {worktree_path} has uncommitted changes; "
@@ -117,6 +121,8 @@ def remove(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
+    workspace.cleanup_empty_parent_dirs(worktree_path, stop_at=root_path)
+
     try:
         workspace.run_after_remove_hooks(
             root=root_path,
@@ -131,4 +137,7 @@ def remove(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"Removed worktree for {branch!r} (branch preserved)")
+    if user_in_worktree:
+        typer.echo(str(root_path))
+    else:
+        typer.echo(f"Removed worktree for {branch!r} (branch preserved)")

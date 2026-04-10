@@ -540,6 +540,27 @@ def run_reset_hooks(
     log.debug("Reset hooks completed")
 
 
+def cleanup_empty_parent_dirs(path: Path, stop_at: Path) -> None:
+    """
+    Removes empty parent directories between path and stop_at (exclusive).
+
+    Walks upward from path.parent, removing each directory if empty,
+    stopping as soon as a non-empty directory or stop_at is reached.
+
+    :param path: The removed path whose parents should be cleaned up
+    :param stop_at: The boundary directory — never removed
+    """
+    log = logger.bind(path=str(path), stop_at=str(stop_at))
+    parent = path.parent
+    while parent != stop_at:
+        try:
+            parent.rmdir()
+            log.debug("Removed empty parent directory", directory=str(parent))
+        except OSError:
+            break
+        parent = parent.parent
+
+
 def run_before_remove_hooks(
     root: Path,
     worktree_path: Path,
