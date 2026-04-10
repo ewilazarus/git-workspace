@@ -47,11 +47,10 @@ base_branch = "main"
 # Examples:
 
 # [hooks]
-# after_setup = ["01-after-setup.sh"]
-# before_activate = ["02-before-activate.sh"]
-# after_activate = ["03-after-activate.sh"]
-# before_remove = ["04-before-remove.sh"]
-# after_remove = ["05-after-remove.sh"]
+# on_setup = ["01-on-setup.sh"]
+# on_activate = ["02-on-activate.sh"]
+# on_attach = ["03-on-attach.sh"]
+# on_remove = ["04-on-remove.sh"]
 
 # Prune defines the rules used by the `prune` command. Maximum age can be
 # overridden with the `--older-than-days` flag.
