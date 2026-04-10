@@ -2,7 +2,7 @@
 
 # Runs before workspace activation.
 #
-# Use this hook to prepare interactive tooling that should exist
+# Use this hook to prepare the environment tooling that should exist
 # before the workspace is "entered".
 #
 # Common use cases:
@@ -13,4 +13,4 @@
 # Example:
 # tmux has-session -t dev 2>/dev/null || tmux new-session -d -s dev
 
-echo "Running before activate ..."
+echo "Running on activate ..."
