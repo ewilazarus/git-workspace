@@ -7,6 +7,7 @@ from git_workspace import git
 from git_workspace.errors import (
     InvalidWorkspaceRootError,
     UnableToResolveWorkspaceRootError,
+    UnableToResolveBranchError,  # noqa: F401 — re-exported for callers
     GitCloneError,
     GitInitError,
     WorkspaceCreationError,
@@ -147,18 +148,19 @@ def _create_config_new(config_path: Path) -> None:
         ) from e
 
 
-def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
+def resolve_branch(root: Path, cwd: Path | None = None) -> str:
     """
-    Resolves the target branch from the current working directory
+    Resolves the target branch from the current working directory.
 
     Infers which workspace worktree the user is in by examining the current working
     directory relative to the workspace root. The `.workspace` and `.git` directories
     are excluded. Intermediate directories that are not worktree roots (e.g.
-    `feat/` when branches like `feat/001` and `feat/002` exist) return None.
+    `feat/` when branches like `feat/001` and `feat/002` exist) raise.
 
     :param root: The workspace root path
     :param cwd: The current working directory. If None, uses Path.cwd().
-    :returns: The branch name if the cwd is inside a workspace worktree, None otherwise
+    :raises UnableToResolveBranchError: If the branch cannot be inferred from cwd
+    :returns: The branch name
     """
     if cwd is None:
         cwd = Path.cwd().resolve()
@@ -166,36 +168,35 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
     log = logger.bind(root=str(root), cwd=str(cwd))
     log.debug("Attempting to resolve branch")
 
+    def _fail(reason: str) -> UnableToResolveBranchError:
+        log.debug(reason)
+        return UnableToResolveBranchError(
+            "branch could not be inferred from the current directory; provide it explicitly"
+        )
+
     for excluded in [root / ".workspace", root / ".git"]:
         try:
             cwd.relative_to(excluded)
-            log.debug(
-                "cwd is inside excluded directory, branch unresolvable",
-                excluded=str(excluded),
-            )
-            return None
+            raise _fail("cwd is inside excluded directory, branch unresolvable")
         except ValueError:
             pass
 
     try:
         relative = cwd.relative_to(root)
     except ValueError:
-        log.debug("cwd is outside workspace root, branch unresolvable")
-        return None
+        raise _fail("cwd is outside workspace root, branch unresolvable")
 
     if relative == Path("."):
-        log.debug("cwd is the workspace root itself, branch unresolvable")
-        return None
+        raise _fail("cwd is the workspace root itself, branch unresolvable")
 
     worktree_root = git.get_worktree_root(cwd)
     if worktree_root is None:
-        log.debug("cwd is not inside a worktree, branch unresolvable")
-        return None
+        raise _fail("cwd is not inside a worktree, branch unresolvable")
 
     branch = git.get_current_branch(worktree_root)
     if branch is None:
-        log.debug("Worktree HEAD is detached, branch unresolvable")
-        return None
+        raise _fail("Worktree HEAD is detached, branch unresolvable")
+
     log.debug("Successfully resolved branch", branch=branch)
     return branch
 
