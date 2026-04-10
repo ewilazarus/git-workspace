@@ -9,7 +9,6 @@ from git_workspace.errors import (
     UnableToResolveWorkspaceRootError,
     GitCloneError,
     GitInitError,
-    HookExecutionError,
     WorkspaceCreationError,
     WorkspaceLinkError,
     WorktreeDirtyError,  # noqa: F401 — re-exported for callers
@@ -170,7 +169,10 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
     for excluded in [root / ".workspace", root / ".git"]:
         try:
             cwd.relative_to(excluded)
-            log.debug("cwd is inside excluded directory, branch unresolvable", excluded=str(excluded))
+            log.debug(
+                "cwd is inside excluded directory, branch unresolvable",
+                excluded=str(excluded),
+            )
             return None
         except ValueError:
             pass
@@ -219,7 +221,9 @@ def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
     for link in links:
         source = assets_root / link.source
         target = worktree_path / link.target
-        link_log = log.bind(source=str(source), target=str(target), override=link.override)
+        link_log = log.bind(
+            source=str(source), target=str(target), override=link.override
+        )
 
         target.parent.mkdir(parents=True, exist_ok=True)
 
