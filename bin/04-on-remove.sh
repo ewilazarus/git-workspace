@@ -13,4 +13,4 @@
 # docker compose down
 # tmux kill-session -t dev 2>/dev/null || true
 
-echo "Running before remove ..."
+echo "Running on remove ..."
