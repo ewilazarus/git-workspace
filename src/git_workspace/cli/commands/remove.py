@@ -3,7 +3,7 @@ from typing import Annotated
 
 import typer
 
-from git_workspace import git, workspace
+from git_workspace import git, hooks, workspace
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.errors import (
     HookExecutionError,
@@ -100,7 +100,7 @@ def remove(
     user_vars: dict[str, str] = dict(vars) if vars else {}  # type: ignore
 
     try:
-        workspace.run_on_remove_hooks(
+        hooks.run_on_remove_hooks(
             root=root_path,
             worktree_path=worktree_path,
             hooks=manifest.hooks,

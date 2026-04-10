@@ -4,49 +4,37 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace import workspace
+from git_workspace import hooks
 from git_workspace.errors import HookExecutionError
 from git_workspace.manifest import Hooks
-from git_workspace.worktree import WorktreeResult
 
 ROOT = Path("/workspace")
 WORKTREE_PATH = ROOT / "feat" / "001"
 BIN_PATH = ROOT / ".workspace" / "bin"
 BRANCH = "feat/001"
 
-NEW_RESULT = WorktreeResult(path=WORKTREE_PATH, is_new=True)
-EXISTING_RESULT = WorktreeResult(path=WORKTREE_PATH, is_new=False)
-
 
 @pytest.fixture(autouse=True)
 def mock_subprocess(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.workspace.subprocess.run", return_value=MagicMock(returncode=0))
+    return mocker.patch("git_workspace.hooks.subprocess.run", return_value=MagicMock(returncode=0))
 
 
 def _executables(mock_subprocess: MagicMock) -> list[str]:
     return [call.args[0][0] for call in mock_subprocess.call_args_list]
 
 
-def test_runs_on_attach_for_new_worktree(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(on_attach=["attach.sh"])
+def test_runs_on_attach_hooks(mock_subprocess: MagicMock) -> None:
+    hook_config = Hooks(on_attach=["attach.sh"])
 
-    workspace.run_on_attach_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
-
-    assert _executables(mock_subprocess) == [str(BIN_PATH / "attach.sh")]
-
-
-def test_runs_on_attach_for_existing_worktree(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(on_attach=["attach.sh"])
-
-    workspace.run_on_attach_hooks(ROOT, EXISTING_RESULT, hooks, branch=BRANCH)
+    hooks.run_on_attach_hooks(ROOT, WORKTREE_PATH, hook_config, branch=BRANCH)
 
     assert _executables(mock_subprocess) == [str(BIN_PATH / "attach.sh")]
 
 
 def test_hooks_execute_in_configured_order(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(on_attach=["first.sh", "second.sh", "third.sh"])
+    hook_config = Hooks(on_attach=["first.sh", "second.sh", "third.sh"])
 
-    workspace.run_on_attach_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
+    hooks.run_on_attach_hooks(ROOT, WORKTREE_PATH, hook_config, branch=BRANCH)
 
     assert _executables(mock_subprocess) == [
         str(BIN_PATH / "first.sh"),
@@ -56,22 +44,22 @@ def test_hooks_execute_in_configured_order(mock_subprocess: MagicMock) -> None:
 
 
 def test_skips_hooks_when_skip_hooks_is_true(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(on_attach=["attach.sh"])
+    hook_config = Hooks(on_attach=["attach.sh"])
 
-    workspace.run_on_attach_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH, skip_hooks=True)
+    hooks.run_on_attach_hooks(ROOT, WORKTREE_PATH, hook_config, branch=BRANCH, skip_hooks=True)
 
     mock_subprocess.assert_not_called()
 
 
 def test_hook_failure_raises_hook_execution_error(mock_subprocess: MagicMock) -> None:
     mock_subprocess.return_value = MagicMock(returncode=1)
-    hooks = Hooks(on_attach=["attach.sh"])
+    hook_config = Hooks(on_attach=["attach.sh"])
 
     with pytest.raises(HookExecutionError):
-        workspace.run_on_attach_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
+        hooks.run_on_attach_hooks(ROOT, WORKTREE_PATH, hook_config, branch=BRANCH)
 
 
 def test_no_hooks_configured_runs_nothing(mock_subprocess: MagicMock) -> None:
-    workspace.run_on_attach_hooks(ROOT, NEW_RESULT, Hooks(), branch=BRANCH)
+    hooks.run_on_attach_hooks(ROOT, WORKTREE_PATH, Hooks(), branch=BRANCH)
 
     mock_subprocess.assert_not_called()

@@ -3,7 +3,7 @@ from typing import Annotated
 
 import typer
 
-from git_workspace import workspace
+from git_workspace import hooks, workspace
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.errors import (
     HookExecutionError,
@@ -153,9 +153,9 @@ def up(
             raise typer.Exit(1)
 
     try:
-        workspace.run_on_activate_hooks(
+        hooks.run_on_activate_hooks(
             root=root_path,
-            worktree_result=result,
+            worktree_path=result.path,
             hooks=manifest.hooks,
             branch=branch,
             manifest_vars=manifest.vars,
@@ -163,9 +163,9 @@ def up(
             skip_hooks=skip_hooks,
         )
         if attached:
-            workspace.run_on_attach_hooks(
+            hooks.run_on_attach_hooks(
                 root=root_path,
-                worktree_result=result,
+                worktree_path=result.path,
                 hooks=manifest.hooks,
                 branch=branch,
                 manifest_vars=manifest.vars,
