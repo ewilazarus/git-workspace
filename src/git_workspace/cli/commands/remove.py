@@ -9,7 +9,6 @@ from git_workspace.errors import (
     HookExecutionError,
     InvalidWorkspaceRootError,
     UnableToResolveWorkspaceRootError,
-    WorktreeDirtyError,
     WorktreeNotFoundError,
     WorktreeRemovalError,
 )
@@ -87,7 +86,6 @@ def remove(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    from pathlib import Path
     user_in_worktree = Path.cwd().is_relative_to(worktree_path)
 
     if not force and git.is_worktree_dirty(worktree_path):
