@@ -76,6 +76,7 @@ def test_parses_hooks(tmp_path: Path) -> None:
 on_setup = ["install.sh", "configure.sh"]
 on_activate = ["activate.sh"]
 on_attach = ["attach.sh"]
+on_deactivate = ["deactivate.sh"]
 on_remove = ["teardown.sh"]
 """,
     )
@@ -86,6 +87,7 @@ on_remove = ["teardown.sh"]
         on_setup=["install.sh", "configure.sh"],
         on_activate=["activate.sh"],
         on_attach=["attach.sh"],
+        on_deactivate=["deactivate.sh"],
         on_remove=["teardown.sh"],
     )
 
@@ -104,6 +106,7 @@ on_setup = ["install.sh"]
     assert manifest.hooks.on_setup == ["install.sh"]
     assert manifest.hooks.on_activate == []
     assert manifest.hooks.on_attach == []
+    assert manifest.hooks.on_deactivate == []
     assert manifest.hooks.on_remove == []
 
 
@@ -197,6 +200,7 @@ db_url = "sqlite://"
 on_setup = ["install.sh"]
 on_activate = ["activate.sh"]
 on_attach = ["attach.sh"]
+on_deactivate = ["deactivate.sh"]
 on_remove = ["teardown.sh"]
 
 [[link]]
@@ -219,6 +223,7 @@ exclude_branches = ["main"]
             on_setup=["install.sh"],
             on_activate=["activate.sh"],
             on_attach=["attach.sh"],
+            on_deactivate=["deactivate.sh"],
             on_remove=["teardown.sh"],
         ),
         links=[Link(source="env", target=".env")],

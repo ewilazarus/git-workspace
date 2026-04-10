@@ -94,6 +94,45 @@ def test_on_activate_runs_in_both_attached_and_detached_mode(repo: Path) -> None
 
 
 # ---------------------------------------------------------------------------
+# on_deactivate
+# ---------------------------------------------------------------------------
+
+def test_on_deactivate_runs_on_rm(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_deactivate = ["on_deactivate"]\n')
+    write_hook(repo, "on_deactivate", f'#!/bin/sh\ntouch {_marker(repo, "on_deactivate_ran")}\n')
+
+    run("up", "feat/hook", "-r", str(repo))
+    run("rm", "feat/hook", "-r", str(repo))
+
+    assert _marker(repo, "on_deactivate_ran").exists()
+
+
+def test_on_deactivate_runs_before_worktree_removed(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_deactivate = ["on_deactivate"]\n')
+    marker = _marker(repo, "on_deactivate_ran")
+    write_hook(
+        repo,
+        "on_deactivate",
+        f'#!/bin/sh\n[ -d "$GIT_WORKSPACE_WORKTREE" ] && touch {marker}\n',
+    )
+
+    run("up", "feat/hook", "-r", str(repo))
+    run("rm", "feat/hook", "-r", str(repo))
+
+    assert marker.exists()
+
+
+def test_on_deactivate_skip_hooks_suppresses_it(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_deactivate = ["on_deactivate"]\n')
+    write_hook(repo, "on_deactivate", f'#!/bin/sh\ntouch {_marker(repo, "on_deactivate_ran")}\n')
+
+    run("up", "feat/hook", "-r", str(repo))
+    run("rm", "feat/hook", "-r", str(repo), "--skip-hooks")
+
+    assert not _marker(repo, "on_deactivate_ran").exists()
+
+
+# ---------------------------------------------------------------------------
 # on_remove
 # ---------------------------------------------------------------------------
 

@@ -190,6 +190,41 @@ def run_on_attach_hooks(
     log.debug("on_attach hooks completed")
 
 
+def run_on_deactivate_hooks(
+    root: Path,
+    worktree_path: Path,
+    hooks: Hooks,
+    branch: str,
+    manifest_vars: dict[str, str] | None = None,
+    user_vars: dict[str, str] | None = None,
+    skip_hooks: bool = False,
+) -> None:
+    """
+    Runs on_deactivate hooks when leaving a worktree.
+
+    Counterpart to on_activate — called when a worktree session ends.
+    Suppressed by skip_hooks.
+
+    :param root: The workspace root path
+    :param worktree_path: The worktree root path
+    :param hooks: The hooks configuration from the manifest
+    :param branch: The target branch name, injected into hook environment
+    :param manifest_vars: Variables from the manifest, exposed to hooks
+    :param user_vars: CLI variables, override manifest vars
+    :param skip_hooks: If True, suppresses hook execution
+    :raises HookExecutionError: If any hook exits with a non-zero status
+    """
+    log = logger.bind(branch=branch, worktree=str(worktree_path))
+
+    if skip_hooks:
+        log.debug("Skipping on_deactivate hooks: skip_hooks=True")
+        return
+
+    log.debug("Running on_deactivate hooks")
+    _run_hooks(root, worktree_path, hooks.on_deactivate, "on_deactivate", branch, manifest_vars, user_vars)
+    log.debug("on_deactivate hooks completed")
+
+
 def run_on_remove_hooks(
     root: Path,
     worktree_path: Path,

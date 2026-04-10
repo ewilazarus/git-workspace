@@ -62,6 +62,45 @@ def test_fails_for_nonexistent_worktree(repo: Path) -> None:
     assert "feat/ghost" in result.stderr
 
 
+def test_executes_on_deactivate_hooks(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_deactivate = ["mark_deactivate"]\n')
+    marker = repo / ".workspace" / "deactivated"
+    write_hook(repo, "mark_deactivate", f'#!/bin/sh\ntouch {marker}\n')
+
+    run("up", "feat/hook-test", "-r", str(repo))
+    result = run("rm", "feat/hook-test", "-r", str(repo))
+
+    assert result.ok, result.stderr
+    assert marker.exists()
+
+
+def test_on_deactivate_runs_before_on_remove(repo: Path) -> None:
+    write_manifest(
+        repo,
+        '[hooks]\non_deactivate = ["mark_deactivate"]\non_remove = ["mark_remove"]\n',
+    )
+    order_log = repo / ".workspace" / "order"
+    write_hook(repo, "mark_deactivate", f'#!/bin/sh\necho deactivate >> {order_log}\n')
+    write_hook(repo, "mark_remove", f'#!/bin/sh\necho remove >> {order_log}\n')
+
+    run("up", "feat/hook-test", "-r", str(repo))
+    run("rm", "feat/hook-test", "-r", str(repo))
+
+    lines = order_log.read_text().strip().splitlines()
+    assert lines == ["deactivate", "remove"]
+
+
+def test_skip_hooks_prevents_on_deactivate_hooks(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_deactivate = ["mark_deactivate"]\n')
+    marker = repo / ".workspace" / "deactivated"
+    write_hook(repo, "mark_deactivate", f'#!/bin/sh\ntouch {marker}\n')
+
+    run("up", "feat/hook-test", "-r", str(repo))
+    run("rm", "feat/hook-test", "-r", str(repo), "--skip-hooks")
+
+    assert not marker.exists()
+
+
 def test_executes_on_remove_hooks(repo: Path) -> None:
     write_manifest(repo, '[hooks]\non_remove = ["mark_remove"]\n')
     marker = repo / ".workspace" / "removed"

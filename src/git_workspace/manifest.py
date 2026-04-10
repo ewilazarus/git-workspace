@@ -44,12 +44,14 @@ class Hooks:
     - on_setup: executed after a worktree is created or rebuilt (also on reset)
     - on_activate: executed on every up invocation (attached and detached)
     - on_attach: executed only when up runs in attached mode
+    - on_deactivate: executed when leaving a worktree (counterpart to on_activate)
     - on_remove: executed when a worktree is removed
     """
 
     on_setup: list[str] = field(default_factory=list)
     on_activate: list[str] = field(default_factory=list)
     on_attach: list[str] = field(default_factory=list)
+    on_deactivate: list[str] = field(default_factory=list)
     on_remove: list[str] = field(default_factory=list)
 
 
@@ -128,6 +130,7 @@ def read_manifest(path: Path) -> Manifest:
         on_setup=hooks_data.get("on_setup", []),
         on_activate=hooks_data.get("on_activate", []),
         on_attach=hooks_data.get("on_attach", []),
+        on_deactivate=hooks_data.get("on_deactivate", []),
         on_remove=hooks_data.get("on_remove", []),
     )
 

@@ -98,6 +98,15 @@ def remove(
     user_vars: dict[str, str] = dict(vars) if vars else {}  # type: ignore
 
     try:
+        hooks.run_on_deactivate_hooks(
+            root=root_path,
+            worktree_path=worktree_path,
+            hooks=manifest.hooks,
+            branch=branch,
+            manifest_vars=manifest.vars,
+            user_vars=user_vars,
+            skip_hooks=skip_hooks,
+        )
         hooks.run_on_remove_hooks(
             root=root_path,
             worktree_path=worktree_path,
