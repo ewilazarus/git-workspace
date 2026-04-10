@@ -75,10 +75,7 @@ def format_table(worktrees_list: list["WorktreeInfo"]) -> str:
 
         rows.append((branch_col, age_col, commit_col, path_col))
 
-    col_widths = [
-        max(len(row[i]) for row in rows)
-        for i in range(len(rows[0]))
-    ]
+    col_widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
 
     lines = []
     for i, row in enumerate(rows):
