@@ -1,8 +1,12 @@
 import json
 from pathlib import PurePosixPath
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from git_workspace.errors import InvalidInputError
+
+if TYPE_CHECKING:
+    from git_workspace.worktree import WorktreeInfo
 
 
 def extract_humanish_suffix(url: str) -> str:
@@ -50,7 +54,7 @@ def extract_humanish_suffix(url: str) -> str:
     return name
 
 
-def format_table(worktrees_list) -> str:
+def format_table(worktrees_list: list["WorktreeInfo"]) -> str:
     """
     Formats worktrees as a human-readable table.
 
@@ -89,7 +93,7 @@ def format_table(worktrees_list) -> str:
     return "\n".join(lines)
 
 
-def format_json(worktrees_list) -> str:
+def format_json(worktrees_list: list["WorktreeInfo"]) -> str:
     """
     Formats worktrees as JSON.
 
