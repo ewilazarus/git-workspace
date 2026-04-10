@@ -54,22 +54,14 @@ def test_on_activate_runs_on_every_up(repo: Path) -> None:
 # on_attach
 # ---------------------------------------------------------------------------
 
-def test_on_attach_runs_in_attached_mode(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\non_attach = ["on_attach"]\n')
-    write_hook(repo, "on_attach", f'#!/bin/sh\ntouch {_marker(repo, "on_attach_ran")}\n')
-
-    run("up", "feat/hook", "--attached", "-r", str(repo))
-
-    assert _marker(repo, "on_attach_ran").exists()
-
-
-def test_on_attach_runs_by_default(repo: Path) -> None:
+def test_on_attach_runs_when_not_detached(repo: Path) -> None:
     write_manifest(repo, '[hooks]\non_attach = ["on_attach"]\n')
     write_hook(repo, "on_attach", f'#!/bin/sh\ntouch {_marker(repo, "on_attach_ran")}\n')
 
     run("up", "feat/hook", "-r", str(repo))
 
     assert _marker(repo, "on_attach_ran").exists()
+
 
 
 def test_on_attach_does_not_run_in_detached_mode(repo: Path) -> None:
@@ -86,7 +78,7 @@ def test_on_activate_runs_in_both_attached_and_detached_mode(repo: Path) -> None
     counter = _marker(repo, "activate_count")
     write_hook(repo, "on_activate", f'#!/bin/sh\necho x >> {counter}\n')
 
-    run("up", "feat/hook", "--attached", "-r", str(repo))
+    run("up", "feat/hook", "-r", str(repo))
     run("up", "feat/hook", "--detached", "-r", str(repo))
 
     count = len(counter.read_text().strip().splitlines())

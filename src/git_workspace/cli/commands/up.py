@@ -59,18 +59,18 @@ def up(
             callback=parse_vars,
         ),
     ] = None,
-    attach: Annotated[
+    detached: Annotated[
         bool,
         typer.Option(
-            "--attached/--detached",
-            "-a/-d",
+            "--detached",
+            "-d",
             help=(
-                "Control whether on_attach hooks run after activation. "
-                "--attached (default) runs on_attach hooks, intended for interactive sessions. "
-                "--detached skips on_attach hooks, suitable for headless or agent workflows."
+                "Skip on_attach hooks after activation. "
+                "Suitable for headless or agent workflows."
             ),
+            is_flag=True,
         ),
-    ] = True,
+    ] = False,
     skip_hooks: Annotated[
         bool,
         typer.Option(
@@ -95,9 +95,9 @@ def up(
     lightweight actions to enter or resume working in that workspace.
 
     If the worktree does not exist, on_setup hooks run first. On every
-    invocation, on_activate hooks run. In attached mode (default),
-    on_attach hooks also run — use --detached to suppress them for
-    headless or automated workflows.
+    invocation, on_activate hooks run. Unless --detached is passed,
+    on_attach hooks also run — use --detached for headless or automated
+    workflows.
     """
     try:
         root_path = workspace.resolve_root_path(root)
@@ -164,7 +164,7 @@ def up(
             user_vars=user_vars,
             skip_hooks=skip_hooks,
         )
-        if attach:
+        if not detached:
             hooks.run_on_attach_hooks(
                 root=root_path,
                 worktree_path=result.path,
@@ -185,7 +185,7 @@ def up(
                     "branch": branch,
                     "path": str(result.path),
                     "is_new": result.is_new,
-                    "attached": attach,
+                    "detached": detached,
                 }
             )
         )
