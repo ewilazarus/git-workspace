@@ -310,7 +310,20 @@ def get_current_branch(cwd: Path | None = None) -> str | None:
     if result.returncode != 0:
         return None
     branch = result.stdout.strip()
-    return branch if branch != "HEAD" else None
+    if branch != "HEAD":
+        return branch
+
+    # Unborn branch (no commits yet) — rev-parse cannot abbreviate the ref,
+    # so fall back to symbolic-ref which resolves the symref directly.
+    result = subprocess.run(
+        ["git", "symbolic-ref", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd) if cwd else None,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
 
 
 def is_worktree_dirty(path: Path) -> bool:

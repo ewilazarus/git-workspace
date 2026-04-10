@@ -194,6 +194,9 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
         return None
 
     branch = git.get_current_branch(worktree_root)
+    if branch is None:
+        log.debug("Worktree HEAD is detached, branch unresolvable")
+        return None
     log.debug("Successfully resolved branch", branch=branch)
     return branch
 
