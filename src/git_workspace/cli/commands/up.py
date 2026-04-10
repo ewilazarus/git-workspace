@@ -145,21 +145,35 @@ def up(
     non_override_targets = [link.target for link in manifest.links if not link.override]
     workspace.sync_exclude_block(result.path, non_override_targets)
 
-    hook_kwargs = dict(
-        root=root_path,
-        worktree_result=result,
-        hooks=manifest.hooks,
-        branch=branch,
-        manifest_vars=manifest.vars,
-        user_vars=user_vars,
-        skip_hooks=skip_hooks,
-    )
-
     try:
-        workspace.run_on_setup_hooks(**hook_kwargs)
-        workspace.run_on_activate_hooks(**hook_kwargs)
+        workspace.run_on_setup_hooks(
+            root=root_path,
+            worktree_result=result,
+            hooks=manifest.hooks,
+            branch=branch,
+            manifest_vars=manifest.vars,
+            user_vars=user_vars,
+            skip_hooks=skip_hooks,
+        )
+        workspace.run_on_activate_hooks(
+            root=root_path,
+            worktree_result=result,
+            hooks=manifest.hooks,
+            branch=branch,
+            manifest_vars=manifest.vars,
+            user_vars=user_vars,
+            skip_hooks=skip_hooks,
+        )
         if attached:
-            workspace.run_on_attach_hooks(**hook_kwargs)
+            workspace.run_on_attach_hooks(
+                root=root_path,
+                worktree_result=result,
+                hooks=manifest.hooks,
+                branch=branch,
+                manifest_vars=manifest.vars,
+                user_vars=user_vars,
+                skip_hooks=skip_hooks,
+            )
     except HookExecutionError as e:
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
