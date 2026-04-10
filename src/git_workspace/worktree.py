@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
@@ -5,6 +6,9 @@ from pathlib import Path
 from git_workspace import git
 from git_workspace.errors import WorktreeCreationError  # noqa: F401 — re-exported for callers
 
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class UpAction(Enum):
@@ -78,7 +82,9 @@ def resolve_up_plan(
     worktrees = git.list_worktrees_metadata()
     matching = next((wt for wt in worktrees if wt.branch == branch), None)
     if matching:
-        return UpPlan(action=UpAction.RESUME, branch=branch, existing_worktree_path=matching.path)
+        return UpPlan(
+            action=UpAction.RESUME, branch=branch, existing_worktree_path=matching.path
+        )
 
     if git.local_branch_exists(branch):
         return UpPlan(action=UpAction.CREATE_FROM_LOCAL, branch=branch)
@@ -154,16 +160,6 @@ def create_worktree_from_base(root: Path, branch: str, base: str) -> WorktreeRes
     path = _worktree_path(root, branch)
     git.add_worktree_new_branch(path, branch, base)
     return WorktreeResult(path=path, is_new=True)
-
-
-# --- Worktree listing and formatting ---
-
-import time
-from dataclasses import dataclass
-
-import structlog
-
-logger = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -270,7 +266,7 @@ def list_worktrees(root: Path, current_cwd: Path | None = None) -> list[Worktree
                 break
         else:
             current_worktree = None
-    except (OSError, ValueError):
+    except OSError, ValueError:
         current_worktree = None
 
     worktrees_list = [
@@ -281,5 +277,3 @@ def list_worktrees(root: Path, current_cwd: Path | None = None) -> list[Worktree
     worktrees_list.sort(key=lambda wt: (not wt.current, str(wt.path)))
 
     return worktrees_list
-
-
