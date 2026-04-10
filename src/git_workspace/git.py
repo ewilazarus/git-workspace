@@ -83,17 +83,18 @@ class WorktreeMetadata:
     branch: str
 
 
-def list_worktrees_metadata() -> list[WorktreeMetadata]:
+def list_worktrees_metadata(cwd: Path | None = None) -> list[WorktreeMetadata]:
     """
-    Returns metadata for all worktrees in the current repository
+    Returns metadata for all worktrees in a repository
 
     Uses git worktree list --porcelain and parses each block by key rather than
     line position. Detached worktrees are ignored.
 
+    :param cwd: The git repository directory. If None, uses the current directory.
     :returns: A list of WorktreeMetadata with path and branch for each worktree
     """
     cmd = ["git", "worktree", "list", "--porcelain"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if result.returncode != 0:
         return []
 

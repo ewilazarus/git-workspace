@@ -264,7 +264,7 @@ def list_worktrees(root: Path, current_cwd: Path | None = None) -> list[Worktree
     if current_cwd is None:
         current_cwd = Path.cwd().resolve()
 
-    metadata = git.list_worktrees_metadata()
+    metadata = git.list_worktrees_metadata(cwd=root)
     log.debug("Found worktrees", count=len(metadata))
 
     current_worktree = None
@@ -275,7 +275,7 @@ def list_worktrees(root: Path, current_cwd: Path | None = None) -> list[Worktree
                 break
         else:
             current_worktree = None
-    except OSError, ValueError:
+    except (OSError, ValueError):
         current_worktree = None
 
     worktrees_list = [
