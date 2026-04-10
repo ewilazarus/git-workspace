@@ -24,4 +24,5 @@ def test_invokes_git_correctly(subprocess: MagicMock) -> None:
         ["git", "fetch", "origin", "--prune"],
         capture_output=True,
         text=True,
+        cwd=None,
     )

@@ -104,6 +104,7 @@ def up(
         branch=branch,
         explicit_base_branch=base_branch,
         manifest_base_branch=manifest.base_branch,
+        cwd=root_path,
     )
 
     try:
@@ -111,12 +112,12 @@ def up(
             assert plan.existing_worktree_path is not None
             result = resume_worktree(plan.existing_worktree_path)
         elif plan.action == UpAction.CREATE_FROM_LOCAL:
-            result = create_worktree_from_local(root_path, branch)
+            result = create_worktree_from_local(root_path, branch, cwd=root_path)
         elif plan.action == UpAction.CREATE_FROM_REMOTE:
-            result = create_worktree_from_remote(root_path, branch)
+            result = create_worktree_from_remote(root_path, branch, cwd=root_path)
         else:
             assert plan.base_branch is not None
-            result = create_worktree_from_base(root_path, branch, plan.base_branch)
+            result = create_worktree_from_base(root_path, branch, plan.base_branch, cwd=root_path)
     except WorktreeCreationError as e:
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)

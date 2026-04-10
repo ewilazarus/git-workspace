@@ -49,7 +49,7 @@ def test_create_from_local_invokes_git_correctly(mocker: MockerFixture) -> None:
 
     worktree.create_worktree_from_local(ROOT, BRANCH)
 
-    add_mock.assert_called_once_with(WORKTREE_PATH, BRANCH)
+    add_mock.assert_called_once_with(WORKTREE_PATH, BRANCH, cwd=None)
 
 
 def test_create_from_local_propagates_worktree_creation_error(mocker: MockerFixture) -> None:
@@ -72,7 +72,7 @@ def test_create_from_remote_invokes_git_correctly(mocker: MockerFixture) -> None
 
     worktree.create_worktree_from_remote(ROOT, BRANCH)
 
-    add_mock.assert_called_once_with(WORKTREE_PATH, BRANCH)
+    add_mock.assert_called_once_with(WORKTREE_PATH, BRANCH, cwd=None)
 
 
 def test_create_from_remote_propagates_worktree_creation_error(mocker: MockerFixture) -> None:
@@ -98,7 +98,7 @@ def test_create_from_base_invokes_git_correctly(mocker: MockerFixture) -> None:
 
     worktree.create_worktree_from_base(ROOT, BRANCH, BASE)
 
-    add_mock.assert_called_once_with(WORKTREE_PATH, BRANCH, BASE)
+    add_mock.assert_called_once_with(WORKTREE_PATH, BRANCH, BASE, cwd=None)
 
 
 def test_create_from_base_propagates_worktree_creation_error(mocker: MockerFixture) -> None:

@@ -32,4 +32,4 @@ def test_invokes_git_correctly(subprocess: MagicMock) -> None:
 
     git.has_remote()
 
-    subprocess.run.assert_called_with(["git", "remote"], capture_output=True, text=True)
+    subprocess.run.assert_called_with(["git", "remote"], capture_output=True, text=True, cwd=None)

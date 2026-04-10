@@ -73,8 +73,8 @@ def prune(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    # List all worktrees
-    worktrees = list_worktrees(root_path)
+    # List all worktrees, excluding the main worktree (the root itself)
+    worktrees = [wt for wt in list_worktrees(root_path) if wt.path != root_path]
 
     # Get excluded branches from manifest
     exclude_branches = []

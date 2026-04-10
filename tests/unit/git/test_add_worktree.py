@@ -29,6 +29,7 @@ def test_add_worktree_invokes_git_correctly(subprocess: MagicMock) -> None:
         ["git", "worktree", "add", str(PATH), BRANCH],
         capture_output=True,
         text=True,
+        cwd=None,
     )
 
 
@@ -50,6 +51,7 @@ def test_add_worktree_tracking_remote_invokes_git_correctly(subprocess: MagicMoc
         ["git", "worktree", "add", "--track", "-b", BRANCH, str(PATH), f"origin/{BRANCH}"],
         capture_output=True,
         text=True,
+        cwd=None,
     )
 
 
@@ -75,6 +77,7 @@ def test_add_worktree_new_branch_invokes_git_correctly(subprocess: MagicMock) ->
         ["git", "worktree", "add", "-b", BRANCH, str(PATH), BASE],
         capture_output=True,
         text=True,
+        cwd=None,
     )
 
 
@@ -91,6 +94,7 @@ def test_add_worktree_new_branch_in_empty_repo_uses_orphan(subprocess: MagicMock
         ["git", "worktree", "add", "--orphan", "-b", BRANCH, str(PATH)],
         capture_output=True,
         text=True,
+        cwd=None,
     )
 
 

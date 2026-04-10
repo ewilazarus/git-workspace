@@ -30,6 +30,7 @@ def test_local_branch_exists_invokes_git_correctly(subprocess: MagicMock) -> Non
         ["git", "rev-parse", "--verify", f"refs/heads/{BRANCH}"],
         capture_output=True,
         text=True,
+        cwd=None,
     )
 
 
@@ -42,4 +43,5 @@ def test_remote_branch_exists_invokes_git_correctly(subprocess: MagicMock) -> No
         ["git", "rev-parse", "--verify", f"refs/remotes/origin/{BRANCH}"],
         capture_output=True,
         text=True,
+        cwd=None,
     )

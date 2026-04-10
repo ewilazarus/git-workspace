@@ -32,4 +32,5 @@ def test_invokes_git_correctly(subprocess: MagicMock) -> None:
         ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
         capture_output=True,
         text=True,
+        cwd=None,
     )

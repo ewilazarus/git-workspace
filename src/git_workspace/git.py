@@ -127,72 +127,78 @@ def list_worktrees_metadata(cwd: Path | None = None) -> list[WorktreeMetadata]:
     return worktrees
 
 
-def has_remote(name: str = "origin") -> bool:
+def has_remote(name: str = "origin", cwd: Path | None = None) -> bool:
     """Returns True if the given remote is configured."""
-    result = subprocess.run(["git", "remote"], capture_output=True, text=True)
+    result = subprocess.run(["git", "remote"], capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     return name in result.stdout.split()
 
 
-def is_empty_repo() -> bool:
+def is_empty_repo(cwd: Path | None = None) -> bool:
     """
     Returns True if the repository has no commits yet.
 
+    :param cwd: The git repository directory. If None, uses the current directory.
     :returns: True if the repo is empty (no commits), False otherwise
     """
     result = subprocess.run(
         ["git", "rev-parse", "--verify", "HEAD"],
         capture_output=True,
         text=True,
+        cwd=str(cwd) if cwd else None,
     )
     return result.returncode != 0
 
 
-def fetch_origin() -> None:
+def fetch_origin(cwd: Path | None = None) -> None:
     """
     Fetches from origin and prunes stale remote-tracking branches
 
+    :param cwd: The git repository directory. If None, uses the current directory.
     :raises GitFetchError: If the fetch fails
     """
     cmd = ["git", "fetch", "origin", "--prune"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if result.returncode != 0:
         raise GitFetchError(f"Failed to fetch from origin: {result.stderr.strip()}")
 
 
-def get_origin_head() -> str | None:
+def get_origin_head(cwd: Path | None = None) -> str | None:
     """
     Returns the default branch on origin by resolving origin/HEAD
 
+    :param cwd: The git repository directory. If None, uses the current directory.
     :returns: The default branch name (e.g. "main"), or None if origin/HEAD is not set
     """
     cmd = ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if result.returncode != 0:
         return None
     return result.stdout.strip().removeprefix("refs/remotes/origin/")
 
 
-def local_branch_exists(branch: str) -> bool:
+def local_branch_exists(branch: str, cwd: Path | None = None) -> bool:
     """
     Returns whether a local branch exists
 
     :param branch: The branch name to check
+    :param cwd: The git repository directory. If None, uses the current directory.
     :returns: True if the branch exists locally, False otherwise
     """
     cmd = ["git", "rev-parse", "--verify", f"refs/heads/{branch}"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     return result.returncode == 0
 
 
-def remote_branch_exists(branch: str) -> bool:
+def remote_branch_exists(branch: str, cwd: Path | None = None) -> bool:
     """
     Returns whether a branch exists on origin
 
     :param branch: The branch name to check
+    :param cwd: The git repository directory. If None, uses the current directory.
     :returns: True if the branch exists on origin, False otherwise
     """
     cmd = ["git", "rev-parse", "--verify", f"refs/remotes/origin/{branch}"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     return result.returncode == 0
 
 
@@ -214,39 +220,41 @@ def skip_worktree(path: str, cwd: Path) -> None:
     )
 
 
-def add_worktree(path: Path, branch: str) -> None:
+def add_worktree(path: Path, branch: str, cwd: Path | None = None) -> None:
     """
     Creates a worktree for an existing local branch
 
     :param path: The path at which to create the worktree
     :param branch: The existing local branch to check out
+    :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     cmd = ["git", "worktree", "add", str(path), branch]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if result.returncode != 0:
         raise WorktreeCreationError(
             f"Failed to create worktree for branch {branch!r} at {path!r}: {result.stderr.strip()}"
         )
 
 
-def add_worktree_tracking_remote(path: Path, branch: str) -> None:
+def add_worktree_tracking_remote(path: Path, branch: str, cwd: Path | None = None) -> None:
     """
     Creates a worktree with a new local branch tracking origin/<branch>
 
     :param path: The path at which to create the worktree
     :param branch: The remote branch name to track
+    :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     cmd = ["git", "worktree", "add", "--track", "-b", branch, str(path), f"origin/{branch}"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if result.returncode != 0:
         raise WorktreeCreationError(
             f"Failed to create worktree tracking origin/{branch!r} at {path!r}: {result.stderr.strip()}"
         )
 
 
-def add_worktree_new_branch(path: Path, branch: str, base: str) -> None:
+def add_worktree_new_branch(path: Path, branch: str, base: str, cwd: Path | None = None) -> None:
     """
     Creates a worktree with a brand new local branch from a base branch.
 
@@ -256,11 +264,12 @@ def add_worktree_new_branch(path: Path, branch: str, base: str) -> None:
     :param path: The path at which to create the worktree
     :param branch: The new branch name to create
     :param base: The base branch to create from
+    :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
-    if is_empty_repo():
+    if is_empty_repo(cwd=cwd):
         cmd = ["git", "worktree", "add", "--orphan", "-b", branch, str(path)]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
         if result.returncode != 0:
             raise WorktreeCreationError(
                 f"Failed to create orphan worktree for branch {branch!r} at {path!r}: {result.stderr.strip()}"
@@ -268,7 +277,7 @@ def add_worktree_new_branch(path: Path, branch: str, base: str) -> None:
         return
 
     cmd = ["git", "worktree", "add", "-b", branch, str(path), base]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if result.returncode != 0:
         raise WorktreeCreationError(
             f"Failed to create worktree with new branch {branch!r} from {base!r} at {path!r}: {result.stderr.strip()}"
