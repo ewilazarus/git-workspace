@@ -73,22 +73,20 @@ def test_parses_hooks(tmp_path: Path) -> None:
         tmp_path,
         """
 [hooks]
-after_setup = ["install.sh", "configure.sh"]
-before_activate = ["pre.sh"]
-after_activate = ["activate.sh"]
-before_remove = ["teardown.sh"]
-after_remove = ["cleanup.sh"]
+on_setup = ["install.sh", "configure.sh"]
+on_activate = ["activate.sh"]
+on_attach = ["attach.sh"]
+on_remove = ["teardown.sh"]
 """,
     )
 
     manifest = read_manifest(path)
 
     assert manifest.hooks == Hooks(
-        after_setup=["install.sh", "configure.sh"],
-        before_activate=["pre.sh"],
-        after_activate=["activate.sh"],
-        before_remove=["teardown.sh"],
-        after_remove=["cleanup.sh"],
+        on_setup=["install.sh", "configure.sh"],
+        on_activate=["activate.sh"],
+        on_attach=["attach.sh"],
+        on_remove=["teardown.sh"],
     )
 
 
@@ -97,17 +95,16 @@ def test_missing_hook_fields_default_to_empty(tmp_path: Path) -> None:
         tmp_path,
         """
 [hooks]
-after_setup = ["install.sh"]
+on_setup = ["install.sh"]
 """,
     )
 
     manifest = read_manifest(path)
 
-    assert manifest.hooks.after_setup == ["install.sh"]
-    assert manifest.hooks.before_activate == []
-    assert manifest.hooks.after_activate == []
-    assert manifest.hooks.before_remove == []
-    assert manifest.hooks.after_remove == []
+    assert manifest.hooks.on_setup == ["install.sh"]
+    assert manifest.hooks.on_activate == []
+    assert manifest.hooks.on_attach == []
+    assert manifest.hooks.on_remove == []
 
 
 def test_parses_links(tmp_path: Path) -> None:
@@ -197,8 +194,10 @@ base_branch = "main"
 db_url = "sqlite://"
 
 [hooks]
-after_setup = ["install.sh"]
-after_activate = ["activate.sh"]
+on_setup = ["install.sh"]
+on_activate = ["activate.sh"]
+on_attach = ["attach.sh"]
+on_remove = ["teardown.sh"]
 
 [[link]]
 source = "env"
@@ -216,7 +215,12 @@ exclude_branches = ["main"]
         version=1,
         base_branch="main",
         vars={"db_url": "sqlite://"},
-        hooks=Hooks(after_setup=["install.sh"], after_activate=["activate.sh"]),
+        hooks=Hooks(
+            on_setup=["install.sh"],
+            on_activate=["activate.sh"],
+            on_attach=["attach.sh"],
+            on_remove=["teardown.sh"],
+        ),
         links=[Link(source="env", target=".env")],
         prune=Prune(older_than_days=7, exclude_branches=["main"]),
     )

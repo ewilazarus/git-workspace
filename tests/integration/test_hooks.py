@@ -8,19 +8,39 @@ def _marker(repo: Path, name: str) -> Path:
     return repo / ".workspace" / name
 
 
-def test_after_setup_runs_on_first_up(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["after_setup"]\n')
-    write_hook(repo, "after_setup", f'#!/bin/sh\ntouch {_marker(repo, "after_setup_ran")}\n')
+# ---------------------------------------------------------------------------
+# on_setup
+# ---------------------------------------------------------------------------
+
+def test_on_setup_runs_on_first_up(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_setup = ["on_setup"]\n')
+    write_hook(repo, "on_setup", f'#!/bin/sh\ntouch {_marker(repo, "on_setup_ran")}\n')
 
     run("up", "feat/hook", "-r", str(repo))
 
-    assert _marker(repo, "after_setup_ran").exists()
+    assert _marker(repo, "on_setup_ran").exists()
 
 
-def test_after_activate_runs_on_every_up(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_activate = ["after_activate"]\n')
+def test_on_setup_does_not_run_on_resume(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_setup = ["on_setup"]\n')
+    counter = _marker(repo, "setup_count")
+    write_hook(repo, "on_setup", f'#!/bin/sh\necho x >> {counter}\n')
+
+    run("up", "feat/hook", "-r", str(repo))
+    run("up", "feat/hook", "-r", str(repo))
+
+    count = len(counter.read_text().strip().splitlines()) if counter.exists() else 0
+    assert count == 1
+
+
+# ---------------------------------------------------------------------------
+# on_activate
+# ---------------------------------------------------------------------------
+
+def test_on_activate_runs_on_every_up(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_activate = ["on_activate"]\n')
     counter = _marker(repo, "activate_count")
-    write_hook(repo, "after_activate", f'#!/bin/sh\necho x >> {counter}\n')
+    write_hook(repo, "on_activate", f'#!/bin/sh\necho x >> {counter}\n')
 
     run("up", "feat/hook", "-r", str(repo))
     run("up", "feat/hook", "-r", str(repo))
@@ -30,13 +50,59 @@ def test_after_activate_runs_on_every_up(repo: Path) -> None:
     assert count == 3
 
 
-def test_before_remove_runs_before_worktree_removed(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nbefore_remove = ["before_remove"]\n')
-    marker = _marker(repo, "before_remove_ran")
-    # Write worktree path to a file so we know it existed when hook ran
+# ---------------------------------------------------------------------------
+# on_attach
+# ---------------------------------------------------------------------------
+
+def test_on_attach_runs_in_attached_mode(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_attach = ["on_attach"]\n')
+    write_hook(repo, "on_attach", f'#!/bin/sh\ntouch {_marker(repo, "on_attach_ran")}\n')
+
+    run("up", "feat/hook", "--attached", "-r", str(repo))
+
+    assert _marker(repo, "on_attach_ran").exists()
+
+
+def test_on_attach_runs_by_default(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_attach = ["on_attach"]\n')
+    write_hook(repo, "on_attach", f'#!/bin/sh\ntouch {_marker(repo, "on_attach_ran")}\n')
+
+    run("up", "feat/hook", "-r", str(repo))
+
+    assert _marker(repo, "on_attach_ran").exists()
+
+
+def test_on_attach_does_not_run_in_detached_mode(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_attach = ["on_attach"]\n')
+    write_hook(repo, "on_attach", f'#!/bin/sh\ntouch {_marker(repo, "on_attach_ran")}\n')
+
+    run("up", "feat/hook", "--detached", "-r", str(repo))
+
+    assert not _marker(repo, "on_attach_ran").exists()
+
+
+def test_on_activate_runs_in_both_attached_and_detached_mode(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_activate = ["on_activate"]\n')
+    counter = _marker(repo, "activate_count")
+    write_hook(repo, "on_activate", f'#!/bin/sh\necho x >> {counter}\n')
+
+    run("up", "feat/hook", "--attached", "-r", str(repo))
+    run("up", "feat/hook", "--detached", "-r", str(repo))
+
+    count = len(counter.read_text().strip().splitlines())
+    assert count == 2
+
+
+# ---------------------------------------------------------------------------
+# on_remove
+# ---------------------------------------------------------------------------
+
+def test_on_remove_runs_before_worktree_removed(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_remove = ["on_remove"]\n')
+    marker = _marker(repo, "on_remove_ran")
     write_hook(
         repo,
-        "before_remove",
+        "on_remove",
         f'#!/bin/sh\n[ -d "$GIT_WORKSPACE_WORKTREE" ] && touch {marker}\n',
     )
 
@@ -46,19 +112,12 @@ def test_before_remove_runs_before_worktree_removed(repo: Path) -> None:
     assert marker.exists()
 
 
-def test_after_remove_runs_after_worktree_removed(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_remove = ["after_remove"]\n')
-    marker = _marker(repo, "after_remove_ran")
-    write_hook(repo, "after_remove", f'#!/bin/sh\ntouch {marker}\n')
-
-    run("up", "feat/hook", "-r", str(repo))
-    run("rm", "feat/hook", "-r", str(repo))
-
-    assert marker.exists()
-
+# ---------------------------------------------------------------------------
+# Environment variables
+# ---------------------------------------------------------------------------
 
 def test_hooks_receive_gw_worktree_path(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["check_env"]\n')
+    write_manifest(repo, '[hooks]\non_setup = ["check_env"]\n')
     recorded = _marker(repo, "worktree_path_env")
     write_hook(repo, "check_env", f'#!/bin/sh\necho "$GIT_WORKSPACE_WORKTREE" > {recorded}\n')
 
@@ -69,7 +128,7 @@ def test_hooks_receive_gw_worktree_path(repo: Path) -> None:
 
 
 def test_hooks_receive_gw_branch(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["check_branch"]\n')
+    write_manifest(repo, '[hooks]\non_setup = ["check_branch"]\n')
     recorded = _marker(repo, "branch_env")
     write_hook(repo, "check_branch", f'#!/bin/sh\necho "$GIT_WORKSPACE_BRANCH" > {recorded}\n')
 
@@ -79,7 +138,7 @@ def test_hooks_receive_gw_branch(repo: Path) -> None:
 
 
 def test_hooks_receive_user_vars(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["check_var"]\n')
+    write_manifest(repo, '[hooks]\non_setup = ["check_var"]\n')
     recorded = _marker(repo, "var_env")
     write_hook(repo, "check_var", f'#!/bin/sh\necho "$GIT_WORKSPACE_VAR_MY_VAR" > {recorded}\n')
 
@@ -88,12 +147,21 @@ def test_hooks_receive_user_vars(repo: Path) -> None:
     assert "hello" in recorded.read_text()
 
 
+# ---------------------------------------------------------------------------
+# --skip-hooks
+# ---------------------------------------------------------------------------
+
 def test_skip_hooks_suppresses_all_hooks(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["after_setup"]\nafter_activate = ["after_activate"]\n')
-    write_hook(repo, "after_setup", f'#!/bin/sh\ntouch {_marker(repo, "setup_ran")}\n')
-    write_hook(repo, "after_activate", f'#!/bin/sh\ntouch {_marker(repo, "activate_ran")}\n')
+    write_manifest(
+        repo,
+        '[hooks]\non_setup = ["on_setup"]\non_activate = ["on_activate"]\non_attach = ["on_attach"]\n',
+    )
+    write_hook(repo, "on_setup", f'#!/bin/sh\ntouch {_marker(repo, "setup_ran")}\n')
+    write_hook(repo, "on_activate", f'#!/bin/sh\ntouch {_marker(repo, "activate_ran")}\n')
+    write_hook(repo, "on_attach", f'#!/bin/sh\ntouch {_marker(repo, "attach_ran")}\n')
 
     run("up", "feat/nohooks", "-r", str(repo), "--skip-hooks")
 
     assert not _marker(repo, "setup_ran").exists()
     assert not _marker(repo, "activate_ran").exists()
+    assert not _marker(repo, "attach_ran").exists()

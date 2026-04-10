@@ -41,18 +41,16 @@ class Hooks:
 
     Available hooks:
 
-    - after_setup: executed after a worktree is created or rebuilt
-    - before_activate: executed before activating a worktree
-    - after_activate: executed after activating a worktree
-    - before_remove: executed before removing a worktree
-    - after_remove: executed after removing a worktree
+    - on_setup: executed after a worktree is created or rebuilt (also on reset)
+    - on_activate: executed on every up invocation (attached and detached)
+    - on_attach: executed only when up runs in attached mode
+    - on_remove: executed when a worktree is removed
     """
 
-    after_setup: list[str] = field(default_factory=list)
-    before_activate: list[str] = field(default_factory=list)
-    after_activate: list[str] = field(default_factory=list)
-    before_remove: list[str] = field(default_factory=list)
-    after_remove: list[str] = field(default_factory=list)
+    on_setup: list[str] = field(default_factory=list)
+    on_activate: list[str] = field(default_factory=list)
+    on_attach: list[str] = field(default_factory=list)
+    on_remove: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -127,11 +125,10 @@ def read_manifest(path: Path) -> Manifest:
 
     hooks_data = data.get("hooks", {})
     hooks = Hooks(
-        after_setup=hooks_data.get("after_setup", []),
-        before_activate=hooks_data.get("before_activate", []),
-        after_activate=hooks_data.get("after_activate", []),
-        before_remove=hooks_data.get("before_remove", []),
-        after_remove=hooks_data.get("after_remove", []),
+        on_setup=hooks_data.get("on_setup", []),
+        on_activate=hooks_data.get("on_activate", []),
+        on_attach=hooks_data.get("on_attach", []),
+        on_remove=hooks_data.get("on_remove", []),
     )
 
     links = [

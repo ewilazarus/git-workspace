@@ -23,12 +23,10 @@ def _executables(mock_subprocess: MagicMock) -> list[str]:
     return [call.args[0][0] for call in mock_subprocess.call_args_list]
 
 
-# --- run_before_remove_hooks ---
+def test_on_remove_runs_configured_hooks(mock_subprocess: MagicMock) -> None:
+    hooks = Hooks(on_remove=["teardown.sh", "notify.sh"])
 
-def test_before_remove_runs_configured_hooks(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(before_remove=["teardown.sh", "notify.sh"])
-
-    workspace.run_before_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH)
+    workspace.run_on_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH)
 
     assert _executables(mock_subprocess) == [
         str(BIN_PATH / "teardown.sh"),
@@ -36,64 +34,32 @@ def test_before_remove_runs_configured_hooks(mock_subprocess: MagicMock) -> None
     ]
 
 
-def test_before_remove_skips_when_skip_hooks_is_true(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(before_remove=["teardown.sh"])
+def test_on_remove_skips_when_skip_hooks_is_true(mock_subprocess: MagicMock) -> None:
+    hooks = Hooks(on_remove=["teardown.sh"])
 
-    workspace.run_before_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH, skip_hooks=True)
+    workspace.run_on_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH, skip_hooks=True)
 
     mock_subprocess.assert_not_called()
 
 
-def test_before_remove_hook_failure_raises_error(mock_subprocess: MagicMock) -> None:
+def test_on_remove_hook_failure_raises_error(mock_subprocess: MagicMock) -> None:
     mock_subprocess.return_value = MagicMock(returncode=1)
-    hooks = Hooks(before_remove=["teardown.sh"])
+    hooks = Hooks(on_remove=["teardown.sh"])
 
     with pytest.raises(HookExecutionError):
-        workspace.run_before_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH)
+        workspace.run_on_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH)
 
 
-def test_before_remove_no_hooks_runs_nothing(mock_subprocess: MagicMock) -> None:
-    workspace.run_before_remove_hooks(ROOT, WORKTREE_PATH, Hooks(), branch=BRANCH)
-
-    mock_subprocess.assert_not_called()
-
-
-# --- run_after_remove_hooks ---
-
-def test_after_remove_runs_configured_hooks(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(after_remove=["cleanup.sh"])
-
-    workspace.run_after_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH)
-
-    assert _executables(mock_subprocess) == [str(BIN_PATH / "cleanup.sh")]
-
-
-def test_after_remove_skips_when_skip_hooks_is_true(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(after_remove=["cleanup.sh"])
-
-    workspace.run_after_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH, skip_hooks=True)
+def test_on_remove_no_hooks_runs_nothing(mock_subprocess: MagicMock) -> None:
+    workspace.run_on_remove_hooks(ROOT, WORKTREE_PATH, Hooks(), branch=BRANCH)
 
     mock_subprocess.assert_not_called()
 
 
-def test_after_remove_hook_failure_raises_error(mock_subprocess: MagicMock) -> None:
-    mock_subprocess.return_value = MagicMock(returncode=1)
-    hooks = Hooks(after_remove=["cleanup.sh"])
+def test_on_remove_hooks_execute_in_configured_order(mock_subprocess: MagicMock) -> None:
+    hooks = Hooks(on_remove=["first.sh", "second.sh", "third.sh"])
 
-    with pytest.raises(HookExecutionError):
-        workspace.run_after_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH)
-
-
-def test_after_remove_no_hooks_runs_nothing(mock_subprocess: MagicMock) -> None:
-    workspace.run_after_remove_hooks(ROOT, WORKTREE_PATH, Hooks(), branch=BRANCH)
-
-    mock_subprocess.assert_not_called()
-
-
-def test_after_remove_hooks_execute_in_configured_order(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(after_remove=["first.sh", "second.sh", "third.sh"])
-
-    workspace.run_after_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH)
+    workspace.run_on_remove_hooks(ROOT, WORKTREE_PATH, hooks, branch=BRANCH)
 
     assert _executables(mock_subprocess) == [
         str(BIN_PATH / "first.sh"),

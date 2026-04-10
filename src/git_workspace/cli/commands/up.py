@@ -38,7 +38,7 @@ def up(
         typer.Option(
             "-b",
             "--base",
-            help="The base branch to use when creating a new branch. If omitted, defaults to the base branch defined in the workspace manifesto",
+            help="The base branch to use when creating a new branch. If omitted, defaults to the base branch defined in the workspace manifest",
         ),
     ] = None,
     root: Annotated[
@@ -58,10 +58,22 @@ def up(
             callback=parse_vars,
         ),
     ] = None,
+    attached: Annotated[
+        bool,
+        typer.Option(
+            "--attached/--detached",
+            "-a/-d",
+            help=(
+                "Control whether on_attach hooks run after activation. "
+                "--attached (default) runs on_attach hooks, intended for interactive sessions. "
+                "--detached skips on_attach hooks, suitable for headless or agent workflows."
+            ),
+        ),
+    ] = True,
     skip_hooks: Annotated[
         bool,
         typer.Option(
-            help="Skip execution of workspace hooks",
+            help="Skip execution of all workspace hooks",
         ),
     ] = False,
     json_output: Annotated[
@@ -76,11 +88,13 @@ def up(
     """
     Open a worktree, setting it up first if needed.
 
-    Ensures that a worktree exists for the target branch and then performs lightweight actions to enter or resume working in that workspace (for example, opening a session, editor, or environment).
+    Ensures that a worktree exists for the target branch and then performs
+    lightweight actions to enter or resume working in that workspace.
 
-    If the worktree does not exist, setup is executed first. If it already exists, only the lightweight activation steps are performed.
-
-    This is the primary command for day-to-day usage.
+    If the worktree does not exist, on_setup hooks run first. On every
+    invocation, on_activate hooks run. In attached mode (default),
+    on_attach hooks also run — use --detached to suppress them for
+    headless or automated workflows.
     """
     try:
         root_path = workspace.resolve_root_path(root)
@@ -131,25 +145,21 @@ def up(
     non_override_targets = [link.target for link in manifest.links if not link.override]
     workspace.sync_exclude_block(result.path, non_override_targets)
 
+    hook_kwargs = dict(
+        root=root_path,
+        worktree_result=result,
+        hooks=manifest.hooks,
+        branch=branch,
+        manifest_vars=manifest.vars,
+        user_vars=user_vars,
+        skip_hooks=skip_hooks,
+    )
+
     try:
-        workspace.run_setup_hooks(
-            root=root_path,
-            worktree_result=result,
-            hooks=manifest.hooks,
-            branch=branch,
-            manifest_vars=manifest.vars,
-            user_vars=user_vars,
-            skip_hooks=skip_hooks,
-        )
-        workspace.run_activation_hooks(
-            root=root_path,
-            worktree_result=result,
-            hooks=manifest.hooks,
-            branch=branch,
-            manifest_vars=manifest.vars,
-            user_vars=user_vars,
-            skip_hooks=skip_hooks,
-        )
+        workspace.run_on_setup_hooks(**hook_kwargs)
+        workspace.run_on_activate_hooks(**hook_kwargs)
+        if attached:
+            workspace.run_on_attach_hooks(**hook_kwargs)
     except HookExecutionError as e:
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
@@ -161,6 +171,7 @@ def up(
                     "branch": branch,
                     "path": str(result.path),
                     "is_new": result.is_new,
+                    "attached": attached,
                 }
             )
         )

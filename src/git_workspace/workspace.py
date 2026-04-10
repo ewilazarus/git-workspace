@@ -261,7 +261,7 @@ def _run_hooks(
         log.debug("Hook succeeded", hook=hook_name)
 
 
-def run_setup_hooks(
+def run_on_setup_hooks(
     root: Path,
     worktree_result: WorktreeResult,
     hooks: Hooks,
@@ -271,10 +271,9 @@ def run_setup_hooks(
     skip_hooks: bool = False,
 ) -> None:
     """
-    Runs after_setup hooks for newly created worktrees
+    Runs on_setup hooks for newly created worktrees.
 
-    Setup hooks are skipped when resuming an existing worktree or when
-    skip_hooks is True. Core setup logic is not affected by skip_hooks.
+    Skipped when resuming an existing worktree or when skip_hooks is True.
 
     :param root: The workspace root path
     :param worktree_result: The result of the worktree creation/resume step
@@ -288,31 +287,30 @@ def run_setup_hooks(
     log = logger.bind(branch=branch, worktree=worktree_result.path)
 
     if not worktree_result.is_new:
-        log.debug("Skipping setup hooks: worktree already exists")
+        log.debug("Skipping on_setup hooks: worktree already exists")
         return
     if skip_hooks:
-        log.debug("Skipping setup hooks: skip_hooks=True")
+        log.debug("Skipping on_setup hooks: skip_hooks=True")
         return
 
-    log.debug("Running setup hooks")
-    env = build_hook_env(
-        branch=branch,
-        root=root,
-        worktree_path=worktree_result.path,
-        event="after_setup",
-        manifest_vars=manifest_vars,
-        user_vars=user_vars,
-    )
+    log.debug("Running on_setup hooks")
     _run_hooks(
         bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.after_setup,
+        hook_names=hooks.on_setup,
         cwd=worktree_result.path,
-        env=env,
+        env=build_hook_env(
+            branch=branch,
+            root=root,
+            worktree_path=worktree_result.path,
+            event="on_setup",
+            manifest_vars=manifest_vars,
+            user_vars=user_vars,
+        ),
     )
-    log.debug("Setup hooks completed")
+    log.debug("on_setup hooks completed")
 
 
-def run_activation_hooks(
+def run_on_activate_hooks(
     root: Path,
     worktree_result: WorktreeResult,
     hooks: Hooks,
@@ -322,11 +320,9 @@ def run_activation_hooks(
     skip_hooks: bool = False,
 ) -> None:
     """
-    Runs before_activate and after_activate hooks for all up flows
+    Runs on_activate hooks on every up invocation (new and resumed).
 
-    Activation hooks run regardless of whether the worktree is new or resumed.
-    They are suppressed only when skip_hooks is True. before_activate runs
-    before the worktree is entered; after_activate runs after.
+    Suppressed only when skip_hooks is True.
 
     :param root: The workspace root path
     :param worktree_result: The result of the worktree creation/resume step
@@ -340,42 +336,70 @@ def run_activation_hooks(
     log = logger.bind(branch=branch, worktree=worktree_result.path)
 
     if skip_hooks:
-        log.debug("Skipping activation hooks: skip_hooks=True")
+        log.debug("Skipping on_activate hooks: skip_hooks=True")
         return
 
-    bin_path = root / ".workspace" / "bin"
-    cwd = worktree_result.path
-
-    log.debug("Running before_activate hooks")
+    log.debug("Running on_activate hooks")
     _run_hooks(
-        bin_path=bin_path,
-        hook_names=hooks.before_activate,
-        cwd=cwd,
+        bin_path=root / ".workspace" / "bin",
+        hook_names=hooks.on_activate,
+        cwd=worktree_result.path,
         env=build_hook_env(
             branch=branch,
             root=root,
-            worktree_path=cwd,
-            event="before_activate",
+            worktree_path=worktree_result.path,
+            event="on_activate",
             manifest_vars=manifest_vars,
             user_vars=user_vars,
         ),
     )
+    log.debug("on_activate hooks completed")
 
-    log.debug("Running after_activate hooks")
+
+def run_on_attach_hooks(
+    root: Path,
+    worktree_result: WorktreeResult,
+    hooks: Hooks,
+    branch: str,
+    manifest_vars: dict[str, str] | None = None,
+    user_vars: dict[str, str] | None = None,
+    skip_hooks: bool = False,
+) -> None:
+    """
+    Runs on_attach hooks when up is invoked in attached mode.
+
+    Not called in detached mode. Suppressed by skip_hooks.
+
+    :param root: The workspace root path
+    :param worktree_result: The result of the worktree creation/resume step
+    :param hooks: The hooks configuration from the manifest
+    :param branch: The target branch name, injected into hook environment
+    :param manifest_vars: Variables from the manifest, exposed to hooks
+    :param user_vars: CLI variables, override manifest vars
+    :param skip_hooks: If True, suppresses hook execution
+    :raises HookExecutionError: If any hook exits with a non-zero status
+    """
+    log = logger.bind(branch=branch, worktree=worktree_result.path)
+
+    if skip_hooks:
+        log.debug("Skipping on_attach hooks: skip_hooks=True")
+        return
+
+    log.debug("Running on_attach hooks")
     _run_hooks(
-        bin_path=bin_path,
-        hook_names=hooks.after_activate,
-        cwd=cwd,
+        bin_path=root / ".workspace" / "bin",
+        hook_names=hooks.on_attach,
+        cwd=worktree_result.path,
         env=build_hook_env(
             branch=branch,
             root=root,
-            worktree_path=cwd,
-            event="after_activate",
+            worktree_path=worktree_result.path,
+            event="on_attach",
             manifest_vars=manifest_vars,
             user_vars=user_vars,
         ),
     )
-    log.debug("Activation hooks completed")
+    log.debug("on_attach hooks completed")
 
 
 def apply_links(root: Path, worktree_path: Path, links: list[Link]) -> None:
@@ -505,7 +529,7 @@ def find_worktree_path(branch: str, cwd: Path | None = None) -> Path:
     return matching.path
 
 
-def run_reset_hooks(
+def run_on_setup_hooks_for_reset(
     root: Path,
     worktree_path: Path,
     hooks: Hooks,
@@ -515,10 +539,10 @@ def run_reset_hooks(
     skip_hooks: bool = False,
 ) -> None:
     """
-    Runs after_setup hooks unconditionally for the reset command.
+    Runs on_setup hooks unconditionally for the reset command.
 
-    Unlike run_setup_hooks, this always executes hooks regardless of whether
-    the worktree is new or existing.
+    Unlike run_on_setup_hooks, this always executes regardless of whether
+    the worktree is new or existing, since reset re-applies workspace state.
 
     :param root: The workspace root path
     :param worktree_path: The worktree root path
@@ -532,25 +556,24 @@ def run_reset_hooks(
     log = logger.bind(branch=branch, worktree=str(worktree_path))
 
     if skip_hooks:
-        log.debug("Skipping reset hooks: skip_hooks=True")
+        log.debug("Skipping on_setup hooks (reset): skip_hooks=True")
         return
 
-    log.debug("Running reset hooks")
-    env = build_hook_env(
-        branch=branch,
-        root=root,
-        worktree_path=worktree_path,
-        event="after_reset",
-        manifest_vars=manifest_vars,
-        user_vars=user_vars,
-    )
+    log.debug("Running on_setup hooks (reset)")
     _run_hooks(
         bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.after_setup,
+        hook_names=hooks.on_setup,
         cwd=worktree_path,
-        env=env,
+        env=build_hook_env(
+            branch=branch,
+            root=root,
+            worktree_path=worktree_path,
+            event="on_setup",
+            manifest_vars=manifest_vars,
+            user_vars=user_vars,
+        ),
     )
-    log.debug("Reset hooks completed")
+    log.debug("on_setup hooks (reset) completed")
 
 
 def cleanup_empty_parent_dirs(path: Path, stop_at: Path) -> None:
@@ -574,7 +597,7 @@ def cleanup_empty_parent_dirs(path: Path, stop_at: Path) -> None:
         parent = parent.parent
 
 
-def run_before_remove_hooks(
+def run_on_remove_hooks(
     root: Path,
     worktree_path: Path,
     hooks: Hooks,
@@ -584,8 +607,9 @@ def run_before_remove_hooks(
     skip_hooks: bool = False,
 ) -> None:
     """
-    Runs before_remove hooks prior to worktree deletion.
+    Runs on_remove hooks when a worktree is removed.
 
+    Runs before the worktree is deleted so the hook can inspect its state.
     Hook failures abort removal — the worktree is not touched.
 
     :param root: The workspace root path
@@ -600,68 +624,24 @@ def run_before_remove_hooks(
     log = logger.bind(branch=branch, worktree=str(worktree_path))
 
     if skip_hooks:
-        log.debug("Skipping before_remove hooks: skip_hooks=True")
+        log.debug("Skipping on_remove hooks: skip_hooks=True")
         return
 
-    log.debug("Running before_remove hooks")
+    log.debug("Running on_remove hooks")
     _run_hooks(
         bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.before_remove,
+        hook_names=hooks.on_remove,
         cwd=worktree_path,
         env=build_hook_env(
             branch=branch,
             root=root,
             worktree_path=worktree_path,
-            event="before_remove",
+            event="on_remove",
             manifest_vars=manifest_vars,
             user_vars=user_vars,
         ),
     )
-    log.debug("before_remove hooks completed")
-
-
-def run_after_remove_hooks(
-    root: Path,
-    worktree_path: Path,
-    hooks: Hooks,
-    branch: str,
-    manifest_vars: dict[str, str] | None = None,
-    user_vars: dict[str, str] | None = None,
-    skip_hooks: bool = False,
-) -> None:
-    """
-    Runs after_remove hooks following successful worktree deletion.
-
-    :param root: The workspace root path
-    :param worktree_path: The (now deleted) worktree path, passed to hooks for context
-    :param hooks: The hooks configuration from the manifest
-    :param branch: The target branch name, injected into hook environment
-    :param manifest_vars: Variables from the manifest, exposed to hooks
-    :param user_vars: CLI variables, override manifest vars
-    :param skip_hooks: If True, suppresses hook execution
-    :raises HookExecutionError: If any hook exits with a non-zero status
-    """
-    log = logger.bind(branch=branch, worktree=str(worktree_path))
-
-    if skip_hooks:
-        log.debug("Skipping after_remove hooks: skip_hooks=True")
-        return
-
-    log.debug("Running after_remove hooks")
-    _run_hooks(
-        bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.after_remove,
-        cwd=root,
-        env=build_hook_env(
-            branch=branch,
-            root=root,
-            worktree_path=worktree_path,
-            event="after_remove",
-            manifest_vars=manifest_vars,
-            user_vars=user_vars,
-        ),
-    )
-    log.debug("after_remove hooks completed")
+    log.debug("on_remove hooks completed")
 
 
 def create(

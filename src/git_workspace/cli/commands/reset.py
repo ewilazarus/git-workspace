@@ -91,7 +91,7 @@ def reset(
     workspace.sync_exclude_block(worktree_path, non_override_targets)
 
     try:
-        workspace.run_reset_hooks(
+        workspace.run_on_setup_hooks_for_reset(
             root=root_path,
             worktree_path=worktree_path,
             hooks=manifest.hooks,

@@ -62,8 +62,8 @@ def test_fails_for_nonexistent_worktree(repo: Path) -> None:
     assert "feat/ghost" in result.stderr
 
 
-def test_executes_remove_hooks(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nbefore_remove = ["mark_remove"]\n')
+def test_executes_on_remove_hooks(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_remove = ["mark_remove"]\n')
     marker = repo / ".workspace" / "removed"
     write_hook(repo, "mark_remove", f'#!/bin/sh\ntouch {marker}\n')
 
@@ -74,8 +74,8 @@ def test_executes_remove_hooks(repo: Path) -> None:
     assert marker.exists()
 
 
-def test_skip_hooks_prevents_remove_hooks(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nbefore_remove = ["mark_remove"]\n')
+def test_skip_hooks_prevents_on_remove_hooks(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_remove = ["mark_remove"]\n')
     marker = repo / ".workspace" / "removed"
     write_hook(repo, "mark_remove", f'#!/bin/sh\ntouch {marker}\n')
 

@@ -28,8 +28,8 @@ def test_reapplies_links(repo: Path) -> None:
     assert link_target.exists() or link_target.is_symlink()
 
 
-def test_reruns_reset_hooks(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["mark_reset"]\n')
+def test_reruns_on_setup_hooks(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_setup = ["mark_reset"]\n')
     marker = repo / ".workspace" / "reset_count"
     write_hook(repo, "mark_reset", f'#!/bin/sh\necho x >> {marker}\n')
 
@@ -41,7 +41,7 @@ def test_reruns_reset_hooks(repo: Path) -> None:
 
 
 def test_skip_hooks_prevents_hook_execution(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["mark_reset"]\n')
+    write_manifest(repo, '[hooks]\non_setup = ["mark_reset"]\n')
     marker = repo / ".workspace" / "reset_count"
     write_hook(repo, "mark_reset", f'#!/bin/sh\necho x >> {marker}\n')
 

@@ -38,8 +38,8 @@ def test_outputs_worktree_path(repo: Path) -> None:
     assert str(repo / "feat" / "new") in result.stdout
 
 
-def test_runs_setup_hooks_on_first_creation(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["mark_setup"]\n')
+def test_runs_on_setup_hooks_on_first_creation(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_setup = ["mark_setup"]\n')
     write_hook(repo, "mark_setup", "#!/bin/sh\ntouch $GIT_WORKSPACE_WORKTREE/setup_ran\n")
 
     run("up", "feat/new", "-r", str(repo))
@@ -47,8 +47,8 @@ def test_runs_setup_hooks_on_first_creation(repo: Path) -> None:
     assert (repo / "feat" / "new" / "setup_ran").exists()
 
 
-def test_does_not_run_setup_hooks_on_resume(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["mark_setup"]\n')
+def test_does_not_run_on_setup_hooks_on_resume(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_setup = ["mark_setup"]\n')
     marker = repo / ".workspace" / "setup_count"
 
     write_hook(
@@ -61,11 +61,11 @@ def test_does_not_run_setup_hooks_on_resume(repo: Path) -> None:
     run("up", "feat/resume", "-r", str(repo))
 
     count = len(marker.read_text().strip().splitlines()) if marker.exists() else 0
-    assert count == 1, f"Expected setup to run once, ran {count} times"
+    assert count == 1, f"Expected on_setup to run once, ran {count} times"
 
 
-def test_runs_activation_hooks_on_every_invocation(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_activate = ["mark_activate"]\n')
+def test_runs_on_activate_hooks_on_every_invocation(repo: Path) -> None:
+    write_manifest(repo, '[hooks]\non_activate = ["mark_activate"]\n')
     marker = repo / ".workspace" / "activate_count"
 
     write_hook(
@@ -78,11 +78,11 @@ def test_runs_activation_hooks_on_every_invocation(repo: Path) -> None:
     run("up", "feat/hooks", "-r", str(repo))
 
     count = len(marker.read_text().strip().splitlines()) if marker.exists() else 0
-    assert count == 2, f"Expected activation to run twice, ran {count} times"
+    assert count == 2, f"Expected on_activate to run twice, ran {count} times"
 
 
 def test_skip_hooks_prevents_hook_execution(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\nafter_setup = ["mark_setup"]\n')
+    write_manifest(repo, '[hooks]\non_setup = ["mark_setup"]\n')
     write_hook(repo, "mark_setup", "#!/bin/sh\ntouch $GIT_WORKSPACE_WORKTREE/setup_ran\n")
 
     run("up", "feat/new", "-r", str(repo), "--skip-hooks")

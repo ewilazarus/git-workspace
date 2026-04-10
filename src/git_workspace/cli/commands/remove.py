@@ -100,7 +100,7 @@ def remove(
     user_vars: dict[str, str] = dict(vars) if vars else {}  # type: ignore
 
     try:
-        workspace.run_before_remove_hooks(
+        workspace.run_on_remove_hooks(
             root=root_path,
             worktree_path=worktree_path,
             hooks=manifest.hooks,
@@ -120,20 +120,6 @@ def remove(
         raise typer.Exit(1)
 
     workspace.cleanup_empty_parent_dirs(worktree_path, stop_at=root_path)
-
-    try:
-        workspace.run_after_remove_hooks(
-            root=root_path,
-            worktree_path=worktree_path,
-            hooks=manifest.hooks,
-            branch=branch,
-            manifest_vars=manifest.vars,
-            user_vars=user_vars,
-            skip_hooks=skip_hooks,
-        )
-    except HookExecutionError as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
 
     if user_in_worktree:
         typer.echo(str(root_path))

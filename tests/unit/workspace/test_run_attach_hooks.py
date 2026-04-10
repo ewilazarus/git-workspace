@@ -27,21 +27,26 @@ def _executables(mock_subprocess: MagicMock) -> list[str]:
     return [call.args[0][0] for call in mock_subprocess.call_args_list]
 
 
-def test_runs_on_setup_hooks_for_new_worktree(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(on_setup=["install.sh", "configure.sh"])
+def test_runs_on_attach_for_new_worktree(mock_subprocess: MagicMock) -> None:
+    hooks = Hooks(on_attach=["attach.sh"])
 
-    workspace.run_on_setup_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
+    workspace.run_on_attach_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
 
-    assert _executables(mock_subprocess) == [
-        str(BIN_PATH / "install.sh"),
-        str(BIN_PATH / "configure.sh"),
-    ]
+    assert _executables(mock_subprocess) == [str(BIN_PATH / "attach.sh")]
+
+
+def test_runs_on_attach_for_existing_worktree(mock_subprocess: MagicMock) -> None:
+    hooks = Hooks(on_attach=["attach.sh"])
+
+    workspace.run_on_attach_hooks(ROOT, EXISTING_RESULT, hooks, branch=BRANCH)
+
+    assert _executables(mock_subprocess) == [str(BIN_PATH / "attach.sh")]
 
 
 def test_hooks_execute_in_configured_order(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(on_setup=["first.sh", "second.sh", "third.sh"])
+    hooks = Hooks(on_attach=["first.sh", "second.sh", "third.sh"])
 
-    workspace.run_on_setup_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
+    workspace.run_on_attach_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
 
     assert _executables(mock_subprocess) == [
         str(BIN_PATH / "first.sh"),
@@ -50,41 +55,23 @@ def test_hooks_execute_in_configured_order(mock_subprocess: MagicMock) -> None:
     ]
 
 
-def test_skips_hooks_when_resuming_existing_worktree(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(on_setup=["install.sh"])
-
-    workspace.run_on_setup_hooks(ROOT, EXISTING_RESULT, hooks, branch=BRANCH)
-
-    mock_subprocess.assert_not_called()
-
-
 def test_skips_hooks_when_skip_hooks_is_true(mock_subprocess: MagicMock) -> None:
-    hooks = Hooks(on_setup=["install.sh"])
+    hooks = Hooks(on_attach=["attach.sh"])
 
-    workspace.run_on_setup_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH, skip_hooks=True)
+    workspace.run_on_attach_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH, skip_hooks=True)
 
     mock_subprocess.assert_not_called()
 
 
 def test_hook_failure_raises_hook_execution_error(mock_subprocess: MagicMock) -> None:
     mock_subprocess.return_value = MagicMock(returncode=1)
-    hooks = Hooks(on_setup=["install.sh"])
+    hooks = Hooks(on_attach=["attach.sh"])
 
     with pytest.raises(HookExecutionError):
-        workspace.run_on_setup_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
-
-
-def test_hook_failure_stops_execution(mock_subprocess: MagicMock) -> None:
-    mock_subprocess.side_effect = [MagicMock(returncode=1), MagicMock(returncode=0)]
-    hooks = Hooks(on_setup=["fails.sh", "never_runs.sh"])
-
-    with pytest.raises(HookExecutionError):
-        workspace.run_on_setup_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
-
-    assert mock_subprocess.call_count == 1
+        workspace.run_on_attach_hooks(ROOT, NEW_RESULT, hooks, branch=BRANCH)
 
 
 def test_no_hooks_configured_runs_nothing(mock_subprocess: MagicMock) -> None:
-    workspace.run_on_setup_hooks(ROOT, NEW_RESULT, Hooks(), branch=BRANCH)
+    workspace.run_on_attach_hooks(ROOT, NEW_RESULT, Hooks(), branch=BRANCH)
 
     mock_subprocess.assert_not_called()
