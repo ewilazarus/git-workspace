@@ -58,11 +58,10 @@ def down(
     ] = False,
 ) -> None:
     """
-    Deactivate a worktree, running on_deactivate hooks.
+    Deactivate a workspace worktree.
 
-    Runs on_deactivate hooks for the target branch without removing the
-    worktree. Intended for use when leaving a workspace session cleanly,
-    allowing hooks to tear down any session-specific state.
+    Intended for use when leaving a workspace session cleanly, allowing
+    any session-specific state to be torn down.
     """
     try:
         root_path = workspace.resolve_root_path(root)
