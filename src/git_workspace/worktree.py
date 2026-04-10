@@ -5,6 +5,7 @@ from pathlib import Path
 
 from git_workspace import git
 from git_workspace.errors import WorktreeCreationError  # noqa: F401 — re-exported for callers
+from git_workspace.manifest import Manifest
 
 import structlog
 
@@ -286,3 +287,109 @@ def list_worktrees(root: Path, current_cwd: Path | None = None) -> list[Worktree
     worktrees_list.sort(key=lambda wt: (not wt.current, str(wt.path)))
 
     return worktrees_list
+
+
+@dataclass
+class PruneCandidate:
+    """A worktree eligible for pruning."""
+
+    path: Path
+    branch: str | None
+    age_days: int | None
+
+
+def resolve_prune_threshold(
+    explicit: int | None = None,
+    manifest: Manifest | None = None,
+) -> int | None:
+    """
+    Resolves the prune threshold in days.
+
+    Resolution order:
+    1. Explicit value from CLI (e.g. --older-than-days)
+    2. Threshold from workspace manifest
+    3. No threshold (None)
+
+    :param explicit: Age threshold explicitly provided by the user
+    :param manifest: The workspace manifest
+    :returns: The age threshold in days, or None if not specified
+    :raises ValueError: If the threshold is invalid (negative or non-integer)
+    """
+    if explicit is not None:
+        if explicit < 0:
+            raise ValueError("older-than-days must be non-negative")
+        return explicit
+    if manifest and manifest.prune and manifest.prune.older_than_days is not None:
+        threshold = manifest.prune.older_than_days
+        if threshold < 0:
+            raise ValueError("older-than-days in manifest must be non-negative")
+        return threshold
+    return None
+
+
+def select_prune_candidates(
+    worktrees: list[WorktreeInfo],
+    threshold_days: int | None,
+    exclude_branches: list[str] | None = None,
+) -> list[PruneCandidate]:
+    """
+    Selects worktrees eligible for pruning based on age and exclusion rules.
+
+    A worktree is a candidate if:
+    - Its age (in days) exceeds the threshold
+    - Its branch is not in the exclusion list
+    - It has a valid age (age_days is not None)
+
+    :param worktrees: List of enriched worktree records
+    :param threshold_days: Age threshold in days (None means no threshold)
+    :param exclude_branches: Branch names that should never be pruned
+    :returns: List of PruneCandidate records sorted by age descending
+    """
+    if exclude_branches is None:
+        exclude_branches = []
+
+    log = logger.bind(threshold=threshold_days, exclude_branches=exclude_branches)
+    log.debug("Selecting prune candidates")
+
+    candidates = []
+    for wt in worktrees:
+        # Skip worktrees with invalid age
+        if wt.age_days is None:
+            log.debug("Skipping worktree with unknown age", path=str(wt.path))
+            continue
+
+        # Skip excluded branches
+        if wt.branch in exclude_branches:
+            log.debug(
+                "Skipping excluded branch",
+                path=str(wt.path),
+                branch=wt.branch,
+            )
+            continue
+
+        # Skip current worktree
+        if wt.current:
+            log.debug("Skipping current worktree", path=str(wt.path))
+            continue
+
+        # Check age threshold
+        if threshold_days is None or wt.age_days >= threshold_days:
+            candidates.append(
+                PruneCandidate(
+                    path=wt.path,
+                    branch=wt.branch,
+                    age_days=wt.age_days,
+                )
+            )
+            log.debug(
+                "Added candidate",
+                path=str(wt.path),
+                branch=wt.branch,
+                age_days=wt.age_days,
+            )
+
+    # Sort by age descending
+    candidates.sort(key=lambda c: c.age_days or 0, reverse=True)
+
+    log.debug("Selected candidates", count=len(candidates))
+    return candidates
