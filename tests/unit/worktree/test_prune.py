@@ -47,9 +47,9 @@ def test_resolve_prune_threshold_explicit_overrides_manifest() -> None:
     assert result == 14
 
 
-def test_resolve_prune_threshold_none() -> None:
-    result = resolve_prune_threshold()
-    assert result is None
+def test_resolve_prune_threshold_none_raises() -> None:
+    with pytest.raises(ValueError, match="prune requires an age threshold"):
+        resolve_prune_threshold()
 
 
 def test_resolve_prune_threshold_invalid_explicit() -> None:
@@ -146,16 +146,16 @@ def test_select_prune_candidates_skips_unknown_age() -> None:
     assert candidates == []
 
 
-def test_select_prune_candidates_no_threshold() -> None:
+def test_select_prune_candidates_exact_threshold() -> None:
     wt = WorktreeInfo(
         path=WORKTREE_1,
         branch="feat/001",
         head="abc123",
         short_id="abc1234",
         timestamp=TIMESTAMP,
-        age_days=1,
+        age_days=7,
     )
-    candidates = select_prune_candidates([wt], threshold_days=None)
+    candidates = select_prune_candidates([wt], threshold_days=7)
     assert len(candidates) == 1
 
 

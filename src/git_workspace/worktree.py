@@ -301,19 +301,19 @@ class PruneCandidate:
 def resolve_prune_threshold(
     explicit: int | None = None,
     manifest: Manifest | None = None,
-) -> int | None:
+) -> int:
     """
     Resolves the prune threshold in days.
 
     Resolution order:
     1. Explicit value from CLI (e.g. --older-than-days)
-    2. Threshold from workspace manifest
-    3. No threshold (None)
+    2. Threshold from workspace manifest [prune].older_than_days
+    3. Error if neither is provided
 
     :param explicit: Age threshold explicitly provided by the user
     :param manifest: The workspace manifest
-    :returns: The age threshold in days, or None if not specified
-    :raises ValueError: If the threshold is invalid (negative or non-integer)
+    :returns: The age threshold in days
+    :raises ValueError: If no threshold is provided or if the threshold is invalid (negative)
     """
     if explicit is not None:
         if explicit < 0:
@@ -324,24 +324,27 @@ def resolve_prune_threshold(
         if threshold < 0:
             raise ValueError("older-than-days in manifest must be non-negative")
         return threshold
-    return None
+    raise ValueError(
+        "prune requires an age threshold. Provide --older-than-days or configure [prune].older_than_days in manifest.toml"
+    )
 
 
 def select_prune_candidates(
     worktrees: list[WorktreeInfo],
-    threshold_days: int | None,
+    threshold_days: int,
     exclude_branches: list[str] | None = None,
 ) -> list[PruneCandidate]:
     """
     Selects worktrees eligible for pruning based on age and exclusion rules.
 
     A worktree is a candidate if:
-    - Its age (in days) exceeds the threshold
+    - Its age (in days) is >= the threshold
     - Its branch is not in the exclusion list
     - It has a valid age (age_days is not None)
+    - It is not the current worktree
 
     :param worktrees: List of enriched worktree records
-    :param threshold_days: Age threshold in days (None means no threshold)
+    :param threshold_days: Age threshold in days (required)
     :param exclude_branches: Branch names that should never be pruned
     :returns: List of PruneCandidate records sorted by age descending
     """
@@ -373,7 +376,7 @@ def select_prune_candidates(
             continue
 
         # Check age threshold
-        if threshold_days is None or wt.age_days >= threshold_days:
+        if wt.age_days >= threshold_days:
             candidates.append(
                 PruneCandidate(
                     path=wt.path,
