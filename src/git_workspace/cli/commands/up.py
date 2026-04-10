@@ -58,7 +58,7 @@ def up(
             callback=parse_vars,
         ),
     ] = None,
-    attached: Annotated[
+    attach: Annotated[
         bool,
         typer.Option(
             "--attached/--detached",
@@ -131,7 +131,9 @@ def up(
             result = create_worktree_from_remote(root_path, branch, cwd=root_path)
         else:
             assert plan.base_branch is not None
-            result = create_worktree_from_base(root_path, branch, plan.base_branch, cwd=root_path)
+            result = create_worktree_from_base(
+                root_path, branch, plan.base_branch, cwd=root_path
+            )
     except WorktreeCreationError as e:
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
@@ -162,7 +164,7 @@ def up(
             user_vars=user_vars,
             skip_hooks=skip_hooks,
         )
-        if attached:
+        if attach:
             hooks.run_on_attach_hooks(
                 root=root_path,
                 worktree_path=result.path,
@@ -183,7 +185,7 @@ def up(
                     "branch": branch,
                     "path": str(result.path),
                     "is_new": result.is_new,
-                    "attached": attached,
+                    "attached": attach,
                 }
             )
         )
