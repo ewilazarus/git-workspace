@@ -224,9 +224,18 @@ def enrich_worktree(
     :param current_worktree: The current worktree path, if any
     :returns: Enriched WorktreeInfo
     """
+    log = logger.bind(path=str(worktree_meta.path), branch=worktree_meta.branch)
+
     branch = normalize_branch(worktree_meta.branch)
-    short_id = git.get_short_commit_id(worktree_meta.path)
-    timestamp = git.get_commit_timestamp(worktree_meta.path)
+
+    short_id = None
+    timestamp = None
+    if worktree_meta.path.exists():
+        short_id = git.get_short_commit_id(worktree_meta.path)
+        timestamp = git.get_commit_timestamp(worktree_meta.path)
+    else:
+        log.debug("Worktree path does not exist")
+
     age_days = compute_age(timestamp)
     is_current = worktree_meta.path == current_worktree
 

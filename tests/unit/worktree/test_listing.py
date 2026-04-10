@@ -58,13 +58,16 @@ def test_compute_age_handles_none() -> None:
 # --- enrich_worktree ---
 
 def test_enrich_worktree_basic(mocker: MockerFixture) -> None:
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_path.__eq__ = lambda self, other: False
+
     mocker.patch("git_workspace.git.get_short_commit_id", return_value="abc1234")
     mocker.patch("git_workspace.git.get_commit_timestamp", return_value=TIMESTAMP)
 
-    meta = WorktreeMetadata(path=WORKTREE_1, head="abc123", branch="refs/heads/feat/001")
+    meta = WorktreeMetadata(path=mock_path, head="abc123", branch="refs/heads/feat/001")
     result = worktree.enrich_worktree(meta)
 
-    assert result.path == WORKTREE_1
     assert result.branch == "feat/001"
     assert result.short_id == "abc1234"
     assert result.timestamp == TIMESTAMP
@@ -72,23 +75,50 @@ def test_enrich_worktree_basic(mocker: MockerFixture) -> None:
 
 
 def test_enrich_worktree_marks_current(mocker: MockerFixture) -> None:
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_path.__eq__ = lambda self, other: other is mock_path
+
     mocker.patch("git_workspace.git.get_short_commit_id", return_value="abc1234")
     mocker.patch("git_workspace.git.get_commit_timestamp", return_value=TIMESTAMP)
 
-    meta = WorktreeMetadata(path=WORKTREE_1, head="abc123", branch="refs/heads/feat/001")
-    result = worktree.enrich_worktree(meta, current_worktree=WORKTREE_1)
+    meta = WorktreeMetadata(path=mock_path, head="abc123", branch="refs/heads/feat/001")
+    result = worktree.enrich_worktree(meta, current_worktree=mock_path)
 
     assert result.current is True
 
 
 def test_enrich_worktree_detached_branch(mocker: MockerFixture) -> None:
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_path.__eq__ = lambda self, other: False
+
     mocker.patch("git_workspace.git.get_short_commit_id", return_value="abc1234")
     mocker.patch("git_workspace.git.get_commit_timestamp", return_value=TIMESTAMP)
 
-    meta = WorktreeMetadata(path=WORKTREE_1, head="abc123", branch=None)
+    meta = WorktreeMetadata(path=mock_path, head="abc123", branch=None)
     result = worktree.enrich_worktree(meta)
 
     assert result.branch is None
+
+
+def test_enrich_worktree_missing_path(mocker: MockerFixture) -> None:
+    mock_path = MagicMock()
+    mock_path.exists.return_value = False
+    mock_path.__eq__ = lambda self, other: False
+
+    get_short_commit_id_mock = mocker.patch("git_workspace.git.get_short_commit_id")
+    get_commit_timestamp_mock = mocker.patch("git_workspace.git.get_commit_timestamp")
+
+    meta = WorktreeMetadata(path=mock_path, head="abc123", branch="refs/heads/feat/001")
+    result = worktree.enrich_worktree(meta)
+
+    assert result.branch == "feat/001"
+    assert result.short_id is None
+    assert result.timestamp is None
+    assert result.age_days is None
+    get_short_commit_id_mock.assert_not_called()
+    get_commit_timestamp_mock.assert_not_called()
 
 
 # --- WorktreeInfo.age_display ---
