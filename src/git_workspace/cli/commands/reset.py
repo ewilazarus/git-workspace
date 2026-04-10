@@ -73,7 +73,7 @@ def reset(
             raise typer.Exit(1)
 
     try:
-        worktree_path = workspace.find_worktree_path(branch)
+        worktree_path = workspace.find_worktree_path(branch, cwd=root_path)
     except WorktreeNotFoundError as e:
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)

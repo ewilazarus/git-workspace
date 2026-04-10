@@ -481,18 +481,19 @@ def sync_exclude_block(worktree_path: Path, non_override_targets: list[str]) -> 
     log.debug("Exclude block synced", managed_entries=non_override_targets)
 
 
-def find_worktree_path(branch: str) -> Path:
+def find_worktree_path(branch: str, cwd: Path | None = None) -> Path:
     """
     Returns the path of an existing worktree for the given branch.
 
     :param branch: The branch name to look up
+    :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeNotFoundError: If no worktree exists for the branch
     :returns: The worktree path
     """
-    log = logger.bind(branch=branch)
+    log = logger.bind(branch=branch, cwd=str(cwd) if cwd else None)
     log.debug("Looking for existing worktree")
 
-    worktrees = git.list_worktrees_metadata()
+    worktrees = git.list_worktrees_metadata(cwd=cwd)
     matching = next((wt for wt in worktrees if wt.branch == branch), None)
 
     if matching is None:

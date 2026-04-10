@@ -76,4 +76,5 @@ def test_invokes_git_correctly(subprocess: MagicMock) -> None:
         ["git", "worktree", "list", "--porcelain"],
         capture_output=True,
         text=True,
+        cwd=None,
     )
