@@ -1,6 +1,7 @@
 import typer
 
 from git_workspace.cli.commands.clone import app as clone_command
+from git_workspace.cli.commands.down import app as down_command
 from git_workspace.cli.commands.edit import app as edit_command
 from git_workspace.cli.commands.init import app as init_command
 from git_workspace.cli.commands.list import app as list_command
@@ -20,6 +21,7 @@ The primary command is `up`, which opens a workspace for a branch, creating and 
 app = typer.Typer(help=HELP)
 
 app.add_typer(clone_command)
+app.add_typer(down_command)
 app.add_typer(edit_command)
 app.add_typer(init_command)
 app.add_typer(list_command)
