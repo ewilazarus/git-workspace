@@ -1,16 +1,20 @@
 #!/bin/bash
 
-# Runs before a workspace is removed.
+# Runs when a workspace is being removed.
 #
-# Use this hook to clean up resources tied to the workspace.
+# This hook is intended for final cleanup that should only happen when the
+# worktree is about to be deleted. It runs after `on_deactivate`, so any
+# interactive or runtime state should already be shut down.
+#
+# Keep this focused on removal-specific tasks. For general shutdown (services,
+# tmux, etc.), prefer `on_deactivate`.
 #
 # Common use cases:
-# - Stop containers or services
-# - Kill tmux sessions
-# - Remove temporary files or caches
+# - Remove workspace-specific temporary files or caches
+# - Clean up external resources tied to this workspace
+# - Log or notify that the workspace is being deleted
 #
 # Example:
-# docker compose down
-# tmux kill-session -t dev 2>/dev/null || true
+# rm -rf .cache/dev || true
 
 echo "Running on remove ..."
