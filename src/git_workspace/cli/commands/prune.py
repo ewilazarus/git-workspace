@@ -33,7 +33,7 @@ def prune(
         int | None,
         typer.Option(
             "--older-than-days",
-            help="Remove worktrees older than this many days. Takes precedence over manifest configuration",
+            help="Remove worktrees whose HEAD commit is older than this many days. Takes precedence over manifest configuration. Age is measured by commit timestamp, not worktree creation time.",
         ),
     ] = None,
     dry_run: Annotated[
@@ -54,15 +54,56 @@ def prune(
     ] = False,
 ) -> None:
     """
-    Remove stale workspace worktrees.
+    Remove stale workspace worktrees based on HEAD commit age.
 
-    Removes multiple worktrees that are considered stale based on workspace rules (for example, worktrees that are no longer referenced, inactive, or otherwise eligible for cleanup).
+    This command identifies and removes worktrees whose HEAD commit is older than
+    a specified threshold. It is intended to keep the workspace tidy by cleaning up
+    long-inactive branches.
 
-    This is a batch cleanup operation intended to keep the workspace tidy.
+    ## Dry-run by default
 
-    Use this when you want to clean up unused worktrees efficiently.
+    By default, this command is non-destructive and shows what would be removed
+    without actually removing anything. Run with --no-dry-run to apply removals.
 
-    By default, this command shows what would be removed (dry-run mode). Pass --no-dry-run to actually remove worktrees.
+    ## Age threshold
+
+    Age is based on the commit timestamp of each worktree's HEAD, not the worktree
+    creation time. The threshold can be configured via:
+
+    1. CLI --older-than-days flag (takes precedence)
+    2. manifest.toml [prune].older_than_days setting
+    3. Default: 30 days if neither is configured
+
+    ## Protected branches
+
+    Branches listed in manifest.toml [prune].exclude_branches are never pruned,
+    regardless of age. By default, no branches are protected.
+
+    ## What gets removed
+
+    This command removes only the WORKTREES, not the branches themselves. After
+    removal, the branches remain in the repository and can be checked out again.
+    The current worktree is also never removed automatically.
+
+    ## Output
+
+    - Dry-run mode: Lists worktrees that would be removed with their age and path
+    - Apply mode: Lists worktrees that were actually removed
+    - Failures are reported explicitly with reasons
+
+    ## Examples
+
+    Show what would be removed (dry-run):
+
+        git workspace prune
+
+    Remove worktrees inactive for 7+ days:
+
+        git workspace prune --older-than-days 7 --no-dry-run
+
+    Remove worktrees with a custom root:
+
+        git workspace prune --root /path/to/workspace --no-dry-run
     """
     # Resolve the workspace root
     try:
