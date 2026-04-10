@@ -72,12 +72,11 @@ def remove(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    if branch is None:
-        try:
-            branch = workspace.resolve_branch(root_path)
-        except UnableToResolveBranchError as e:
-            typer.echo(f"error: {e}", err=True)
-            raise typer.Exit(1)
+    try:
+        branch = branch or workspace.resolve_branch(root_path)
+    except UnableToResolveBranchError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
 
     try:
         worktree_path = workspace.find_worktree_path(branch, cwd=root_path)
