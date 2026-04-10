@@ -3,7 +3,8 @@ from typing import Annotated
 import typer
 
 from git_workspace import workspace
-from git_workspace.worktree import format_json, format_table, list_worktrees
+from git_workspace.utils import format_json, format_table
+from git_workspace.worktree import list_worktrees
 from git_workspace.errors import (
     InvalidWorkspaceRootError,
     UnableToResolveWorkspaceRootError,

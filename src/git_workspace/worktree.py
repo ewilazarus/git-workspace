@@ -158,7 +158,6 @@ def create_worktree_from_base(root: Path, branch: str, base: str) -> WorktreeRes
 
 # --- Worktree listing and formatting ---
 
-import json
 import time
 from dataclasses import dataclass
 
@@ -282,65 +281,5 @@ def list_worktrees(root: Path, current_cwd: Path | None = None) -> list[Worktree
     worktrees_list.sort(key=lambda wt: (not wt.current, str(wt.path)))
 
     return worktrees_list
-
-
-def format_table(worktrees_list: list[WorktreeInfo]) -> str:
-    """
-    Formats worktrees as a human-readable table.
-
-    :param worktrees_list: List of WorktreeInfo records
-    :returns: Formatted table string
-    """
-    if not worktrees_list:
-        return "No worktrees found."
-
-    rows = [("BRANCH", "AGE", "COMMIT", "PATH")]
-
-    for wt in worktrees_list:
-        marker = " *" if wt.current else ""
-        branch_col = (wt.branch or "detached") + marker
-        age_col = wt.age_display
-        commit_col = wt.short_id or "unknown"
-        path_col = str(wt.path)
-
-        rows.append((branch_col, age_col, commit_col, path_col))
-
-    col_widths = [
-        max(len(row[i]) for row in rows)
-        for i in range(len(rows[0]))
-    ]
-
-    lines = []
-    for i, row in enumerate(rows):
-        if i == 0:
-            line = "  ".join(f"{row[j]:<{col_widths[j]}}" for j in range(len(row)))
-            lines.append(line)
-            lines.append("  ".join("-" * col_widths[j] for j in range(len(row))))
-        else:
-            line = "  ".join(f"{row[j]:<{col_widths[j]}}" for j in range(len(row)))
-            lines.append(line)
-
-    return "\n".join(lines)
-
-
-def format_json(worktrees_list: list[WorktreeInfo]) -> str:
-    """
-    Formats worktrees as JSON.
-
-    :param worktrees_list: List of WorktreeInfo records
-    :returns: JSON string
-    """
-    data = [
-        {
-            "branch": wt.branch,
-            "path": str(wt.path),
-            "head": wt.head,
-            "short_id": wt.short_id,
-            "age_days": wt.age_days,
-            "current": wt.current,
-        }
-        for wt in worktrees_list
-    ]
-    return json.dumps(data, indent=2)
 
 

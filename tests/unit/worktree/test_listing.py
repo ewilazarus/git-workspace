@@ -6,6 +6,7 @@ from pytest_mock import MockerFixture
 
 from git_workspace import worktree
 from git_workspace.git import WorktreeMetadata
+from git_workspace.utils import format_json, format_table
 
 ROOT = Path("/workspace")
 WORKTREE_1 = ROOT / "feat" / "001"
@@ -152,7 +153,7 @@ def test_format_table_single_worktree() -> None:
         age_days=3,
     )
 
-    result = worktree.format_table([wt])
+    result = format_table([wt])
 
     assert "BRANCH" in result
     assert "feat/001" in result
@@ -171,13 +172,13 @@ def test_format_table_marks_current() -> None:
         current=True,
     )
 
-    result = worktree.format_table([wt])
+    result = format_table([wt])
 
     assert "*" in result
 
 
 def test_format_table_empty_list() -> None:
-    result = worktree.format_table([])
+    result = format_table([])
     assert "No worktrees found" in result
 
 
@@ -191,7 +192,7 @@ def test_format_table_detached_worktree() -> None:
         age_days=3,
     )
 
-    result = worktree.format_table([wt])
+    result = format_table([wt])
 
     assert "detached" in result
 
@@ -210,7 +211,7 @@ def test_format_json_single_worktree() -> None:
         age_days=3,
     )
 
-    result = worktree.format_json([wt])
+    result = format_json([wt])
     data = json.loads(result)
 
     assert len(data) == 1
@@ -223,7 +224,7 @@ def test_format_json_single_worktree() -> None:
 def test_format_json_empty_list() -> None:
     import json
 
-    result = worktree.format_json([])
+    result = format_json([])
     data = json.loads(result)
 
     assert data == []
