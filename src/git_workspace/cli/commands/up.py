@@ -74,7 +74,9 @@ def up(
     skip_hooks: Annotated[
         bool,
         typer.Option(
+            "--skip-hooks",
             help="Skip execution of all workspace hooks",
+            is_flag=True,
         ),
     ] = False,
     json_output: Annotated[

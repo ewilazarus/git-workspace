@@ -53,7 +53,9 @@ def remove(
     skip_hooks: Annotated[
         bool,
         typer.Option(
+            "--skip-hooks",
             help="Skip execution of workspace hooks",
+            is_flag=True,
         ),
     ] = False,
 ) -> None:
