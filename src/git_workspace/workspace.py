@@ -167,9 +167,13 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
     if cwd is None:
         cwd = Path.cwd().resolve()
 
+    log = logger.bind(root=str(root), cwd=str(cwd))
+    log.debug("Attempting to resolve branch")
+
     for excluded in [root / ".workspace", root / ".git"]:
         try:
             cwd.relative_to(excluded)
+            log.debug("cwd is inside excluded directory, branch unresolvable", excluded=str(excluded))
             return None
         except ValueError:
             pass
@@ -177,16 +181,21 @@ def resolve_branch(root: Path, cwd: Path | None = None) -> str | None:
     try:
         relative = cwd.relative_to(root)
     except ValueError:
+        log.debug("cwd is outside workspace root, branch unresolvable")
         return None
 
     if relative == Path("."):
+        log.debug("cwd is the workspace root itself, branch unresolvable")
         return None
 
     worktree_root = git.get_worktree_root(cwd)
     if worktree_root is None:
+        log.debug("cwd is not inside a worktree, branch unresolvable")
         return None
 
-    return git.get_current_branch(worktree_root)
+    branch = git.get_current_branch(worktree_root)
+    log.debug("Successfully resolved branch", branch=branch)
+    return branch
 
 
 def build_hook_env(
