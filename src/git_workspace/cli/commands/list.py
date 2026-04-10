@@ -2,7 +2,8 @@ from typing import Annotated
 
 import typer
 
-from git_workspace import workspace, worktrees
+from git_workspace import workspace
+from git_workspace.worktree import format_json, format_table, list_worktrees
 from git_workspace.errors import (
     InvalidWorkspaceRootError,
     UnableToResolveWorkspaceRootError,
@@ -43,9 +44,9 @@ def list(
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1)
 
-    wt_list = worktrees.list_worktrees(root_path)
+    wt_list = list_worktrees(root_path)
 
     if json_output:
-        typer.echo(worktrees.format_json(wt_list))
+        typer.echo(format_json(wt_list))
     else:
-        typer.echo(worktrees.format_table(wt_list))
+        typer.echo(format_table(wt_list))
