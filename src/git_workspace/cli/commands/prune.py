@@ -15,6 +15,7 @@ from git_workspace.errors import (
     UnableToResolveWorkspaceRootError,
     WorktreeRemovalError,
 )
+from git_workspace.workspace import cleanup_empty_parent_dirs
 
 app = typer.Typer()
 
@@ -98,6 +99,7 @@ def prune(
         for candidate in candidates:
             try:
                 remove_worktree(candidate.path, force=True)
+                cleanup_empty_parent_dirs(candidate.path, root_path)
                 age_str = (
                     f"{candidate.age_days}d"
                     if candidate.age_days is not None
