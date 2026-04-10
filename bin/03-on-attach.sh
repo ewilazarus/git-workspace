@@ -13,4 +13,4 @@
 # tmux attach -t dev || tmux new -s dev
 # code .
 
-echo "Running after activate ..."
+echo "Running on attach ..."
