@@ -98,7 +98,7 @@ def prune(
         failures = []
         for candidate in candidates:
             try:
-                remove_worktree(candidate.path, force=True)
+                remove_worktree(candidate.path, force=True, cwd=root_path)
                 cleanup_empty_parent_dirs(candidate.path, root_path)
                 age_str = (
                     f"{candidate.age_days}d"

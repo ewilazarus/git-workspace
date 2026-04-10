@@ -31,6 +31,7 @@ def test_invokes_git_correctly_without_force(subprocess: MagicMock) -> None:
         ["git", "worktree", "remove", str(PATH)],
         capture_output=True,
         text=True,
+        cwd=None,
     )
 
 
@@ -41,4 +42,5 @@ def test_invokes_git_correctly_with_force(subprocess: MagicMock) -> None:
         ["git", "worktree", "remove", "--force", str(PATH)],
         capture_output=True,
         text=True,
+        cwd=None,
     )

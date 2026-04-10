@@ -384,19 +384,20 @@ def get_short_commit_id(path: Path, ref: str = "HEAD") -> str | None:
     return result.stdout.strip() or None
 
 
-def remove_worktree(path: Path, force: bool = False) -> None:
+def remove_worktree(path: Path, force: bool = False, cwd: Path | None = None) -> None:
     """
     Removes a git worktree without deleting the branch.
 
     :param path: The worktree path to remove
     :param force: If True, passes --force to git worktree remove
+    :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeRemovalError: If the removal fails
     """
     cmd = ["git", "worktree", "remove"]
     if force:
         cmd.append("--force")
     cmd.append(str(path))
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
     if result.returncode != 0:
         raise WorktreeRemovalError(
             f"Failed to remove worktree at {path!r}: {result.stderr.strip()}"
