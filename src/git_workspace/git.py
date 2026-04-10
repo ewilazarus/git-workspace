@@ -4,7 +4,7 @@ from pathlib import Path
 
 import structlog
 
-from git_workspace.errors import GitCloneError, GitFetchError, GitInitError, WorktreeCreationError
+from git_workspace.errors import GitCloneError, GitFetchError, GitInitError, WorktreeCreationError, WorktreeRemovalError
 
 logger = structlog.get_logger(__name__)
 
@@ -311,3 +311,38 @@ def get_current_branch(cwd: Path | None = None) -> str | None:
         return None
     branch = result.stdout.strip()
     return branch if branch != "HEAD" else None
+
+
+def is_worktree_dirty(path: Path) -> bool:
+    """
+    Returns True if the worktree has any uncommitted changes (staged or unstaged).
+
+    :param path: The worktree root directory
+    :returns: True if dirty, False if clean
+    """
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        cwd=str(path),
+    )
+    return bool(result.stdout.strip())
+
+
+def remove_worktree(path: Path, force: bool = False) -> None:
+    """
+    Removes a git worktree without deleting the branch.
+
+    :param path: The worktree path to remove
+    :param force: If True, passes --force to git worktree remove
+    :raises WorktreeRemovalError: If the removal fails
+    """
+    cmd = ["git", "worktree", "remove"]
+    if force:
+        cmd.append("--force")
+    cmd.append(str(path))
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise WorktreeRemovalError(
+            f"Failed to remove worktree at {path!r}: {result.stderr.strip()}"
+        )

@@ -15,7 +15,9 @@ from git_workspace.errors import (
     HookExecutionError,
     WorkspaceCreationError,
     WorkspaceLinkError,
+    WorktreeDirtyError,  # noqa: F401 — re-exported for callers
     WorktreeNotFoundError,  # noqa: F401 — re-exported for callers
+    WorktreeRemovalError,  # noqa: F401 — re-exported for callers
 )
 from git_workspace.manifest import Hooks, Link
 from git_workspace.worktree import WorktreeResult
@@ -536,6 +538,96 @@ def run_reset_hooks(
         env=env,
     )
     log.debug("Reset hooks completed")
+
+
+def run_before_remove_hooks(
+    root: Path,
+    worktree_path: Path,
+    hooks: Hooks,
+    branch: str,
+    manifest_vars: dict[str, str] | None = None,
+    user_vars: dict[str, str] | None = None,
+    skip_hooks: bool = False,
+) -> None:
+    """
+    Runs before_remove hooks prior to worktree deletion.
+
+    Hook failures abort removal — the worktree is not touched.
+
+    :param root: The workspace root path
+    :param worktree_path: The worktree root path
+    :param hooks: The hooks configuration from the manifest
+    :param branch: The target branch name, injected into hook environment
+    :param manifest_vars: Variables from the manifest, exposed to hooks
+    :param user_vars: CLI variables, override manifest vars
+    :param skip_hooks: If True, suppresses hook execution
+    :raises HookExecutionError: If any hook exits with a non-zero status
+    """
+    log = logger.bind(branch=branch, worktree=str(worktree_path))
+
+    if skip_hooks:
+        log.debug("Skipping before_remove hooks: skip_hooks=True")
+        return
+
+    log.debug("Running before_remove hooks")
+    _run_hooks(
+        bin_path=root / ".workspace" / "bin",
+        hook_names=hooks.before_remove,
+        cwd=worktree_path,
+        env=build_hook_env(
+            branch=branch,
+            root=root,
+            worktree_path=worktree_path,
+            event="before_remove",
+            manifest_vars=manifest_vars,
+            user_vars=user_vars,
+        ),
+    )
+    log.debug("before_remove hooks completed")
+
+
+def run_after_remove_hooks(
+    root: Path,
+    worktree_path: Path,
+    hooks: Hooks,
+    branch: str,
+    manifest_vars: dict[str, str] | None = None,
+    user_vars: dict[str, str] | None = None,
+    skip_hooks: bool = False,
+) -> None:
+    """
+    Runs after_remove hooks following successful worktree deletion.
+
+    :param root: The workspace root path
+    :param worktree_path: The (now deleted) worktree path, passed to hooks for context
+    :param hooks: The hooks configuration from the manifest
+    :param branch: The target branch name, injected into hook environment
+    :param manifest_vars: Variables from the manifest, exposed to hooks
+    :param user_vars: CLI variables, override manifest vars
+    :param skip_hooks: If True, suppresses hook execution
+    :raises HookExecutionError: If any hook exits with a non-zero status
+    """
+    log = logger.bind(branch=branch, worktree=str(worktree_path))
+
+    if skip_hooks:
+        log.debug("Skipping after_remove hooks: skip_hooks=True")
+        return
+
+    log.debug("Running after_remove hooks")
+    _run_hooks(
+        bin_path=root / ".workspace" / "bin",
+        hook_names=hooks.after_remove,
+        cwd=root,
+        env=build_hook_env(
+            branch=branch,
+            root=root,
+            worktree_path=worktree_path,
+            event="after_remove",
+            manifest_vars=manifest_vars,
+            user_vars=user_vars,
+        ),
+    )
+    log.debug("after_remove hooks completed")
 
 
 def create(
