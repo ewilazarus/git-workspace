@@ -52,17 +52,33 @@ def build_hook_env(
 
 
 def _run_hooks(
-    bin_path: Path, hook_names: list[str], cwd: Path, env: dict[str, str]
+    root: Path,
+    worktree_path: Path,
+    hook_names: list[str],
+    event: str,
+    branch: str,
+    manifest_vars: dict[str, str] | None = None,
+    user_vars: dict[str, str] | None = None,
 ) -> None:
-    log = logger.bind(bin_path=bin_path, cwd=cwd)
+    log = logger.bind(event=event, worktree=str(worktree_path))
 
     if not hook_names:
         log.debug("No hooks to run")
         return
 
+    bin_path = root / ".workspace" / "bin"
+    env = build_hook_env(
+        branch=branch,
+        root=root,
+        worktree_path=worktree_path,
+        event=event,
+        manifest_vars=manifest_vars,
+        user_vars=user_vars,
+    )
+
     for hook_name in hook_names:
         log.debug("Running hook", hook=hook_name)
-        result = subprocess.run([str(bin_path / hook_name)], cwd=str(cwd), env=env)
+        result = subprocess.run([str(bin_path / hook_name)], cwd=str(worktree_path), env=env)
         if result.returncode != 0:
             log.debug("Hook failed", hook=hook_name, exit_code=result.returncode)
             raise HookExecutionError(
@@ -102,19 +118,7 @@ def run_on_setup_hooks(
         return
 
     log.debug("Running on_setup hooks")
-    _run_hooks(
-        bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.on_setup,
-        cwd=worktree_path,
-        env=build_hook_env(
-            branch=branch,
-            root=root,
-            worktree_path=worktree_path,
-            event="on_setup",
-            manifest_vars=manifest_vars,
-            user_vars=user_vars,
-        ),
-    )
+    _run_hooks(root, worktree_path, hooks.on_setup, "on_setup", branch, manifest_vars, user_vars)
     log.debug("on_setup hooks completed")
 
 
@@ -148,19 +152,7 @@ def run_on_activate_hooks(
         return
 
     log.debug("Running on_activate hooks")
-    _run_hooks(
-        bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.on_activate,
-        cwd=worktree_path,
-        env=build_hook_env(
-            branch=branch,
-            root=root,
-            worktree_path=worktree_path,
-            event="on_activate",
-            manifest_vars=manifest_vars,
-            user_vars=user_vars,
-        ),
-    )
+    _run_hooks(root, worktree_path, hooks.on_activate, "on_activate", branch, manifest_vars, user_vars)
     log.debug("on_activate hooks completed")
 
 
@@ -194,19 +186,7 @@ def run_on_attach_hooks(
         return
 
     log.debug("Running on_attach hooks")
-    _run_hooks(
-        bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.on_attach,
-        cwd=worktree_path,
-        env=build_hook_env(
-            branch=branch,
-            root=root,
-            worktree_path=worktree_path,
-            event="on_attach",
-            manifest_vars=manifest_vars,
-            user_vars=user_vars,
-        ),
-    )
+    _run_hooks(root, worktree_path, hooks.on_attach, "on_attach", branch, manifest_vars, user_vars)
     log.debug("on_attach hooks completed")
 
 
@@ -241,17 +221,5 @@ def run_on_remove_hooks(
         return
 
     log.debug("Running on_remove hooks")
-    _run_hooks(
-        bin_path=root / ".workspace" / "bin",
-        hook_names=hooks.on_remove,
-        cwd=worktree_path,
-        env=build_hook_env(
-            branch=branch,
-            root=root,
-            worktree_path=worktree_path,
-            event="on_remove",
-            manifest_vars=manifest_vars,
-            user_vars=user_vars,
-        ),
-    )
+    _run_hooks(root, worktree_path, hooks.on_remove, "on_remove", branch, manifest_vars, user_vars)
     log.debug("on_remove hooks completed")
