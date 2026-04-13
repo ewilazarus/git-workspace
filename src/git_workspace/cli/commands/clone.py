@@ -16,7 +16,7 @@ def clone(
             help="The repository URL to be cloned",
         ),
     ],
-    workspace_directory: Annotated[
+    workspace_dir: Annotated[
         str | None,
         typer.Argument(
             help='An optional name of the directory to be used. If omitted, the "humanish" part of the repository URL will be used'
@@ -37,7 +37,7 @@ def clone(
     Use this when starting from an existing remote repository.
     """
     try:
-        Workspace.clone(workspace_directory, url, config_url)
+        Workspace.clone(workspace_dir, url, config_url)
     except GitWorkspaceError as e:
         typer.echo(f"ERROR: {e}")
         raise  # TODO: When code is ready remove this raise

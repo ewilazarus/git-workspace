@@ -20,7 +20,7 @@ def down(
             help="The branch whose workspace should be deactivated. If omitted, the branch will be inferred from the current working directory.",
         ),
     ] = None,
-    workspace_directory: Annotated[
+    workspace_dir: Annotated[
         str | None,
         typer.Option(
             "-r",
@@ -45,7 +45,7 @@ def down(
     any session-specific state to be torn down.
     """
     try:
-        workspace = Workspace.resolve(workspace_directory)
+        workspace = Workspace.resolve(workspace_dir)
         worktree = workspace.resolve_worktree(branch)
 
         HookRunner(

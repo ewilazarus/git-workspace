@@ -12,7 +12,7 @@ app = typer.Typer()
 
 @app.command()
 def edit(
-    workspace_directory: Annotated[
+    workspace_dir: Annotated[
         str | None,
         typer.Option(
             "-r",
@@ -29,7 +29,7 @@ def edit(
     The editor is resolved using standard environment variables (e.g. VISUAL or EDITOR). The command does not modify any files—it only launches the editor.
     """
     try:
-        workspace = Workspace.resolve(workspace_directory)
+        workspace = Workspace.resolve(workspace_dir)
         click.edit(
             filename=str(workspace.directory / ".workspace"),
         )

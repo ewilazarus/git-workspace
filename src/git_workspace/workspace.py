@@ -1,4 +1,6 @@
 from __future__ import annotations
+import logging
+import logging.handlers
 from git_workspace.worktree import Worktree
 from pathlib import Path
 import shutil
@@ -65,7 +67,7 @@ class WorkspaceResolver:
         )
 
     @classmethod
-    def resolve(cls, workspace_directory: str | None) -> Workspace:
+    def resolve(cls, raw_workspace_dir: str | None) -> Workspace:
         """
         Resolves the workspace root path
 
@@ -78,19 +80,19 @@ class WorkspaceResolver:
         :returns: The resolved `pathlib.Path` for the workspace root path
         """
         try:
-            path = (
-                Path(workspace_directory) if workspace_directory else Path.cwd()
+            workspace_dir = (
+                Path(raw_workspace_dir) if raw_workspace_dir else Path.cwd()
             ).resolve(strict=True)
         except FileNotFoundError as e:
             raise InvalidWorkspaceError(
-                f"The following path is invalid: {workspace_directory!r}"
+                f"The following path is invalid: {raw_workspace_dir!r}"
             ) from e
 
-        resolved_path = cls._resolve(path)
-        return Workspace(resolved_path)
+        resolved_workspace_dir = cls._resolve(workspace_dir)
+        return Workspace(resolved_workspace_dir)
 
 
-class WorkspaceCreator:
+class WorkspaceFactory:
     DEFAULT_CONFIG_URL = "https://github.com/ewilazarus/git-workspace.git"
     DEFAULT_CONFIG_BRANCH = "config/v1"
 
@@ -162,28 +164,68 @@ class WorkspaceCreator:
         return Workspace(directory)
 
 
+class WorkspaceLoggerFactory:
+    @classmethod
+    def _create_handler(cls, log_file: Path) -> logging.Handler:
+        handler = logging.handlers.RotatingFileHandler(
+            log_file,
+            maxBytes=1_000_000,  # 1MB
+            encoding="utf-8",
+        )
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        return handler
+
+    @classmethod
+    def _setup_underlying_logger(
+        cls, workspace: Workspace, handler: logging.Handler
+    ) -> None:
+        logger = logging.getLogger(str(workspace.directory))
+        logger.propagate = False
+        logger.addHandler
+        logger.setLevel(
+            logging.DEBUG
+        )  # TODO read log level from env (GIT_WORKSPACE_LOG_LEVEL)
+
+    @classmethod
+    def create(cls, workspace: Workspace) -> structlog.BoundLogger:
+        log_file = workspace.directory / ".workspace" / "git-workspace.log"
+        handler = cls._create_handler(log_file)
+        underlying_logger = cls._setup_underlying_logger(workspace, handler)
+
+        return structlog.wrap_logger(
+            underlying_logger,
+            processors=[
+                structlog.processors.add_log_level,
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.dev.ConsoleRenderer(colors=False),
+            ],
+            wrapper_class=structlog.stdlib.BoundLogger,
+        )
+
+
 class Workspace:
     def __init__(self, directory: Path) -> None:
         self.directory = directory
         self.manifest = Manifest.load(self)
+        self._logger = WorkspaceLoggerFactory.create(self)
 
     @classmethod
-    def resolve(cls, workspace_directory: str | None) -> Workspace:
-        return WorkspaceResolver.resolve(workspace_directory)
+    def resolve(cls, workspace_dir: str | None) -> Workspace:
+        return WorkspaceResolver.resolve(workspace_dir)
 
     @classmethod
-    def init(cls, workspace_directory: str | None, config_url: str | None) -> Workspace:
-        return WorkspaceCreator.create(
-            Path(workspace_directory) if workspace_directory else Path.cwd().resolve(),
+    def init(cls, workspace_dir: str | None, config_url: str | None) -> Workspace:
+        return WorkspaceFactory.create(
+            Path(workspace_dir) if workspace_dir else Path.cwd().resolve(),
             config_url=config_url,
         )
 
     @classmethod
     def clone(
-        cls, workspace_directory: str | None, url: str, config_url: str | None
+        cls, workspace_dir: str | None, url: str, config_url: str | None
     ) -> Workspace:
-        return WorkspaceCreator.create(
-            directory=Path(workspace_directory or utils.extract_humanish_suffix(url)),
+        return WorkspaceFactory.create(
+            directory=Path(workspace_dir or utils.extract_humanish_suffix(url)),
             url=url,
             config_url=config_url,
         )

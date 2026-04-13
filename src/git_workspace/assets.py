@@ -43,7 +43,7 @@ class Linker:
     def __init__(self, workspace: Workspace, worktree: Worktree) -> None:
         self._links = workspace.manifest.links
         self._assets_directory = workspace.directory / ".workspace" / "assets"
-        self._worktree_directory = worktree.directory
+        self._worktree_dir = worktree.directory
         self._ignore_manager = IgnoreManager(workspace)
 
     def _apply_with_override(self, source: Path, target: Path) -> None:
@@ -67,7 +67,7 @@ class Linker:
 
     def _apply(self, link: Link, ignore_entries: list[Path]) -> None:
         source = (self._assets_directory / link.source).absolute()
-        target = (self._worktree_directory / link.target).absolute()
+        target = (self._worktree_dir / link.target).absolute()
 
         if link.override:
             self._apply_with_override(source, target)

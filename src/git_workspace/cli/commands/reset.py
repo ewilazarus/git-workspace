@@ -21,7 +21,7 @@ def reset(
             help="The branch whose workspace should be reset. If omitted, the branch will be inferred from the current working directory.",
         ),
     ] = None,
-    workspace_directory: Annotated[
+    workspace_dir: Annotated[
         str | None,
         typer.Option(
             "-r",
@@ -49,7 +49,7 @@ def reset(
     This command does not modify Git history, switch branches, or discard uncommitted changes. It only restores the expected workspace state.
     """
     try:
-        workspace = Workspace.resolve(workspace_directory)
+        workspace = Workspace.resolve(workspace_dir)
         worktree = workspace.resolve_worktree(branch)
 
         Linker(workspace, worktree).apply()

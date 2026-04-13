@@ -15,7 +15,7 @@ class HookRunner:
         self._workspace = workspace
         self._worktree = worktree
         self._bin_path = workspace.directory / ".workspace" / "bin"
-        self._worktree_directory = str(worktree.directory)
+        self._worktree_dir = str(worktree.directory)
         self._runtime_vars = runtime_vars
 
     def _normalize_variable_key(self, value: str) -> str:
@@ -27,7 +27,7 @@ class HookRunner:
             "GIT_WORKSPACE_BRANCH": self._worktree.branch,
             "GIT_WORKSPACE_BRANCH_NO_SLASH": self._worktree.branch.replace("/", "_"),
             "GIT_WORKSPACE_ROOT": str(self._workspace.directory),
-            "GIT_WORKSPACE_WORKTREE": self._worktree_directory,
+            "GIT_WORKSPACE_WORKTREE": self._worktree_dir,
             "GIT_WORKSPACE_EVENT": event,
         }
 
@@ -43,11 +43,11 @@ class HookRunner:
 
     def _run_hook(self, event: str, hook_name: str, env: dict[str, str]) -> None:
         hook_path = str(self._bin_path / hook_name)
-        worktree_directory = self._worktree_directory
+        worktree_dir = self._worktree_dir
 
         with subprocess.Popen(
             [hook_path],
-            cwd=worktree_directory,
+            cwd=worktree_dir,
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

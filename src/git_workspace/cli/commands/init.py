@@ -10,7 +10,7 @@ app = typer.Typer()
 
 @app.command()
 def init(
-    workspace_directory: Annotated[
+    workspace_dir: Annotated[
         str | None,
         "directory",
         typer.Argument(
@@ -32,7 +32,7 @@ def init(
     Use this when starting a new project from scratch using the workspace model.
     """
     try:
-        Workspace.init(workspace_directory, config_url)
+        Workspace.init(workspace_dir, config_url)
     except GitWorkspaceError as e:
         typer.echo(f"ERROR: {e}")
         raise  # TODO: When code is ready remove this raise

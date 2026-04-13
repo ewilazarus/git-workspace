@@ -29,7 +29,7 @@ def up(
             help="The base branch to use when creating a new branch. If omitted, defaults to the base branch defined in the workspace manifest",
         ),
     ] = None,
-    workspace_directory: Annotated[
+    workspace_dir: Annotated[
         str | None,
         typer.Option(
             "-r",
@@ -71,7 +71,7 @@ def up(
     workflows.
     """
     try:
-        workspace = Workspace.resolve(workspace_directory)
+        workspace = Workspace.resolve(workspace_dir)
         worktree = workspace.resolve_or_create_worktree(branch, base_branch)
 
         hook_runner = HookRunner(

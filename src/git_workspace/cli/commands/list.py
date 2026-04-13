@@ -12,7 +12,7 @@ app = typer.Typer()
 
 @app.command("ls")
 def list(
-    workspace_directory: Annotated[
+    workspace_dir: Annotated[
         str | None,
         typer.Option(
             "-r",
@@ -29,7 +29,7 @@ def list(
     Use this to inspect the current state of the workspace.
     """
     try:
-        workspace = Workspace.resolve(workspace_directory)
+        workspace = Workspace.resolve(workspace_dir)
         worktrees = workspace.list_worktrees()
 
         # TODO we need to make this better (maybe use rich's tables?)

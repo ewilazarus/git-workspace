@@ -20,7 +20,7 @@ def remove(
             help="The branch whose worktree should be removed. If omitted, the branch will be inferred from the current working directory.",
         ),
     ] = None,
-    workspace_directory: Annotated[
+    workspace_dir: Annotated[
         str | None,
         typer.Option(
             "-r",
@@ -56,7 +56,7 @@ def remove(
     This command does not modify Git history or delete any branch.
     """
     try:
-        workspace = Workspace.resolve(workspace_directory)
+        workspace = Workspace.resolve(workspace_dir)
         worktree = workspace.resolve_worktree(branch)
 
         hook_runner = HookRunner(

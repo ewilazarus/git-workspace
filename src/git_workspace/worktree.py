@@ -114,7 +114,7 @@ class Worktree:
         cls,
         workspace: Workspace,
     ) -> Worktree:
-        raw_directory = git.try_get_worktree_directory()
+        raw_directory = git.try_get_worktree_dir()
         if raw_directory is None:
             # TODO: Improve exception msg
             raise WorktreeResolutionError("can't resolve worktree from cwd")
