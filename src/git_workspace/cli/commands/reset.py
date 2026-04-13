@@ -1,18 +1,14 @@
+from git_workspace.assets import Linker
+from git_workspace.hooks import HookRunner
+from git_workspace.workspace import Workspace
 from typing import Annotated
 
 import typer
 
-from git_workspace import workspace
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.errors import (
-    HookExecutionError,
-    InvalidWorkspaceRootError,
-    UnableToResolveBranchError,
-    UnableToResolveWorkspaceRootError,
-    WorkspaceLinkError,
-    WorktreeNotFoundError,
+    GitWorkspaceError,
 )
-from git_workspace.manifest import read_manifest
 
 app = typer.Typer()
 
@@ -25,7 +21,7 @@ def reset(
             help="The branch whose workspace should be reset. If omitted, the branch will be inferred from the current working directory.",
         ),
     ] = None,
-    root: Annotated[
+    workspace_directory: Annotated[
         str | None,
         typer.Option(
             "-r",
@@ -33,7 +29,7 @@ def reset(
             help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
         ),
     ] = None,
-    vars: Annotated[
+    runtime_vars: Annotated[
         list[str] | None,
         typer.Option(
             "-v",
@@ -42,14 +38,6 @@ def reset(
             callback=parse_vars,
         ),
     ] = None,
-    skip_hooks: Annotated[
-        bool,
-        typer.Option(
-            "--skip-hooks",
-            help="Skip execution of workspace hooks",
-            is_flag=True,
-        ),
-    ] = False,
 ) -> None:
     """
     Reapply workspace configuration and setup for a branch worktree.
@@ -61,39 +49,15 @@ def reset(
     This command does not modify Git history, switch branches, or discard uncommitted changes. It only restores the expected workspace state.
     """
     try:
-        root_path = workspace.resolve_root_path(root)
-    except (InvalidWorkspaceRootError, UnableToResolveWorkspaceRootError) as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
+        workspace = Workspace.resolve(workspace_directory)
+        worktree = workspace.resolve_worktree(branch)
 
-    try:
-        branch = branch or workspace.resolve_branch(root_path)
-    except UnableToResolveBranchError as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
-
-    try:
-        worktree_path = workspace.find_worktree_path(branch, cwd=root_path)
-    except WorktreeNotFoundError as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
-
-    manifest = read_manifest(root_path / ".workspace" / "manifest.toml")
-    user_vars: dict[str, str] = dict(vars) if vars else {}  # type: ignore
-
-    try:
-        workspace.setup_worktree(
-            root=root_path,
-            worktree_path=worktree_path,
-            links=manifest.links,
-            hooks=manifest.hooks,
-            branch=branch,
-            manifest_vars=manifest.vars,
-            user_vars=user_vars,
-            skip_hooks=skip_hooks,
-        )
-    except (WorkspaceLinkError, HookExecutionError) as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
-
-    typer.echo(str(worktree_path))
+        Linker(workspace, worktree).apply()
+        HookRunner(
+            workspace,
+            worktree,
+            runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
+        ).run_on_setup_hooks()
+    except GitWorkspaceError as e:
+        typer.echo(f"ERROR: {e}")
+        raise  # TODO: When code is ready remove this raise

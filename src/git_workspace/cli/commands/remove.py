@@ -1,19 +1,13 @@
-from pathlib import Path
+from git_workspace.hooks import HookRunner
+from git_workspace.workspace import Workspace
 from typing import Annotated
 
 import typer
 
-from git_workspace import git, hooks, workspace
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.errors import (
-    HookExecutionError,
-    InvalidWorkspaceRootError,
-    UnableToResolveBranchError,
-    UnableToResolveWorkspaceRootError,
-    WorktreeNotFoundError,
-    WorktreeRemovalError,
+    GitWorkspaceError,
 )
-from git_workspace.manifest import read_manifest
 
 app = typer.Typer()
 
@@ -26,7 +20,7 @@ def remove(
             help="The branch whose worktree should be removed. If omitted, the branch will be inferred from the current working directory.",
         ),
     ] = None,
-    root: Annotated[
+    workspace_directory: Annotated[
         str | None,
         typer.Option(
             "-r",
@@ -39,9 +33,10 @@ def remove(
         typer.Option(
             "--force",
             help="Remove the worktree even if it has uncommitted changes",
+            is_flag=True,
         ),
     ] = False,
-    vars: Annotated[
+    runtime_vars: Annotated[
         list[str] | None,
         typer.Option(
             "-v",
@@ -50,14 +45,6 @@ def remove(
             callback=parse_vars,
         ),
     ] = None,
-    skip_hooks: Annotated[
-        bool,
-        typer.Option(
-            "--skip-hooks",
-            help="Skip execution of workspace hooks",
-            is_flag=True,
-        ),
-    ] = False,
 ) -> None:
     """
     Remove a workspace worktree.
@@ -69,68 +56,19 @@ def remove(
     This command does not modify Git history or delete any branch.
     """
     try:
-        root_path = workspace.resolve_root_path(root)
-    except (InvalidWorkspaceRootError, UnableToResolveWorkspaceRootError) as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
+        workspace = Workspace.resolve(workspace_directory)
+        worktree = workspace.resolve_worktree(branch)
 
-    try:
-        branch = branch or workspace.resolve_branch(root_path)
-    except UnableToResolveBranchError as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
-
-    try:
-        worktree_path = workspace.find_worktree_path(branch, cwd=root_path)
-    except WorktreeNotFoundError as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
-
-    user_in_worktree = Path.cwd().is_relative_to(worktree_path)
-
-    if not force and git.is_worktree_dirty(worktree_path):
-        typer.echo(
-            f"error: worktree for {branch!r} at {worktree_path} has uncommitted changes; "
-            "commit or stash them, or pass --force to remove anyway",
-            err=True,
+        hook_runner = HookRunner(
+            workspace,
+            worktree,
+            runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         )
-        raise typer.Exit(1)
 
-    manifest = read_manifest(root_path / ".workspace" / "manifest.toml")
-    user_vars: dict[str, str] = dict(vars) if vars else {}  # type: ignore
+        hook_runner.run_on_deactivate_hooks()
+        hook_runner.run_on_remove_hooks()
 
-    try:
-        hooks.run_on_deactivate_hooks(
-            root=root_path,
-            worktree_path=worktree_path,
-            hooks=manifest.hooks,
-            branch=branch,
-            manifest_vars=manifest.vars,
-            user_vars=user_vars,
-            skip_hooks=skip_hooks,
-        )
-        hooks.run_on_remove_hooks(
-            root=root_path,
-            worktree_path=worktree_path,
-            hooks=manifest.hooks,
-            branch=branch,
-            manifest_vars=manifest.vars,
-            user_vars=user_vars,
-            skip_hooks=skip_hooks,
-        )
-    except HookExecutionError as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
-
-    try:
-        git.remove_worktree(worktree_path, force=force, cwd=root_path)
-    except WorktreeRemovalError as e:
-        typer.echo(f"error: {e}", err=True)
-        raise typer.Exit(1)
-
-    workspace.cleanup_empty_parent_dirs(worktree_path, stop_at=root_path)
-
-    if user_in_worktree:
-        typer.echo(str(root_path))
-    else:
-        typer.echo(f"Removed worktree for {branch!r} (branch preserved)")
+        worktree.delete(force)
+    except GitWorkspaceError as e:
+        typer.echo(f"ERROR: {e}")
+        raise  # TODO: When code is ready remove this raise

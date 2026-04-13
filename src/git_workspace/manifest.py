@@ -1,6 +1,8 @@
+from __future__ import annotations
+from typing import Any
+from git_workspace.workspace import Workspace
 import tomllib
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import structlog
 
@@ -90,6 +92,9 @@ class Manifest:
         during hooks execution
     """
 
+    DEFAULT_VERSION = 1
+    DEFAULT_BRANCH = "main"
+
     version: int
     base_branch: str
     links: list[Link] = field(default_factory=list)
@@ -97,79 +102,80 @@ class Manifest:
     hooks: Hooks = field(default_factory=Hooks)
     prune: Prune | None = None
 
+    @classmethod
+    def _parse_version(cls, data: dict[str, Any]) -> int:
+        return data.get("version", cls.DEFAULT_VERSION)
 
-_DEFAULT_MANIFEST = Manifest(version=1, base_branch="main")
+    @classmethod
+    def _parse_base_branch(cls, data: dict[str, Any]) -> str:
+        return data.get("base_branch", cls.DEFAULT_BRANCH)
 
+    @classmethod
+    def _parse_links(cls, data: dict[str, Any]) -> list[Link]:
+        return [
+            Link(
+                source=link_data["source"],
+                target=link_data["target"],
+                override=link_data.get("override", False),
+            )
+            for link_data in data.get("link", [])
+        ]
 
-def read_manifest(path: Path) -> Manifest:
-    """
-    Reads and parses a workspace manifest from disk.
+    @classmethod
+    def _parse_vars(cls, data: dict[str, Any]) -> dict[str, Any]:
+        return data.get("vars", {})
 
-    The manifest is expected to be a TOML file located under `.workspace`,
-    describing workspace configuration such as hooks, links, and prune rules.
-    If the file cannot be read or parsed, sane defaults are returned.
-
-    :param path: Path to the manifest file
-    :returns: Parsed Manifest instance
-    """
-    log = logger.bind(path=str(path))
-
-    log.debug("Attempting to read manifest")
-
-    try:
-        data = tomllib.loads(path.read_text())
-    except OSError as e:
-        log.debug("Manifest file unreadable, using defaults", error=str(e))
-        return _DEFAULT_MANIFEST
-    except tomllib.TOMLDecodeError as e:
-        log.debug("Manifest file unparseable, using defaults", error=str(e))
-        return _DEFAULT_MANIFEST
-
-    hooks_data = data.get("hooks", {})
-    hooks = Hooks(
-        on_setup=hooks_data.get("on_setup", []),
-        on_activate=hooks_data.get("on_activate", []),
-        on_attach=hooks_data.get("on_attach", []),
-        on_deactivate=hooks_data.get("on_deactivate", []),
-        on_remove=hooks_data.get("on_remove", []),
-    )
-
-    links = [
-        Link(
-            source=lnk["source"],
-            target=lnk["target"],
-            override=lnk.get("override", False),
+    @classmethod
+    def _parse_hooks(cls, data: dict[str, Any]) -> Hooks:
+        hooks_data = data.get("hooks", {})
+        return Hooks(
+            on_setup=hooks_data.get("on_setup", []),
+            on_activate=hooks_data.get("on_activate", []),
+            on_attach=hooks_data.get("on_attach", []),
+            on_deactivate=hooks_data.get("on_deactivate", []),
+            on_remove=hooks_data.get("on_remove", []),
         )
-        for lnk in data.get("link", [])
-    ]
 
-    prune_data = data.get("prune")
-    prune = (
-        Prune(
-            older_than_days=prune_data.get("older_than_days", 30),
-            exclude_branches=prune_data.get("exclude_branches", []),
+    @classmethod
+    def _parse_prune(cls, data: dict[str, Any]) -> Prune | None:
+        prune_data = data.get("prune")
+        return (
+            Prune(
+                older_than_days=prune_data.get("older_than_days", 30),
+                exclude_branches=prune_data.get("exclude_branches", []),
+            )
+            if prune_data is not None
+            else None
         )
-        if prune_data is not None
-        else None
-    )
 
-    manifest = Manifest(
-        version=data.get("version", 1),
-        base_branch=data.get("base_branch", "main"),
-        links=links,
-        vars=data.get("vars", {}),
-        hooks=hooks,
-        prune=prune,
-    )
+    @classmethod
+    def load(cls, workspace: Workspace) -> Manifest:
+        """
+        Reads and parses a workspace manifest from disk.
 
-    log.debug(
-        "Manifest read successfully",
-        version=manifest.version,
-        base_branch=manifest.base_branch,
-        num_links=len(manifest.links),
-        hooks=hooks,
-        vars=list(manifest.vars.keys()),
-        prune=prune,
-    )
+        The manifest is expected to be a TOML file located under `.workspace`,
+        describing workspace configuration such as hooks, links, and prune rules.
+        If the file cannot be read or parsed, sane defaults are returned.
 
-    return manifest
+        :param path: Path to the manifest file
+        :returns: Parsed Manifest instance
+        """
+        try:
+            data = tomllib.loads(
+                (workspace.directory / ".workspace" / "manifest.toml").read_text()
+            )
+        except (OSError, tomllib.TOMLDecodeError):
+            # TODO: log
+            return Manifest(
+                version=cls.DEFAULT_VERSION,
+                base_branch=cls.DEFAULT_BRANCH,
+            )
+
+        version = cls._parse_version(data)
+        base_branch = cls._parse_base_branch(data)
+        links = cls._parse_links(data)
+        vars = cls._parse_vars(data)
+        hooks = cls._parse_hooks(data)
+        prune = cls._parse_prune(data)
+
+        return Manifest(version, base_branch, links, vars, hooks, prune)

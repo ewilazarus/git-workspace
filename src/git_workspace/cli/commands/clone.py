@@ -1,9 +1,9 @@
-from pathlib import Path
+from git_workspace.workspace import Workspace
 from typing import Annotated
 
 import typer
 
-from git_workspace import utils, workspace
+from git_workspace.errors import GitWorkspaceError
 
 app = typer.Typer()
 
@@ -16,7 +16,7 @@ def clone(
             help="The repository URL to be cloned",
         ),
     ],
-    directory: Annotated[
+    workspace_directory: Annotated[
         str | None,
         typer.Argument(
             help='An optional name of the directory to be used. If omitted, the "humanish" part of the repository URL will be used'
@@ -36,8 +36,8 @@ def clone(
 
     Use this when starting from an existing remote repository.
     """
-    workspace.create(
-        path=Path(directory or utils.extract_humanish_suffix(url)),
-        url=url,
-        config_url=config_url,
-    )
+    try:
+        Workspace.clone(workspace_directory, url, config_url)
+    except GitWorkspaceError as e:
+        typer.echo(f"ERROR: {e}")
+        raise  # TODO: When code is ready remove this raise

@@ -1,12 +1,25 @@
-from dataclasses import dataclass
+import re
 import subprocess
 from pathlib import Path
 
 import structlog
 
-from git_workspace.errors import GitCloneError, GitFetchError, GitInitError, WorktreeCreationError, WorktreeRemovalError
+from git_workspace.errors import (
+    GitCloneError,
+    GitFetchError,
+    GitInitError,
+    WorktreeCreationError,
+    WorktreeRemovalError,
+    WorktreeListingError,
+)
 
 logger = structlog.get_logger(__name__)
+
+PARSE_WORKTREE_RE = re.compile(
+    r"worktree (?P<directory>.+)\n"
+    r"HEAD (?P<head>[a-f0-9]{40})\n"
+    r"branch refs/head/(?P<branch>.+)"
+)
 
 
 def clone(
@@ -76,107 +89,33 @@ def init(target: Path, bare: bool) -> None:
     log.debug("Git repository initialized successfully")
 
 
-@dataclass
-class WorktreeMetadata:
-    path: Path
-    head: str
-    branch: str
-
-
-def list_worktrees_metadata(cwd: Path | None = None) -> list[WorktreeMetadata]:
-    """
-    Returns metadata for all worktrees in a repository
-
-    Uses git worktree list --porcelain and parses each block by key rather than
-    line position. Detached worktrees are ignored.
-
-    :param cwd: The git repository directory. If None, uses the current directory.
-    :returns: A list of WorktreeMetadata with path and branch for each worktree
-    """
+def list_worktrees(path: str) -> list[dict[str, str]]:
     cmd = ["git", "worktree", "list", "--porcelain"]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=path)
     if result.returncode != 0:
-        return []
+        raise WorktreeListingError("failed to list worktrees")
 
     worktrees = []
     for block in result.stdout.split("\n\n"):
-        block = block.strip()
-        if not block:
-            continue
-
-        fields: dict[str, str] = {}
-        for line in block.splitlines():
-            if " " in line:
-                key, _, value = line.partition(" ")
-                fields[key] = value
-            else:
-                fields[line] = ""
-
-        if "branch" not in fields:
-            continue
-
-        branch = fields["branch"].removeprefix("refs/heads/")
-        worktrees.append(
-            WorktreeMetadata(
-                path=Path(fields["worktree"]),
-                head=fields["HEAD"],
-                branch=branch,
-            )
-        )
-
+        match = PARSE_WORKTREE_RE.search(block)
+        if match:
+            worktrees.append(match.groupdict())
     return worktrees
 
 
-def has_remote(name: str = "origin", cwd: Path | None = None) -> bool:
-    """Returns True if the given remote is configured."""
-    result = subprocess.run(["git", "remote"], capture_output=True, text=True, cwd=str(cwd) if cwd else None)
-    return name in result.stdout.split()
-
-
-def is_empty_repo(cwd: Path | None = None) -> bool:
-    """
-    Returns True if the repository has no commits yet.
-
-    :param cwd: The git repository directory. If None, uses the current directory.
-    :returns: True if the repo is empty (no commits), False otherwise
-    """
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", "HEAD"],
-        capture_output=True,
-        text=True,
-        cwd=str(cwd) if cwd else None,
-    )
-    return result.returncode != 0
-
-
-def fetch_origin(cwd: Path | None = None) -> None:
+def fetch_origin() -> None:
     """
     Fetches from origin and prunes stale remote-tracking branches
 
-    :param cwd: The git repository directory. If None, uses the current directory.
     :raises GitFetchError: If the fetch fails
     """
     cmd = ["git", "fetch", "origin", "--prune"]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
+    result = subprocess.run(cmd)
     if result.returncode != 0:
         raise GitFetchError(f"Failed to fetch from origin: {result.stderr.strip()}")
 
 
-def get_origin_head(cwd: Path | None = None) -> str | None:
-    """
-    Returns the default branch on origin by resolving origin/HEAD
-
-    :param cwd: The git repository directory. If None, uses the current directory.
-    :returns: The default branch name (e.g. "main"), or None if origin/HEAD is not set
-    """
-    cmd = ["git", "symbolic-ref", "refs/remotes/origin/HEAD"]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip().removeprefix("refs/remotes/origin/")
-
-
-def local_branch_exists(branch: str, cwd: Path | None = None) -> bool:
+def local_branch_exists(workspace_directory: str, branch: str) -> bool:
     """
     Returns whether a local branch exists
 
@@ -184,12 +123,12 @@ def local_branch_exists(branch: str, cwd: Path | None = None) -> bool:
     :param cwd: The git repository directory. If None, uses the current directory.
     :returns: True if the branch exists locally, False otherwise
     """
-    cmd = ["git", "rev-parse", "--verify", f"refs/heads/{branch}"]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
+    cmd = ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"]
+    result = subprocess.run(cmd, cwd=workspace_directory)
     return result.returncode == 0
 
 
-def remote_branch_exists(branch: str, cwd: Path | None = None) -> bool:
+def remote_branch_exists(workspace_directory: str, branch: str) -> bool:
     """
     Returns whether a branch exists on origin
 
@@ -197,12 +136,12 @@ def remote_branch_exists(branch: str, cwd: Path | None = None) -> bool:
     :param cwd: The git repository directory. If None, uses the current directory.
     :returns: True if the branch exists on origin, False otherwise
     """
-    cmd = ["git", "rev-parse", "--verify", f"refs/remotes/origin/{branch}"]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
+    cmd = ["git", "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}"]
+    result = subprocess.run(cmd, cwd=workspace_directory)
     return result.returncode == 0
 
 
-def skip_worktree(path: str, cwd: Path) -> None:
+def skip_worktree(path: Path) -> None:
     """
     Marks a file with git update-index --skip-worktree so local changes are ignored
 
@@ -213,14 +152,15 @@ def skip_worktree(path: str, cwd: Path) -> None:
     :param cwd: The worktree root directory
     """
     subprocess.run(
-        ["git", "update-index", "--skip-worktree", path],
+        ["git", "update-index", "--skip-worktree", str(path)],
         capture_output=True,
         text=True,
-        cwd=str(cwd),
     )
 
 
-def add_worktree(path: Path, branch: str, cwd: Path | None = None) -> None:
+def add_worktree(
+    workspace_directory: str, worktree_directory: str, branch: str
+) -> None:
     """
     Creates a worktree for an existing local branch
 
@@ -229,15 +169,15 @@ def add_worktree(path: Path, branch: str, cwd: Path | None = None) -> None:
     :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
-    cmd = ["git", "worktree", "add", str(path), branch]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
+    cmd = ["git", "worktree", "add", worktree_directory, branch]
+    result = subprocess.run(cmd, cwd=workspace_directory)
     if result.returncode != 0:
-        raise WorktreeCreationError(
-            f"Failed to create worktree for branch {branch!r} at {path!r}: {result.stderr.strip()}"
-        )
+        raise WorktreeCreationError()
 
 
-def add_worktree_tracking_remote(path: Path, branch: str, cwd: Path | None = None) -> None:
+def add_worktree_tracking_remote(
+    workspace_directory: str, worktree_directory: str, branch: str
+) -> None:
     """
     Creates a worktree with a new local branch tracking origin/<branch>
 
@@ -246,15 +186,27 @@ def add_worktree_tracking_remote(path: Path, branch: str, cwd: Path | None = Non
     :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
-    cmd = ["git", "worktree", "add", "--track", "-b", branch, str(path), f"origin/{branch}"]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
+    cmd = [
+        "git",
+        "worktree",
+        "add",
+        "--track",
+        "-b",
+        branch,
+        worktree_directory,
+        f"origin/{branch}",
+    ]
+    result = subprocess.run(cmd, cwd=workspace_directory)
     if result.returncode != 0:
-        raise WorktreeCreationError(
-            f"Failed to create worktree tracking origin/{branch!r} at {path!r}: {result.stderr.strip()}"
-        )
+        raise WorktreeCreationError()
 
 
-def add_worktree_new_branch(path: Path, branch: str, base: str, cwd: Path | None = None) -> None:
+def add_worktree_new_branch(
+    workspace_directory: str,
+    worktree_directory: str,
+    branch: str,
+    base_branch: str,
+) -> None:
     """
     Creates a worktree with a brand new local branch from a base branch.
 
@@ -267,133 +219,34 @@ def add_worktree_new_branch(path: Path, branch: str, base: str, cwd: Path | None
     :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
-    if is_empty_repo(cwd=cwd):
-        cmd = ["git", "worktree", "add", "--orphan", "-b", branch, str(path)]
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
-        if result.returncode != 0:
-            raise WorktreeCreationError(
-                f"Failed to create orphan worktree for branch {branch!r} at {path!r}: {result.stderr.strip()}"
-            )
-        return
-
-    cmd = ["git", "worktree", "add", "-b", branch, str(path), base]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
+    cmd = ["git", "worktree", "add", "-b", branch, worktree_directory, base_branch]
+    result = subprocess.run(cmd, cwd=workspace_directory)
     if result.returncode != 0:
-        raise WorktreeCreationError(
-            f"Failed to create worktree with new branch {branch!r} from {base!r} at {path!r}: {result.stderr.strip()}"
-        )
+        raise WorktreeCreationError()
 
 
-def get_worktree_root(cwd: Path | None = None) -> Path | None:
-    """
-    Returns the root path of the worktree the given directory belongs to
-
-    :param cwd: Directory to run git from. If None, uses the current directory.
-    :returns: The worktree root path, or None if not inside a worktree
-    """
-    cmd = ["git", "rev-parse", "--show-toplevel"]
+def try_get_worktree_directory() -> str | None:
+    cmd = ["git", "rev-parse", "--top-level"]
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
-        cwd=str(cwd) if cwd else None,
     )
-    if result.returncode != 0:
-        return None
-    return Path(result.stdout.strip())
+    return result.stdout.strip() if result.returncode == 0 else None
 
 
-def get_current_branch(cwd: Path | None = None) -> str | None:
-    """
-    Returns the name of the currently checked out branch
-
-    :param cwd: Directory to run git from. If None, uses the current directory.
-    :returns: The branch name, or None if HEAD is detached or the command fails
-    """
-    cmd = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+def get_worktree_branch(worktree_directory: str) -> str:
+    cmd = ["git", "branch", "--show-current"]
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
-        cwd=str(cwd) if cwd else None,
+        cwd=worktree_directory,
     )
-    if result.returncode != 0:
-        return None
-    branch = result.stdout.strip()
-    if branch != "HEAD":
-        return branch
-
-    # Unborn branch (no commits yet) — rev-parse cannot abbreviate the ref,
-    # so fall back to symbolic-ref which resolves the symref directly.
-    result = subprocess.run(
-        ["git", "symbolic-ref", "--short", "HEAD"],
-        capture_output=True,
-        text=True,
-        cwd=str(cwd) if cwd else None,
-    )
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip() or None
+    return result.stdout.strip()
 
 
-def is_worktree_dirty(path: Path) -> bool:
-    """
-    Returns True if the worktree has any uncommitted changes (staged or unstaged).
-
-    :param path: The worktree root directory
-    :returns: True if dirty, False if clean
-    """
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        cwd=str(path),
-    )
-    return bool(result.stdout.strip())
-
-
-def get_commit_timestamp(path: Path, ref: str = "HEAD") -> int | None:
-    """
-    Returns the Unix timestamp of a commit in the given worktree.
-
-    :param path: The worktree directory
-    :param ref: The git ref to query (default: HEAD)
-    :returns: Unix timestamp as int, or None if unavailable
-    """
-    result = subprocess.run(
-        ["git", "log", "-1", "--format=%ct", ref],
-        capture_output=True,
-        text=True,
-        cwd=str(path),
-    )
-    if result.returncode != 0:
-        return None
-    try:
-        return int(result.stdout.strip())
-    except ValueError:
-        return None
-
-
-def get_short_commit_id(path: Path, ref: str = "HEAD") -> str | None:
-    """
-    Returns the short commit ID (7 chars) for a ref in the given worktree.
-
-    :param path: The worktree directory
-    :param ref: The git ref to query (default: HEAD)
-    :returns: Short commit ID string, or None if unavailable
-    """
-    result = subprocess.run(
-        ["git", "rev-parse", "--short=7", ref],
-        capture_output=True,
-        text=True,
-        cwd=str(path),
-    )
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip() or None
-
-
-def remove_worktree(path: Path, force: bool = False, cwd: Path | None = None) -> None:
+def remove_worktree(worktree_directory: str, force: bool = False) -> None:
     """
     Removes a git worktree without deleting the branch.
 
@@ -403,11 +256,12 @@ def remove_worktree(path: Path, force: bool = False, cwd: Path | None = None) ->
     :raises WorktreeRemovalError: If the removal fails
     """
     cmd = ["git", "worktree", "remove"]
+
     if force:
         cmd.append("--force")
-    cmd.append(str(path))
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None)
+
+    cmd.append(worktree_directory)
+
+    result = subprocess.run(cmd)
     if result.returncode != 0:
-        raise WorktreeRemovalError(
-            f"Failed to remove worktree at {path!r}: {result.stderr.strip()}"
-        )
+        raise WorktreeRemovalError()

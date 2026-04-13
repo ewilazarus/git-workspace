@@ -1,17 +1,18 @@
-from pathlib import Path
+from git_workspace.workspace import Workspace
 from typing import Annotated
 
 import typer
 
-from git_workspace import workspace
+from git_workspace.errors import GitWorkspaceError
 
 app = typer.Typer()
 
 
 @app.command()
 def init(
-    directory: Annotated[
+    workspace_directory: Annotated[
         str | None,
+        "directory",
         typer.Argument(
             help="The directory in which to initialize the workspace. If ommitted, will default to the current working directory"
         ),
@@ -30,7 +31,8 @@ def init(
 
     Use this when starting a new project from scratch using the workspace model.
     """
-    workspace.create(
-        path=Path(directory) if directory else Path.cwd().resolve(),
-        config_url=config_url,
-    )
+    try:
+        Workspace.init(workspace_directory, config_url)
+    except GitWorkspaceError as e:
+        typer.echo(f"ERROR: {e}")
+        raise  # TODO: When code is ready remove this raise
