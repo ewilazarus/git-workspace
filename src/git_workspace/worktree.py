@@ -52,7 +52,7 @@ class Worktree:
         if not git.local_branch_exists(branch, cwd=str(workspace.directory)):
             return None
 
-        directory = workspace.directory / branch
+        directory = workspace.paths.worktree(branch)
         git.create_worktree_from_local_branch(
             str(directory), branch, cwd=str(workspace.directory)
         )

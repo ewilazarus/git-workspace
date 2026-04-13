@@ -21,9 +21,54 @@ from git_workspace.manifest import Manifest
 logger = structlog.get_logger(__name__)
 
 
+class WorkspacePaths:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    # <ROOT>/.workspace
+    @property
+    def config(self) -> Path:
+        return self.root / ".workspace"
+
+    # <ROOT>/.workspace/assets
+    @property
+    def assets(self) -> Path:
+        return self.config / "assets"
+
+    # <ROOT>/.workspace/bin
+    @property
+    def bin(self) -> Path:
+        return self.config / "bin"
+
+    # <ROOT>/.workspace/manifest.toml
+    @property
+    def manifest(self) -> Path:
+        return self.config / "manifest.toml"
+
+    # <ROOT>/.workspace/git-workspace.log
+    @property
+    def log_file(self) -> Path:
+        return self.config / "git-workspace.log"
+
+    # <ROOT>/.git
+    @property
+    def git(self) -> Path:
+        return self.root / ".git"
+
+    # <ROOT>/.git/info/exclude
+    @property
+    def ignore_file(self) -> Path:
+        return self.git / "info" / "exclude"
+
+    def worktree(self, branch: str) -> Path:
+        return self.root / branch
+
+
 class WorkspaceValidator:
     @classmethod
     def validate(cls, path: Path) -> None:
+        paths = WorkspacePaths(path)
+
         # Workspace root must be a directory
         if not path.is_dir():
             raise InvalidWorkspaceError(
@@ -31,24 +76,21 @@ class WorkspaceValidator:
             )
 
         # Workspace root must have a child `.git` directory
-        git_path = path / ".git"
-        if not git_path.is_dir():
+        if not paths.git.is_dir():
             raise InvalidWorkspaceError(
-                f"No {git_path!r} folder found under the path: {path!r}"
+                f"No {paths.git!r} folder found under the path: {path!r}"
             )
 
         # Workspace root must have a child `.workspace` directory
-        config_path = path / ".workspace"
-        if not config_path.is_dir():
+        if not paths.config.is_dir():
             raise InvalidWorkspaceError(
-                f"No {config_path!r} folder found under the path: {path!r}"
+                f"No {paths.config!r} folder found under the path: {path!r}"
             )
 
         # Workspace root's child `.workspace` directory must contain a `manifest.toml` file
-        manifest_path = config_path / "manifest.toml"
-        if not manifest_path.is_file():
+        if not paths.manifest.is_file():
             raise InvalidWorkspaceError(
-                f"No {manifest_path!r} file found under the path: {path!r}"
+                f"No {paths.manifest!r} file found under the path: {path!r}"
             )
 
 
@@ -148,18 +190,17 @@ class WorkspaceFactory:
         config_url: str | None = None,
     ) -> Workspace:
         directory.mkdir(parents=True, exist_ok=True)
+        paths = WorkspacePaths(directory)
 
-        git_directory = directory / ".git"
         if url:
-            cls._create_from_remote(url, git_directory)
+            cls._create_from_remote(url, paths.git)
         else:
-            cls._create_new(git_directory)
+            cls._create_new(paths.git)
 
-        config_directory = directory / ".workspace"
         if config_url:
-            cls._create_config_from_remote(config_url, config_directory)
+            cls._create_config_from_remote(config_url, paths.config)
         else:
-            cls._create_config_new(config_directory)
+            cls._create_config_new(paths.config)
 
         return Workspace(directory)
 
@@ -188,8 +229,7 @@ class WorkspaceLoggerFactory:
 
     @classmethod
     def create(cls, workspace: Workspace) -> structlog.BoundLogger:
-        log_file = workspace.directory / ".workspace" / "git-workspace.log"
-        handler = cls._create_handler(log_file)
+        handler = cls._create_handler(workspace.paths.log_file)
         underlying_logger = cls._setup_underlying_logger(workspace, handler)
 
         return structlog.wrap_logger(
@@ -207,6 +247,7 @@ class Workspace:
     def __init__(self, directory: Path) -> None:
         self.directory = directory
         self.manifest = Manifest.load(self)
+        self.paths = WorkspacePaths(directory)
         self._logger = WorkspaceLoggerFactory.create(self)
 
     @classmethod

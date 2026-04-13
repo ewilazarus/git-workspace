@@ -161,10 +161,8 @@ class Manifest:
         :returns: Parsed Manifest instance
         """
         try:
-            data = tomllib.loads(
-                (workspace.directory / ".workspace" / "manifest.toml").read_text()
-            )
-        except (OSError, tomllib.TOMLDecodeError):
+            data = tomllib.loads(workspace.paths.manifest.read_text())
+        except OSError, tomllib.TOMLDecodeError:
             # TODO: log
             return Manifest(
                 version=cls.DEFAULT_VERSION,

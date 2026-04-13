@@ -14,7 +14,6 @@ class HookRunner:
     ) -> None:
         self._workspace = workspace
         self._worktree = worktree
-        self._bin_path = workspace.directory / ".workspace" / "bin"
         self._worktree_dir = str(worktree.directory)
         self._runtime_vars = runtime_vars
 
@@ -42,7 +41,7 @@ class HookRunner:
         return env
 
     def _run_hook(self, event: str, hook_name: str, env: dict[str, str]) -> None:
-        hook_path = str(self._bin_path / hook_name)
+        hook_path = str(self._workspace.paths.bin / hook_name)
         worktree_dir = self._worktree_dir
 
         with subprocess.Popen(

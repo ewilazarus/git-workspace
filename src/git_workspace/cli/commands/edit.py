@@ -27,5 +27,5 @@ def edit(
     """
     workspace = Workspace.resolve(workspace_dir)
     click.edit(
-        filename=str(workspace.directory / ".workspace"),
+        filename=str(workspace.paths.config),
     )

@@ -19,7 +19,7 @@ class IgnoreManager:
     )
 
     def __init__(self, workspace: Workspace) -> None:
-        self._ignore_file = workspace.directory / ".git" / "info" / "exclude"
+        self._workspace = workspace
 
     def _compose_ignore_block(self, ignore_entries: list[Path]) -> str:
         builder = []
@@ -32,17 +32,17 @@ class IgnoreManager:
         return "\n".join(builder)
 
     def sync(self, ignore_entries: list[Path]) -> None:
-        file_content = self._ignore_file.read_text()
+        file_content = self._workspace.paths.ignore_file.read_text()
         clean_file_content = self.MATCH_REGEX.sub("", file_content)
         ignore_block = self._compose_ignore_block(ignore_entries)
         new_file_content = clean_file_content + "\n" + ignore_block
-        self._ignore_file.write_text(new_file_content)
+        self._workspace.paths.ignore_file.write_text(new_file_content)
 
 
 class Linker:
     def __init__(self, workspace: Workspace, worktree: Worktree) -> None:
+        self._workspace = workspace
         self._links = workspace.manifest.links
-        self._assets_directory = workspace.directory / ".workspace" / "assets"
         self._worktree_dir = worktree.directory
         self._ignore_manager = IgnoreManager(workspace)
 
@@ -66,7 +66,7 @@ class Linker:
         target.symlink_to(source)
 
     def _apply(self, link: Link, ignore_entries: list[Path]) -> None:
-        source = (self._assets_directory / link.source).absolute()
+        source = (self._workspace.paths.assets / link.source).absolute()
         target = (self._worktree_dir / link.target).absolute()
 
         if link.override:
