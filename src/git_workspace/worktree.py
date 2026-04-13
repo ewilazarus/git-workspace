@@ -22,7 +22,7 @@ class Worktree:
 
     @classmethod
     def list(cls, workspace: Workspace) -> List[Worktree]:
-        raw_worktrees = git.list_worktrees(str(workspace.directory))
+        raw_worktrees = git.list_worktrees(cwd=str(workspace.directory))
         return [
             Worktree(
                 workspace=workspace,
@@ -49,11 +49,13 @@ class Worktree:
         workspace: Workspace,
         branch: str,
     ) -> Worktree | None:
-        if not git.local_branch_exists(str(workspace.directory), branch):
+        if not git.local_branch_exists(branch, cwd=str(workspace.directory)):
             return None
 
         directory = workspace.directory / branch
-        git.add_worktree(str(workspace.directory), str(directory), branch)
+        git.create_worktree_from_local_branch(
+            str(directory), branch, cwd=str(workspace.directory)
+        )
 
         return Worktree(
             workspace=workspace,
@@ -68,14 +70,16 @@ class Worktree:
         workspace: Workspace,
         branch: str,
     ) -> Worktree | None:
-        git.fetch_origin()
+        git.fetch_origin(cwd=str(workspace.directory))
 
-        if not git.remote_branch_exists(str(workspace.directory), branch):
+        if not git.remote_branch_exists(branch, cwd=str(workspace.directory)):
             return None
 
         directory = workspace.directory / branch
-        git.add_worktree_tracking_remote(
-            str(workspace.directory), str(directory), branch
+        git.create_worktree_from_remote_branch(
+            str(directory),
+            branch,
+            cwd=str(workspace.directory),
         )
 
         return Worktree(
@@ -95,11 +99,11 @@ class Worktree:
         resolved_base_branch = base_branch or workspace.manifest.base_branch
 
         directory = workspace.directory / branch
-        git.add_worktree_new_branch(
-            str(workspace.directory),
+        git.create_worktree_new(
             str(directory),
             branch,
             resolved_base_branch,
+            cwd=str(workspace.directory),
         )
 
         return Worktree(
@@ -114,15 +118,15 @@ class Worktree:
         cls,
         workspace: Workspace,
     ) -> Worktree:
-        raw_directory = git.try_get_worktree_dir()
-        if raw_directory is None:
+        worktree_dir = git.try_get_worktree_dir()
+        if worktree_dir is None:
             # TODO: Improve exception msg
             raise WorktreeResolutionError("can't resolve worktree from cwd")
-        branch = git.get_worktree_branch(raw_directory)
+        branch = git.get_worktree_branch(cwd=worktree_dir)
 
         return Worktree(
             workspace=workspace,
-            directory=Path(raw_directory).resolve(),
+            directory=Path(worktree_dir).resolve(),
             branch=branch,
             is_new=False,
         )

@@ -106,7 +106,7 @@ class WorkspaceFactory:
     @classmethod
     def _create_new(cls, git_path: Path) -> None:
         try:
-            git.init(git_path, bare=True)
+            git.init(str(git_path), bare=True)
         except GitInitError as e:
             raise WorkspaceCreationError("Failed to initialize bare repository") from e
 
@@ -134,7 +134,7 @@ class WorkspaceFactory:
         shutil.rmtree(config_git_path, ignore_errors=True)
 
         try:
-            git.init(config_path, bare=False)
+            git.init(str(config_path), bare=False)
         except GitInitError as e:
             raise WorkspaceCreationError(
                 "Failed to re-initialize example config repository"
