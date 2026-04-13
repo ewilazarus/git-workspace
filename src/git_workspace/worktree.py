@@ -22,7 +22,7 @@ class Worktree:
 
     @classmethod
     def list(cls, workspace: Workspace) -> List[Worktree]:
-        raw_worktrees = git.list_worktrees(cwd=str(workspace.directory))
+        raw_worktrees = git.list_worktrees(cwd=workspace.directory)
         return [
             Worktree(
                 workspace=workspace,
@@ -49,12 +49,12 @@ class Worktree:
         workspace: Workspace,
         branch: str,
     ) -> Worktree | None:
-        if not git.local_branch_exists(branch, cwd=str(workspace.directory)):
+        if not git.local_branch_exists(branch, cwd=workspace.paths.root):
             return None
 
         directory = workspace.paths.worktree(branch)
         git.create_worktree_from_local_branch(
-            str(directory), branch, cwd=str(workspace.directory)
+            directory, branch, cwd=workspace.paths.root
         )
 
         return Worktree(
@@ -70,16 +70,16 @@ class Worktree:
         workspace: Workspace,
         branch: str,
     ) -> Worktree | None:
-        git.fetch_origin(cwd=str(workspace.directory))
+        git.fetch_origin(cwd=workspace.paths.root)
 
-        if not git.remote_branch_exists(branch, cwd=str(workspace.directory)):
+        if not git.remote_branch_exists(branch, cwd=workspace.directory):
             return None
 
-        directory = workspace.directory / branch
+        directory = workspace.paths.worktree(branch)
         git.create_worktree_from_remote_branch(
-            str(directory),
+            directory,
             branch,
-            cwd=str(workspace.directory),
+            cwd=workspace.directory,
         )
 
         return Worktree(
@@ -98,12 +98,12 @@ class Worktree:
     ) -> Worktree:
         resolved_base_branch = base_branch or workspace.manifest.base_branch
 
-        directory = workspace.directory / branch
+        directory = workspace.paths.worktree(branch)
         git.create_worktree_new(
-            str(directory),
+            directory,
             branch,
             resolved_base_branch,
-            cwd=str(workspace.directory),
+            cwd=workspace.paths.root,
         )
 
         return Worktree(
@@ -169,5 +169,5 @@ class Worktree:
             parent = parent.parent
 
     def delete(self, force: bool) -> None:
-        git.remove_worktree(str(self.directory), force)
+        git.remove_worktree(self.directory, force)
         self._clean_intermediary_empty_paths()

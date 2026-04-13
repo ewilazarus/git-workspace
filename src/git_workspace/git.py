@@ -37,7 +37,7 @@ def clone(
     :param bare: Whether to clone bare or not
     :raises GitCloneError: If the clone fails
     """
-    cmd = ["git", "clone"]
+    cmd: list[str | Path] = ["git", "clone"]
 
     if branch:
         cmd.append("-b")
@@ -49,7 +49,7 @@ def clone(
     cmd.append(url)
 
     if target:
-        cmd.append(str(target))
+        cmd.append(target)
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -77,7 +77,7 @@ def init(target: str, bare: bool) -> None:
         raise GitInitError("Failed to init repository")
 
 
-def list_worktrees(cwd: str) -> list[dict[str, str]]:
+def list_worktrees(cwd: Path) -> list[dict[str, str]]:
     cmd = ["git", "worktree", "list", "--porcelain"]
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     if result.returncode != 0:
@@ -91,7 +91,7 @@ def list_worktrees(cwd: str) -> list[dict[str, str]]:
     return worktrees
 
 
-def fetch_origin(cwd: str) -> None:
+def fetch_origin(cwd: Path) -> None:
     """
     Fetches from origin and prunes stale remote-tracking branches
 
@@ -103,7 +103,7 @@ def fetch_origin(cwd: str) -> None:
         raise GitFetchError(f"Failed to fetch from origin: {result.stderr.strip()}")
 
 
-def local_branch_exists(branch: str, cwd: str) -> bool:
+def local_branch_exists(branch: str, cwd: Path) -> bool:
     """
     Returns whether a local branch exists
 
@@ -116,7 +116,7 @@ def local_branch_exists(branch: str, cwd: str) -> bool:
     return result.returncode == 0
 
 
-def remote_branch_exists(branch: str, cwd: str) -> bool:
+def remote_branch_exists(branch: str, cwd: Path) -> bool:
     """
     Returns whether a branch exists on origin
 
@@ -140,13 +140,15 @@ def skip_worktree(path: Path) -> None:
     :param cwd: The worktree root directory
     """
     subprocess.run(
-        ["git", "update-index", "--skip-worktree", str(path)],
+        ["git", "update-index", "--skip-worktree", path],
         capture_output=True,
         text=True,
     )
 
 
-def create_worktree_from_local_branch(worktree_dir: str, branch: str, cwd: str) -> None:
+def create_worktree_from_local_branch(
+    worktree_dir: Path, branch: str, cwd: Path
+) -> None:
     """
     Creates a worktree for an existing local branch
 
@@ -162,7 +164,7 @@ def create_worktree_from_local_branch(worktree_dir: str, branch: str, cwd: str) 
 
 
 def create_worktree_from_remote_branch(
-    worktree_dir: str, branch: str, cwd: str
+    worktree_dir: Path, branch: str, cwd: Path
 ) -> None:
     """
     Creates a worktree with a new local branch tracking origin/<branch>
@@ -188,10 +190,10 @@ def create_worktree_from_remote_branch(
 
 
 def create_worktree_new(
-    worktree_dir: str,
+    worktree_dir: Path,
     branch: str,
     base_branch: str,
-    cwd: str,
+    cwd: Path,
 ) -> None:
     """
     Creates a worktree with a brand new local branch from a base branch.
@@ -232,7 +234,7 @@ def get_worktree_branch(cwd: str) -> str:
     return result.stdout.strip()
 
 
-def remove_worktree(worktree_dir: str, force: bool = False) -> None:
+def remove_worktree(worktree_dir: Path, force: bool = False) -> None:
     """
     Removes a git worktree without deleting the branch.
 
@@ -241,7 +243,7 @@ def remove_worktree(worktree_dir: str, force: bool = False) -> None:
     :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeRemovalError: If the removal fails
     """
-    cmd = ["git", "worktree", "remove"]
+    cmd: list[str | Path] = ["git", "worktree", "remove"]
 
     if force:
         cmd.append("--force")
