@@ -3,8 +3,6 @@ from typing import Annotated
 
 import typer
 
-from git_workspace.errors import GitWorkspaceError
-
 app = typer.Typer()
 
 
@@ -36,8 +34,4 @@ def clone(
 
     Use this when starting from an existing remote repository.
     """
-    try:
-        Workspace.clone(workspace_dir, url, config_url)
-    except GitWorkspaceError as e:
-        typer.echo(f"ERROR: {e}")
-        raise  # TODO: When code is ready remove this raise
+    Workspace.clone(workspace_dir, url, config_url)

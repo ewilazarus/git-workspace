@@ -3,10 +3,6 @@ from typing import Annotated
 
 import typer
 
-from git_workspace.errors import (
-    GitWorkspaceError,
-)
-
 app = typer.Typer()
 
 
@@ -28,12 +24,8 @@ def list(
 
     Use this to inspect the current state of the workspace.
     """
-    try:
-        workspace = Workspace.resolve(workspace_dir)
-        worktrees = workspace.list_worktrees()
+    workspace = Workspace.resolve(workspace_dir)
+    worktrees = workspace.list_worktrees()
 
-        # TODO we need to make this better (maybe use rich's tables?)
-        typer.echo(worktrees)
-    except GitWorkspaceError as e:
-        typer.echo(f"ERROR: {e}")
-        raise  # TODO: When code is ready remove this raise
+    # TODO we need to make this better (maybe use rich's tables?)
+    typer.echo(worktrees)

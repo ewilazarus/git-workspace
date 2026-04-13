@@ -1,7 +1,4 @@
 from git_workspace.workspace import Workspace
-from git_workspace.errors import (
-    GitWorkspaceError,
-)
 from typing import Annotated
 
 import click
@@ -28,11 +25,7 @@ def edit(
 
     The editor is resolved using standard environment variables (e.g. VISUAL or EDITOR). The command does not modify any files—it only launches the editor.
     """
-    try:
-        workspace = Workspace.resolve(workspace_dir)
-        click.edit(
-            filename=str(workspace.directory / ".workspace"),
-        )
-    except GitWorkspaceError as e:
-        typer.echo(f"ERROR: {e}")
-        raise  # TODO: When code is ready remove this raise
+    workspace = Workspace.resolve(workspace_dir)
+    click.edit(
+        filename=str(workspace.directory / ".workspace"),
+    )

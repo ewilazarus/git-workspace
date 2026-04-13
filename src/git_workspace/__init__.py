@@ -1,16 +1,11 @@
-import logging
-
-import structlog
-
+import typer
+from git_workspace.errors import GitWorkspaceError
 from git_workspace import cli
 
 
 def main() -> None:
-    # Route structlog through stdlib logging with a NullHandler so no debug
-    # output appears until configure_logging() sets up the rotating file sink.
-    logging.getLogger().addHandler(logging.NullHandler())
-    structlog.configure(
-        wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
-        logger_factory=structlog.stdlib.LoggerFactory(),
-    )
-    cli.app()
+    try:
+        cli.app()
+    except GitWorkspaceError as e:
+        typer.echo(f"ERROR: {e}")
+        raise  # TODO remove when we get a more stable error system

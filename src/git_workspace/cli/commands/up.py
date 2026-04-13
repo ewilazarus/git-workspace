@@ -6,9 +6,6 @@ from typing import Annotated
 import typer
 
 from git_workspace.cli.parsers import parse_vars
-from git_workspace.errors import (
-    GitWorkspaceError,
-)
 
 app = typer.Typer()
 
@@ -70,24 +67,20 @@ def up(
     on_attach hooks also run — use --detached for headless or automated
     workflows.
     """
-    try:
-        workspace = Workspace.resolve(workspace_dir)
-        worktree = workspace.resolve_or_create_worktree(branch, base_branch)
+    workspace = Workspace.resolve(workspace_dir)
+    worktree = workspace.resolve_or_create_worktree(branch, base_branch)
 
-        hook_runner = HookRunner(
-            workspace,
-            worktree,
-            runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-        )
+    hook_runner = HookRunner(
+        workspace,
+        worktree,
+        runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
+    )
 
-        if worktree.is_new:
-            Linker(workspace, worktree).apply()
-            hook_runner.run_on_setup_hooks()
+    if worktree.is_new:
+        Linker(workspace, worktree).apply()
+        hook_runner.run_on_setup_hooks()
 
-        hook_runner.run_on_activate_hooks()
+    hook_runner.run_on_activate_hooks()
 
-        if not detached:
-            hook_runner.run_on_attach_hooks()
-    except GitWorkspaceError as e:
-        typer.echo(f"ERROR: {e}")
-        raise  # TODO: When code is ready remove this raise
+    if not detached:
+        hook_runner.run_on_attach_hooks()

@@ -3,8 +3,6 @@ from typing import Annotated
 
 import typer
 
-from git_workspace.errors import GitWorkspaceError
-
 app = typer.Typer()
 
 
@@ -31,8 +29,4 @@ def init(
 
     Use this when starting a new project from scratch using the workspace model.
     """
-    try:
-        Workspace.init(workspace_dir, config_url)
-    except GitWorkspaceError as e:
-        typer.echo(f"ERROR: {e}")
-        raise  # TODO: When code is ready remove this raise
+    Workspace.init(workspace_dir, config_url)

@@ -5,9 +5,6 @@ from typing import Annotated
 import typer
 
 from git_workspace.cli.parsers import parse_vars
-from git_workspace.errors import (
-    GitWorkspaceError,
-)
 
 app = typer.Typer()
 
@@ -55,20 +52,16 @@ def remove(
 
     This command does not modify Git history or delete any branch.
     """
-    try:
-        workspace = Workspace.resolve(workspace_dir)
-        worktree = workspace.resolve_worktree(branch)
+    workspace = Workspace.resolve(workspace_dir)
+    worktree = workspace.resolve_worktree(branch)
 
-        hook_runner = HookRunner(
-            workspace,
-            worktree,
-            runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-        )
+    hook_runner = HookRunner(
+        workspace,
+        worktree,
+        runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
+    )
 
-        hook_runner.run_on_deactivate_hooks()
-        hook_runner.run_on_remove_hooks()
+    hook_runner.run_on_deactivate_hooks()
+    hook_runner.run_on_remove_hooks()
 
-        worktree.delete(force)
-    except GitWorkspaceError as e:
-        typer.echo(f"ERROR: {e}")
-        raise  # TODO: When code is ready remove this raise
+    worktree.delete(force)

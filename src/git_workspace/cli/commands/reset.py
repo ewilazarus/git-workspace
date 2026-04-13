@@ -6,9 +6,6 @@ from typing import Annotated
 import typer
 
 from git_workspace.cli.parsers import parse_vars
-from git_workspace.errors import (
-    GitWorkspaceError,
-)
 
 app = typer.Typer()
 
@@ -48,16 +45,12 @@ def reset(
 
     This command does not modify Git history, switch branches, or discard uncommitted changes. It only restores the expected workspace state.
     """
-    try:
-        workspace = Workspace.resolve(workspace_dir)
-        worktree = workspace.resolve_worktree(branch)
+    workspace = Workspace.resolve(workspace_dir)
+    worktree = workspace.resolve_worktree(branch)
 
-        Linker(workspace, worktree).apply()
-        HookRunner(
-            workspace,
-            worktree,
-            runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-        ).run_on_setup_hooks()
-    except GitWorkspaceError as e:
-        typer.echo(f"ERROR: {e}")
-        raise  # TODO: When code is ready remove this raise
+    Linker(workspace, worktree).apply()
+    HookRunner(
+        workspace,
+        worktree,
+        runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
+    ).run_on_setup_hooks()
