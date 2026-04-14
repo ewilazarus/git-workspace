@@ -38,7 +38,7 @@ def reset(
     ] = None,
 ) -> None:
     """
-    Reapply workspace configuration and setup for a branch worktree.
+    Reapply configuration and setup for a workspace worktree.
 
     This command re-syncs links, reapplies override behavior, updates the managed ignore rules, and reruns setup hooks as defined in `workspace.toml`.
 

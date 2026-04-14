@@ -67,7 +67,7 @@ def up(
     ] = False,
 ) -> None:
     """
-    Open a worktree, setting it up first if needed.
+    Spawns a worktree, setting it up first if needed.
 
     Ensures that a worktree exists for the target branch and then performs
     lightweight actions to enter or resume working in that workspace.
@@ -80,10 +80,7 @@ def up(
     workspace = Workspace.resolve(workspace_dir)
     worktree = workspace.resolve_or_create_worktree(branch, base_branch)
 
-    console.print(
-        f"Activating {styled_branch(worktree.branch)}"
-        f" → {styled_path(worktree.directory)}"
-    )
+    console.print(f"Activating {styled_branch(worktree.branch)}")
 
     hook_runner = HookRunner(
         workspace,

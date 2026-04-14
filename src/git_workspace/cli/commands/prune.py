@@ -31,7 +31,7 @@ def prune(
     ] = True,
 ) -> None:
     """
-    Remove stale workspace worktrees based on HEAD commit age.
+    Remove stale workspace worktrees.
 
     This command identifies and removes worktrees whose HEAD commit is older than
     a specified threshold. It is intended to keep the workspace tidy by cleaning up

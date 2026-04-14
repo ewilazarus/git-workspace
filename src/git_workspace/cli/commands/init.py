@@ -39,8 +39,10 @@ def init(
 
     Use this when starting a new project from scratch using the workspace model.
     """
-    console.print("Initialising workspace...")
+    console.print("Initialising workspace")
+
     workspace = Workspace.init(workspace_dir, config_url)
+
     print_success(f"Workspace ready at {styled_path(workspace.directory)}")
 
     if output:

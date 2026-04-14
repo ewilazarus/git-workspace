@@ -44,8 +44,10 @@ def clone(
 
     Use this when starting from an existing remote repository.
     """
-    console.print(f"Cloning {url}...")
+    console.print(f"Cloning {url}")
+
     workspace = Workspace.clone(workspace_dir, url, config_url)
+
     print_success(f"Workspace ready at {styled_path(workspace.directory)}")
 
     if output:

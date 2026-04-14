@@ -12,14 +12,14 @@ from git_workspace.cli.commands.root import app as root_command
 from git_workspace.cli.commands.up import app as up_command
 
 HELP = """
-Manage isolated branch workspaces for a repository.
+Manage isolated git worktrees for a repository.
 
 A workspace consists of a shared bare repository and a set of per-branch worktrees, each with its own local environment and configuration.
 
-The primary command is `up`, which opens a workspace for a branch, creating and setting it up first if needed.
+The primary command is `up`, which spawns a git worktree, setting it up first if needed.
 """
 
-app = typer.Typer(help=HELP)
+app = typer.Typer(help=HELP, no_args_is_help=True)
 
 app.add_typer(clone_command)
 app.add_typer(down_command)
