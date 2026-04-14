@@ -1,5 +1,6 @@
 from git_workspace.hooks import HookRunner
 from git_workspace.workspace import Workspace
+from git_workspace.ui import console, print_success, styled_branch, styled_path
 from typing import Annotated
 
 import typer
@@ -55,6 +56,8 @@ def remove(
     workspace = Workspace.resolve(workspace_dir)
     worktree = workspace.resolve_worktree(branch)
 
+    console.print(f"Removing worktree for {styled_branch(worktree.branch)}")
+
     hook_runner = HookRunner(
         workspace,
         worktree,
@@ -64,4 +67,7 @@ def remove(
     hook_runner.run_on_deactivate_hooks()
     hook_runner.run_on_remove_hooks()
 
+    console.print(f"  Removing {styled_path(worktree.directory)}")
     worktree.delete(force)
+
+    print_success("Removed")

@@ -4,11 +4,22 @@ from git_workspace.manifest import Link
 from git_workspace.errors import WorkspaceLinkError
 from pathlib import Path
 
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+
 from git_workspace import git
+from git_workspace.ui import console, print_success
 from git_workspace.workspace import Workspace
 
 
 class IgnoreManager:
+    """
+    Manages the git-workspace-owned block inside `.git/info/exclude`.
+
+    Wraps a clearly delimited section in the exclude file so that entries
+    added by git-workspace can be replaced atomically on each sync without
+    disturbing any lines written by the user.
+    """
+
     BEGIN_IGNORE_MARKER = "# >>> git-workspace managed >>>"
     END_IGNORE_MARKER = "# <<< git-workspace managed <<<"
     MATCH_REGEX = re.compile(
@@ -32,6 +43,14 @@ class IgnoreManager:
         return "\n".join(builder)
 
     def sync(self, ignore_entries: list[Path]) -> None:
+        """
+        Rewrites the git-workspace block in `.git/info/exclude` with the given entries.
+
+        Any previously written block is removed before the new block is appended,
+        leaving user-managed lines intact.
+
+        :param ignore_entries: Absolute paths to be added to the exclude file.
+        """
         file_content = self._workspace.paths.ignore_file.read_text()
         clean_file_content = self.MATCH_REGEX.sub("", file_content)
         ignore_block = self._compose_ignore_block(ignore_entries)
@@ -40,6 +59,16 @@ class IgnoreManager:
 
 
 class Linker:
+    """
+    Applies symbolic links defined in the workspace manifest into a worktree.
+
+    For each link, the source is resolved relative to `.workspace/assets` and
+    the target relative to the worktree root. Links marked as overrides replace
+    existing tracked files (using ``git update-index --skip-worktree``); all
+    other links are recorded in `.git/info/exclude` to keep them out of source
+    control.
+    """
+
     def __init__(self, workspace: Workspace, worktree: Worktree) -> None:
         self._workspace = workspace
         self._links = workspace.manifest.links
@@ -76,9 +105,32 @@ class Linker:
             ignore_entries.append(target)
 
     def apply(self) -> None:
-        ignore_entries = []
+        """
+        Creates all symlinks defined in the manifest and syncs the ignore file.
 
-        for link in self._links:
-            self._apply(link, ignore_entries)
+        Iterates over each link entry, creates the symlink (with or without
+        override semantics), then writes all non-override targets into the
+        managed block of `.git/info/exclude`.
+
+        :raises WorkspaceLinkError: If a non-override link conflicts with an
+            existing file or a symlink pointing elsewhere.
+        """
+        ignore_entries: list[Path] = []
+
+        if self._links:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console,
+                transient=True,
+            ) as progress:
+                task = progress.add_task("  Applying links", total=len(self._links))
+                for link in self._links:
+                    progress.update(task, description=f"  [path]{link.target}[/path]")
+                    self._apply(link, ignore_entries)
+                    progress.advance(task)
+            print_success(f"  {len(self._links)} link(s) applied")
 
         self._ignore_manager.sync(ignore_entries)

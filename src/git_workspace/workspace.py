@@ -1,6 +1,4 @@
 from __future__ import annotations
-import logging
-import logging.handlers
 from git_workspace.worktree import Worktree
 from pathlib import Path
 import shutil
@@ -22,6 +20,14 @@ logger = structlog.get_logger(__name__)
 
 
 class WorkspacePaths:
+    """
+    Resolves well-known paths within a workspace root directory.
+
+    Acts as a single source of truth for all path conventions used by
+    git-workspace, preventing hard-coded path strings from being scattered
+    across the codebase.
+    """
+
     def __init__(self, root: Path) -> None:
         self.root = root
 
@@ -45,11 +51,6 @@ class WorkspacePaths:
     def manifest(self) -> Path:
         return self.config / "manifest.toml"
 
-    # <ROOT>/.workspace/git-workspace.log
-    @property
-    def log_file(self) -> Path:
-        return self.config / "git-workspace.log"
-
     # <ROOT>/.git
     @property
     def git(self) -> Path:
@@ -61,12 +62,32 @@ class WorkspacePaths:
         return self.git / "info" / "exclude"
 
     def worktree(self, branch: str) -> Path:
+        """
+        Returns the path where the worktree for ``branch`` should be created.
+
+        :param branch: The branch name; may contain slashes for namespaced branches.
+        :returns: ``<ROOT>/<branch>``
+        """
         return self.root / branch
 
 
 class WorkspaceValidator:
+    """
+    Validates that a directory path satisfies the workspace root structure contract.
+    """
+
     @classmethod
     def validate(cls, path: Path) -> None:
+        """
+        Asserts that ``path`` is a valid workspace root.
+
+        A valid workspace root must be an existing directory containing both a
+        ``.git`` directory and a ``.workspace`` directory with a ``manifest.toml``
+        file inside it.
+
+        :param path: The path to validate.
+        :raises InvalidWorkspaceError: If any structural requirement is not met.
+        """
         paths = WorkspacePaths(path)
 
         # Workspace root must be a directory
@@ -95,6 +116,10 @@ class WorkspaceValidator:
 
 
 class WorkspaceResolver:
+    """
+    Resolves a workspace root path from a raw string or the current working directory.
+    """
+
     @classmethod
     def _resolve(cls, path: Path) -> Path:
         for candidate in [path, *path.parents]:
@@ -119,7 +144,7 @@ class WorkspaceResolver:
         :raises UnableToResolveWorkspaceError: If the `raw_path` isn't provided and
             the system is unable to resolve the workspace root (e.g. the current working
             directory isn't a child of a workspace root)
-        :returns: The resolved `pathlib.Path` for the workspace root path
+        :returns: The resolved ``Workspace`` for the root path
         """
         try:
             workspace_dir = (
@@ -135,6 +160,14 @@ class WorkspaceResolver:
 
 
 class WorkspaceFactory:
+    """
+    Creates new workspaces on disk for ``init`` and ``clone`` operations.
+
+    Handles the two-part workspace structure: the bare git repository under
+    ``.git`` and the configuration directory under ``.workspace``. Both parts
+    can be seeded from a remote URL or created fresh from defaults.
+    """
+
     DEFAULT_CONFIG_URL = "https://github.com/ewilazarus/git-workspace.git"
     DEFAULT_CONFIG_BRANCH = "config/v1"
 
@@ -148,7 +181,7 @@ class WorkspaceFactory:
     @classmethod
     def _create_new(cls, git_path: Path) -> None:
         try:
-            git.init(str(git_path), bare=True)
+            git.init(git_path, bare=True)
         except GitInitError as e:
             raise WorkspaceCreationError("Failed to initialize bare repository") from e
 
@@ -176,7 +209,7 @@ class WorkspaceFactory:
         shutil.rmtree(config_git_path, ignore_errors=True)
 
         try:
-            git.init(str(config_path), bare=False)
+            git.init(config_path, bare=False)
         except GitInitError as e:
             raise WorkspaceCreationError(
                 "Failed to re-initialize example config repository"
@@ -189,6 +222,22 @@ class WorkspaceFactory:
         url: str | None = None,
         config_url: str | None = None,
     ) -> Workspace:
+        """
+        Creates a workspace at ``directory``, seeding it from remote URLs when provided.
+
+        If ``url`` is given, the repository is cloned as a bare repo; otherwise a
+        new bare repo is initialised. If ``config_url`` is given, the config
+        directory is cloned from that URL; otherwise the default example config is
+        used.
+
+        :param directory: Root directory for the new workspace.
+        :param url: Remote repository URL to clone. If ``None``, a new bare repo
+            is initialised instead.
+        :param config_url: URL of the ``.workspace`` config repository to clone.
+            If ``None``, the default example config is cloned and re-initialised.
+        :returns: A ``Workspace`` instance rooted at ``directory``.
+        :raises WorkspaceCreationError: If any git operation during setup fails.
+        """
         directory.mkdir(parents=True, exist_ok=True)
         paths = WorkspacePaths(directory)
 
@@ -205,57 +254,52 @@ class WorkspaceFactory:
         return Workspace(directory)
 
 
-class WorkspaceLoggerFactory:
-    @classmethod
-    def _create_handler(cls, log_file: Path) -> logging.Handler:
-        handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=1_000_000,  # 1MB
-            encoding="utf-8",
-        )
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        return handler
-
-    @classmethod
-    def _setup_underlying_logger(
-        cls, workspace: Workspace, handler: logging.Handler
-    ) -> None:
-        logger = logging.getLogger(str(workspace.directory))
-        logger.propagate = False
-        logger.addHandler
-        logger.setLevel(
-            logging.DEBUG
-        )  # TODO read log level from env (GIT_WORKSPACE_LOG_LEVEL)
-
-    @classmethod
-    def create(cls, workspace: Workspace) -> structlog.BoundLogger:
-        handler = cls._create_handler(workspace.paths.log_file)
-        underlying_logger = cls._setup_underlying_logger(workspace, handler)
-
-        return structlog.wrap_logger(
-            underlying_logger,
-            processors=[
-                structlog.processors.add_log_level,
-                structlog.processors.TimeStamper(fmt="iso"),
-                structlog.dev.ConsoleRenderer(colors=False),
-            ],
-            wrapper_class=structlog.stdlib.BoundLogger,
-        )
-
-
 class Workspace:
+    """
+    Central object representing an open workspace.
+
+    A workspace is a bare git repository paired with a ``.workspace``
+    configuration directory. This class is the main entry point for all
+    workspace operations, delegating to specialised helpers for resolution,
+    creation, and worktree management.
+    """
+
     def __init__(self, directory: Path) -> None:
         self.directory = directory
-        self.manifest = Manifest.load(self)
         self.paths = WorkspacePaths(directory)
-        self._logger = WorkspaceLoggerFactory.create(self)
+        self.manifest = Manifest.load(self)
 
     @classmethod
     def resolve(cls, workspace_dir: str | None) -> Workspace:
+        """
+        Resolves and returns the workspace rooted at ``workspace_dir``, or inferred
+        from the current working directory if ``workspace_dir`` is ``None``.
+
+        :param workspace_dir: Path to the workspace root as a string, or ``None``
+            to walk up from the cwd.
+        :returns: The resolved ``Workspace`` instance.
+        :raises InvalidWorkspaceError: If the provided path does not point to a
+            valid workspace root.
+        :raises UnableToResolveWorkspaceError: If no workspace root can be found
+            by walking up from the cwd.
+        """
         return WorkspaceResolver.resolve(workspace_dir)
 
     @classmethod
     def init(cls, workspace_dir: str | None, config_url: str | None) -> Workspace:
+        """
+        Initialises a new workspace for a repository that does not yet exist remotely.
+
+        Creates a bare git repository and a ``.workspace`` configuration directory
+        at ``workspace_dir`` (defaults to the cwd if ``None``).
+
+        :param workspace_dir: Directory in which to create the workspace, or
+            ``None`` to use the current working directory.
+        :param config_url: URL of a config repository to clone as ``.workspace``.
+            If ``None``, the default example config is used.
+        :returns: The newly created ``Workspace`` instance.
+        :raises WorkspaceCreationError: If any git operation during setup fails.
+        """
         return WorkspaceFactory.create(
             Path(workspace_dir) if workspace_dir else Path.cwd().resolve(),
             config_url=config_url,
@@ -265,6 +309,20 @@ class Workspace:
     def clone(
         cls, workspace_dir: str | None, url: str, config_url: str | None
     ) -> Workspace:
+        """
+        Creates a new workspace by cloning an existing remote repository.
+
+        The repository is cloned as a bare repo. If ``workspace_dir`` is ``None``,
+        the directory name is derived from the humanish suffix of ``url``.
+
+        :param workspace_dir: Target directory for the workspace, or ``None`` to
+            derive a name from the repository URL.
+        :param url: Remote repository URL to clone.
+        :param config_url: URL of a config repository to clone as ``.workspace``.
+            If ``None``, the default example config is used.
+        :returns: The newly created ``Workspace`` instance.
+        :raises WorkspaceCreationError: If any git operation during setup fails.
+        """
         return WorkspaceFactory.create(
             directory=Path(workspace_dir or utils.extract_humanish_suffix(url)),
             url=url,
@@ -272,12 +330,36 @@ class Workspace:
         )
 
     def list_worktrees(self) -> list[Worktree]:
+        """
+        Returns all worktrees currently registered in this workspace.
+
+        :returns: List of ``Worktree`` instances.
+        :raises WorktreeListingError: If ``git worktree list`` fails.
+        """
         return Worktree.list(self)
 
     def resolve_worktree(self, branch: str | None) -> Worktree:
+        """
+        Resolves an existing worktree by branch name or from the current working directory.
+
+        :param branch: Branch name to look up, or ``None`` to infer from cwd.
+        :returns: The matching ``Worktree`` instance.
+        :raises WorktreeResolutionError: If no worktree can be resolved.
+        """
         return Worktree.resolve(self, branch)
 
     def resolve_or_create_worktree(
         self, branch: str | None, base_branch: str | None
     ) -> Worktree:
+        """
+        Resolves an existing worktree or creates a new one for the given branch.
+
+        :param branch: Branch name to resolve or create, or ``None`` to infer from cwd.
+        :param base_branch: Branch to base a new branch on. Falls back to the
+            manifest's ``base_branch`` when ``None``.
+        :returns: The resolved or newly created ``Worktree`` instance.
+        :raises WorktreeResolutionError: If ``branch`` is ``None`` and the cwd is
+            not inside a known worktree.
+        :raises WorktreeCreationError: If worktree creation fails at the git level.
+        """
         return Worktree.resolve_or_create(self, branch, base_branch)

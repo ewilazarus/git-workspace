@@ -2,19 +2,30 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, TYPE_CHECKING
 
 from git_workspace import git
-from git_workspace.errors import WorktreeCreationError, WorktreeResolutionError  # noqa: F401 — re-exported for callers
-from git_workspace.workspace import Workspace
+from git_workspace.errors import GitFetchError, WorktreeResolutionError
 
 import structlog
+
+if TYPE_CHECKING:
+    from git_workspace.workspace import Workspace
 
 logger = structlog.get_logger(__name__)
 
 
 @dataclass
 class Worktree:
+    """
+    Represents a git worktree within a workspace.
+
+    Each worktree corresponds to a single branch checked out under the workspace
+    root directory. The ``is_new`` flag indicates that the worktree was just
+    created in the current operation rather than resolved from an existing one,
+    which triggers setup hooks and asset linking.
+    """
+
     workspace: Workspace
     directory: Path
     branch: str
@@ -22,6 +33,13 @@ class Worktree:
 
     @classmethod
     def list(cls, workspace: Workspace) -> List[Worktree]:
+        """
+        Returns all worktrees currently registered in the workspace.
+
+        :param workspace: The workspace whose worktrees should be listed.
+        :returns: List of ``Worktree`` instances, one per registered git worktree.
+        :raises WorktreeListingError: If ``git worktree list`` fails.
+        """
         raw_worktrees = git.list_worktrees(cwd=workspace.directory)
         return [
             Worktree(
@@ -70,7 +88,10 @@ class Worktree:
         workspace: Workspace,
         branch: str,
     ) -> Worktree | None:
-        git.fetch_origin(cwd=workspace.paths.root)
+        try:
+            git.fetch_origin(cwd=workspace.paths.root)
+        except GitFetchError:
+            return None
 
         if not git.remote_branch_exists(branch, cwd=workspace.directory):
             return None
@@ -133,6 +154,18 @@ class Worktree:
 
     @classmethod
     def resolve(cls, workspace: Workspace, branch: str | None) -> Worktree:
+        """
+        Resolves an existing worktree by branch name or from the current working directory.
+
+        If ``branch`` is provided, searches the registered worktrees for an exact
+        match and raises if none is found. If ``branch`` is ``None``, the worktree
+        is inferred from the current working directory.
+
+        :param workspace: The workspace to search within.
+        :param branch: The branch name to look up, or ``None`` to resolve from cwd.
+        :returns: The matching ``Worktree`` instance.
+        :raises WorktreeResolutionError: If no worktree can be resolved.
+        """
         if branch:
             worktree = cls._try_resolve_existing(workspace, branch)
             if not worktree:
@@ -149,6 +182,24 @@ class Worktree:
         branch: str | None,
         base_branch: str | None,
     ) -> Worktree:
+        """
+        Resolves an existing worktree or creates a new one for the given branch.
+
+        Resolution is attempted in order: existing worktree → local branch →
+        remote branch → brand new branch from ``base_branch``. If ``branch`` is
+        ``None``, the worktree is resolved from the current working directory
+        without creation.
+
+        :param workspace: The workspace to operate on.
+        :param branch: The branch name to resolve or create, or ``None`` to
+            resolve from cwd.
+        :param base_branch: The branch to base a new branch on. Falls back to
+            the manifest's ``base_branch`` if ``None``.
+        :returns: The resolved or newly created ``Worktree`` instance.
+        :raises WorktreeResolutionError: If ``branch`` is ``None`` and the cwd
+            is not inside a known worktree.
+        :raises WorktreeCreationError: If worktree creation fails at the git level.
+        """
         if branch:
             return (
                 cls._try_resolve_existing(workspace, branch)
@@ -169,5 +220,15 @@ class Worktree:
             parent = parent.parent
 
     def delete(self, force: bool) -> None:
-        git.remove_worktree(self.directory, force)
+        """
+        Removes this worktree and cleans up any empty intermediary directories.
+
+        Delegates to ``git worktree remove`` and then walks up the directory
+        tree removing empty parents until the workspace root is reached.
+
+        :param force: If ``True``, removes the worktree even if it has
+            uncommitted changes.
+        :raises WorktreeRemovalError: If ``git worktree remove`` fails.
+        """
+        git.remove_worktree(self.directory, force, cwd=self.workspace.directory)
         self._clean_intermediary_empty_paths()

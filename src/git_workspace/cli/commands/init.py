@@ -1,4 +1,5 @@
 from git_workspace.workspace import Workspace
+from git_workspace.ui import console, print_success, styled_path
 from typing import Annotated
 
 import typer
@@ -21,6 +22,15 @@ def init(
             help="The configuration URL to be cloned. If ommitted, uses the default configuration"
         ),
     ] = None,
+    output: Annotated[
+        bool,
+        typer.Option(
+            "-o",
+            "--output",
+            is_flag=True,
+            help="Print the workspace root path to stdout and suppress all other output.",
+        ),
+    ] = False,
 ) -> None:
     """
     Initialize a repository in workspace format.
@@ -29,4 +39,9 @@ def init(
 
     Use this when starting a new project from scratch using the workspace model.
     """
-    Workspace.init(workspace_dir, config_url)
+    console.print("Initialising workspace...")
+    workspace = Workspace.init(workspace_dir, config_url)
+    print_success(f"Workspace ready at {styled_path(workspace.directory)}")
+
+    if output:
+        typer.echo(str(workspace.directory))

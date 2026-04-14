@@ -1,0 +1,10 @@
+version = 1
+
+base_branch = "main"
+
+[hooks]
+on_setup = ["on_setup"]
+on_activate = ["on_activate"]
+on_attach = ["on_attach"]
+on_deactivate = ["on_deactivate"]
+on_remove = ["on_remove"]

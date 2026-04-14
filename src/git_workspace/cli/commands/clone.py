@@ -1,4 +1,5 @@
 from git_workspace.workspace import Workspace
+from git_workspace.ui import console, print_success, styled_path
 from typing import Annotated
 
 import typer
@@ -26,6 +27,15 @@ def clone(
             help="The configuration URL to be cloned. If ommitted, uses the default configuration"
         ),
     ] = None,
+    output: Annotated[
+        bool,
+        typer.Option(
+            "-o",
+            "--output",
+            is_flag=True,
+            help="Print the workspace root path to stdout and suppress all other output.",
+        ),
+    ] = False,
 ) -> None:
     """
     Clone a repository into workspace format.
@@ -34,4 +44,9 @@ def clone(
 
     Use this when starting from an existing remote repository.
     """
-    Workspace.clone(workspace_dir, url, config_url)
+    console.print(f"Cloning {url}...")
+    workspace = Workspace.clone(workspace_dir, url, config_url)
+    print_success(f"Workspace ready at {styled_path(workspace.directory)}")
+
+    if output:
+        typer.echo(str(workspace.directory))

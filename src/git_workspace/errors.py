@@ -1,49 +1,56 @@
-class GitWorkspaceError(Exception): ...
+class GitWorkspaceError(Exception):
+    """Base class for all git-workspace errors."""
 
 
-class GitCloneError(GitWorkspaceError): ...
+class GitCloneError(GitWorkspaceError):
+    """Raised when a `git clone` operation fails."""
 
 
-class GitInitError(GitWorkspaceError): ...
+class GitInitError(GitWorkspaceError):
+    """Raised when a `git init` operation fails."""
 
 
-class InvalidWorkspaceError(GitWorkspaceError): ...
+class InvalidWorkspaceError(GitWorkspaceError):
+    """Raised when a path does not point to a valid workspace root."""
 
 
-class UnableToResolveWorkspaceError(GitWorkspaceError): ...
+class UnableToResolveWorkspaceError(GitWorkspaceError):
+    """Raised when the workspace root cannot be inferred from the current working directory."""
 
 
-class UnableToResolveBranchError(GitWorkspaceError): ...
+
+class WorkspaceCreationError(GitWorkspaceError):
+    """Raised when workspace creation fails during init or clone."""
 
 
-class WorkspaceCreationError(GitWorkspaceError): ...
+class InvalidInputError(GitWorkspaceError):
+    """Raised when user-provided input is invalid or cannot be parsed."""
 
 
-class InvalidInputError(GitWorkspaceError): ...
+class GitFetchError(GitWorkspaceError):
+    """Raised when a `git fetch` operation fails."""
 
 
-class GitFetchError(GitWorkspaceError): ...
+class WorktreeCreationError(GitWorkspaceError):
+    """Raised when a git worktree cannot be created."""
 
 
-class WorktreeCreationError(GitWorkspaceError): ...
+
+class WorktreeRemovalError(GitWorkspaceError):
+    """Raised when a git worktree cannot be removed."""
 
 
-class WorktreeNotFoundError(GitWorkspaceError): ...
+class WorkspaceLinkError(GitWorkspaceError):
+    """Raised when a symlink cannot be created due to a conflict at the target path."""
 
 
-class WorktreeDirtyError(GitWorkspaceError): ...
+class HookExecutionError(GitWorkspaceError):
+    """Raised when a hook script exits with a non-zero return code."""
 
 
-class WorktreeRemovalError(GitWorkspaceError): ...
+class WorktreeListingError(GitWorkspaceError):
+    """Raised when `git worktree list` fails or produces unparseable output."""
 
 
-class WorkspaceLinkError(GitWorkspaceError): ...
-
-
-class HookExecutionError(GitWorkspaceError): ...
-
-
-class WorktreeListingError(GitWorkspaceError): ...
-
-
-class WorktreeResolutionError(GitWorkspaceError): ...
+class WorktreeResolutionError(GitWorkspaceError):
+    """Raised when a worktree cannot be resolved from the given branch or working directory."""

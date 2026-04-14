@@ -1,0 +1,12 @@
+version = 1
+
+base_branch = "main"
+
+[[link]]
+source = "dotfile"
+target = ".dotfile"
+
+[[link]]
+source = "settings.json"
+target = "settings.json"
+override = true

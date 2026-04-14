@@ -1,6 +1,7 @@
 from git_workspace.hooks import HookRunner
 from git_workspace.assets import Linker
 from git_workspace.workspace import Workspace
+from git_workspace.ui import console, print_success, styled_branch, styled_path
 from typing import Annotated
 
 import typer
@@ -55,6 +56,15 @@ def up(
             is_flag=True,
         ),
     ] = False,
+    output: Annotated[
+        bool,
+        typer.Option(
+            "-o",
+            "--output",
+            is_flag=True,
+            help="Print the worktree path to stdout and suppress all other output.",
+        ),
+    ] = False,
 ) -> None:
     """
     Open a worktree, setting it up first if needed.
@@ -70,6 +80,11 @@ def up(
     workspace = Workspace.resolve(workspace_dir)
     worktree = workspace.resolve_or_create_worktree(branch, base_branch)
 
+    console.print(
+        f"Activating {styled_branch(worktree.branch)}"
+        f" → {styled_path(worktree.directory)}"
+    )
+
     hook_runner = HookRunner(
         workspace,
         worktree,
@@ -84,3 +99,8 @@ def up(
 
     if not detached:
         hook_runner.run_on_attach_hooks()
+
+    print_success(f"Worktree ready at {styled_path(worktree.directory)}")
+
+    if output:
+        typer.echo(str(worktree.directory))

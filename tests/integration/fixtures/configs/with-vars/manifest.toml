@@ -1,0 +1,10 @@
+version = 1
+
+base_branch = "main"
+
+[vars]
+manifest-var = "from-manifest"
+shared-var = "manifest-value"
+
+[hooks]
+on_setup = ["on_setup"]

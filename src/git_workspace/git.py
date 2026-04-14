@@ -18,7 +18,7 @@ logger = structlog.get_logger(__name__)
 PARSE_WORKTREE_RE = re.compile(
     r"worktree (?P<directory>.+)\n"
     r"HEAD (?P<head>[a-f0-9]{40})\n"
-    r"branch refs/head/(?P<branch>.+)"
+    r"branch refs/heads/(?P<branch>.+)"
 )
 
 
@@ -56,7 +56,7 @@ def clone(
         raise GitCloneError(f"Failed to clone {url!r}")
 
 
-def init(target: str, bare: bool) -> None:
+def init(target: Path, bare: bool) -> None:
     """
     Initializes a git repository at the provided target
 
@@ -65,7 +65,7 @@ def init(target: str, bare: bool) -> None:
         be bare or not.
     :raises GitInitError: If the initialization fails
     """
-    cmd = ["git", "init"]
+    cmd: list[str | Path] = ["git", "init"]
 
     if bare:
         cmd.append("--bare")
@@ -98,7 +98,7 @@ def fetch_origin(cwd: Path) -> None:
     :raises GitFetchError: If the fetch fails
     """
     cmd = ["git", "fetch", "origin", "--prune"]
-    result = subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
         raise GitFetchError(f"Failed to fetch from origin: {result.stderr.strip()}")
 
@@ -158,9 +158,9 @@ def create_worktree_from_local_branch(
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     cmd = ["git", "worktree", "add", worktree_dir, branch]
-    result = subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise WorktreeCreationError()
+        raise WorktreeCreationError(result.stderr.strip())
 
 
 def create_worktree_from_remote_branch(
@@ -184,9 +184,9 @@ def create_worktree_from_remote_branch(
         worktree_dir,
         f"origin/{branch}",
     ]
-    result = subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise WorktreeCreationError()
+        raise WorktreeCreationError(result.stderr.strip())
 
 
 def create_worktree_new(
@@ -208,13 +208,17 @@ def create_worktree_new(
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     cmd = ["git", "worktree", "add", "-b", branch, worktree_dir, base_branch]
-    result = subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise WorktreeCreationError()
+        # Base ref doesn't exist — repo has no commits yet. Create an orphan worktree.
+        orphan_cmd = ["git", "worktree", "add", "--orphan", "-b", branch, worktree_dir]
+        orphan_result = subprocess.run(orphan_cmd, cwd=cwd, capture_output=True, text=True)
+        if orphan_result.returncode != 0:
+            raise WorktreeCreationError(result.stderr.strip())
 
 
 def try_get_worktree_dir() -> str | None:
-    cmd = ["git", "rev-parse", "--top-level"]
+    cmd = ["git", "rev-parse", "--show-toplevel"]
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -234,14 +238,14 @@ def get_worktree_branch(cwd: str) -> str:
     return result.stdout.strip()
 
 
-def remove_worktree(worktree_dir: Path, force: bool = False) -> None:
+def remove_worktree(worktree_dir: Path, force: bool = False, *, cwd: Path) -> None:
     """
     Removes a git worktree without deleting the branch.
 
-    :param path: The worktree path to remove
-    :param force: If True, passes --force to git worktree remove
-    :param cwd: The git repository directory. If None, uses the current directory.
-    :raises WorktreeRemovalError: If the removal fails
+    :param worktree_dir: The worktree path to remove.
+    :param force: If True, passes --force to git worktree remove.
+    :param cwd: The git repository directory.
+    :raises WorktreeRemovalError: If the removal fails.
     """
     cmd: list[str | Path] = ["git", "worktree", "remove"]
 
@@ -250,6 +254,6 @@ def remove_worktree(worktree_dir: Path, force: bool = False) -> None:
 
     cmd.append(worktree_dir)
 
-    result = subprocess.run(cmd)
+    result = subprocess.run(cmd, cwd=cwd)
     if result.returncode != 0:
         raise WorktreeRemovalError()

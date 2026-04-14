@@ -8,6 +8,7 @@ from git_workspace.cli.commands.list import app as list_command
 from git_workspace.cli.commands.prune import app as prune_command
 from git_workspace.cli.commands.remove import app as remove_command
 from git_workspace.cli.commands.reset import app as reset_command
+from git_workspace.cli.commands.root import app as root_command
 from git_workspace.cli.commands.up import app as up_command
 
 HELP = """
@@ -28,4 +29,5 @@ app.add_typer(list_command)
 app.add_typer(prune_command)
 app.add_typer(remove_command)
 app.add_typer(reset_command)
+app.add_typer(root_command)
 app.add_typer(up_command)

@@ -1,5 +1,6 @@
 from git_workspace.workspace import Workspace
 from git_workspace.hooks import HookRunner
+from git_workspace.ui import console, print_success, styled_branch
 from typing import Annotated
 
 import typer
@@ -44,8 +45,12 @@ def down(
     workspace = Workspace.resolve(workspace_dir)
     worktree = workspace.resolve_worktree(branch)
 
+    console.print(f"Deactivating {styled_branch(worktree.branch)}")
+
     HookRunner(
         workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
     ).run_on_deactivate_hooks()
+
+    print_success("Done")

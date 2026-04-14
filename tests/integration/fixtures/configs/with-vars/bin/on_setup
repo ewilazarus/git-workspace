@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "$GIT_WORKSPACE_VAR_MANIFEST_VAR" > "$GIT_WORKSPACE_ROOT/.hook-var-manifest-var"
+echo "$GIT_WORKSPACE_VAR_SHARED_VAR" > "$GIT_WORKSPACE_ROOT/.hook-var-shared-var"

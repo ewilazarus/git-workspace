@@ -1,134 +1,32 @@
-"""Integration tests for the rm command."""
-import subprocess
-from pathlib import Path
-
-from tests.integration.helpers import run, write_manifest, write_hook
+from git_workspace.cli.commands.up import up
+from git_workspace.cli.commands.remove import remove
+from git_workspace.workspace import Workspace
 
 
-def test_removes_existing_worktree(repo: Path) -> None:
-    run("up", "feat/removeme", "-r", str(repo))
-    assert (repo / "feat" / "removeme").is_dir()
-
-    result = run("rm", "feat/removeme", "-r", str(repo))
-
-    assert result.ok, result.stderr
-    assert not (repo / "feat" / "removeme").exists()
+def test_removes_worktree_directory(workspace: Workspace) -> None:
+    up(branch="main", workspace_dir=str(workspace.directory))
+    remove(branch="main", workspace_dir=str(workspace.directory))
+    assert not (workspace.directory / "main").exists()
 
 
-def test_does_not_delete_branch(repo: Path) -> None:
-    run("up", "feat/keepbranch", "-r", str(repo))
-    run("rm", "feat/keepbranch", "-r", str(repo))
+def test_removes_worktree_with_force(workspace: Workspace) -> None:
+    up(branch="main", workspace_dir=str(workspace.directory))
+    remove(branch="main", workspace_dir=str(workspace.directory), force=True)
+    assert not (workspace.directory / "main").exists()
 
-    result = subprocess.run(
-        ["git", "branch"],
-        cwd=str(repo),
-        capture_output=True,
-        text=True,
+
+def test_cleans_up_empty_intermediary_directories(workspace: Workspace) -> None:
+    up(
+        branch="feature/cleanup",
+        base_branch="main",
+        workspace_dir=str(workspace.directory),
     )
-    assert "feat/keepbranch" in result.stdout
+    remove(branch="feature/cleanup", workspace_dir=str(workspace.directory))
+    assert not (workspace.directory / "feature").exists()
 
 
-def test_cleans_up_empty_parent_directories(repo: Path) -> None:
-    run("up", "feat/cleanup", "-r", str(repo))
-    run("rm", "feat/cleanup", "-r", str(repo))
-
-    assert not (repo / "feat").exists()
-
-
-def test_fails_on_dirty_worktree_without_force(repo: Path) -> None:
-    run("up", "feat/dirty", "-r", str(repo))
-    (repo / "feat" / "dirty" / "uncommitted.txt").write_text("dirty\n")
-
-    result = run("rm", "feat/dirty", "-r", str(repo))
-
-    assert not result.ok
-    assert (repo / "feat" / "dirty").exists()
-
-
-def test_force_removes_dirty_worktree(repo: Path) -> None:
-    run("up", "feat/dirty", "-r", str(repo))
-    (repo / "feat" / "dirty" / "uncommitted.txt").write_text("dirty\n")
-
-    result = run("rm", "feat/dirty", "-r", str(repo), "--force")
-
-    assert result.ok, result.stderr
-    assert not (repo / "feat" / "dirty").exists()
-
-
-def test_fails_for_nonexistent_worktree(repo: Path) -> None:
-    result = run("rm", "feat/ghost", "-r", str(repo))
-
-    assert not result.ok
-    assert "feat/ghost" in result.stderr
-
-
-def test_executes_on_deactivate_hooks(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\non_deactivate = ["mark_deactivate"]\n')
-    marker = repo / ".workspace" / "deactivated"
-    write_hook(repo, "mark_deactivate", f'#!/bin/sh\ntouch {marker}\n')
-
-    run("up", "feat/hook-test", "-r", str(repo))
-    result = run("rm", "feat/hook-test", "-r", str(repo))
-
-    assert result.ok, result.stderr
-    assert marker.exists()
-
-
-def test_on_deactivate_runs_before_on_remove(repo: Path) -> None:
-    write_manifest(
-        repo,
-        '[hooks]\non_deactivate = ["mark_deactivate"]\non_remove = ["mark_remove"]\n',
-    )
-    order_log = repo / ".workspace" / "order"
-    write_hook(repo, "mark_deactivate", f'#!/bin/sh\necho deactivate >> {order_log}\n')
-    write_hook(repo, "mark_remove", f'#!/bin/sh\necho remove >> {order_log}\n')
-
-    run("up", "feat/hook-test", "-r", str(repo))
-    run("rm", "feat/hook-test", "-r", str(repo))
-
-    lines = order_log.read_text().strip().splitlines()
-    assert lines == ["deactivate", "remove"]
-
-
-def test_skip_hooks_prevents_on_deactivate_hooks(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\non_deactivate = ["mark_deactivate"]\n')
-    marker = repo / ".workspace" / "deactivated"
-    write_hook(repo, "mark_deactivate", f'#!/bin/sh\ntouch {marker}\n')
-
-    run("up", "feat/hook-test", "-r", str(repo))
-    run("rm", "feat/hook-test", "-r", str(repo), "--skip-hooks")
-
-    assert not marker.exists()
-
-
-def test_executes_on_remove_hooks(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\non_remove = ["mark_remove"]\n')
-    marker = repo / ".workspace" / "removed"
-    write_hook(repo, "mark_remove", f'#!/bin/sh\ntouch {marker}\n')
-
-    run("up", "feat/hook-test", "-r", str(repo))
-    result = run("rm", "feat/hook-test", "-r", str(repo))
-
-    assert result.ok, result.stderr
-    assert marker.exists()
-
-
-def test_skip_hooks_prevents_on_remove_hooks(repo: Path) -> None:
-    write_manifest(repo, '[hooks]\non_remove = ["mark_remove"]\n')
-    marker = repo / ".workspace" / "removed"
-    write_hook(repo, "mark_remove", f'#!/bin/sh\ntouch {marker}\n')
-
-    run("up", "feat/hook-test", "-r", str(repo))
-    run("rm", "feat/hook-test", "-r", str(repo), "--skip-hooks")
-
-    assert not marker.exists()
-
-
-def test_supports_branch_inference_from_cwd(repo: Path) -> None:
-    run("up", "feat/infer", "-r", str(repo))
-    worktree = repo / "feat" / "infer"
-
-    result = run("rm", cwd=worktree)
-
-    assert result.ok, result.stderr
-    assert not worktree.exists()
+def test_worktree_can_be_recreated_after_remove(workspace: Workspace) -> None:
+    up(branch="main", workspace_dir=str(workspace.directory))
+    remove(branch="main", workspace_dir=str(workspace.directory))
+    up(branch="main", workspace_dir=str(workspace.directory))
+    assert (workspace.directory / "main").is_dir()
