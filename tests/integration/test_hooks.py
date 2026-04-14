@@ -2,6 +2,7 @@ from git_workspace.cli.commands.up import up
 from git_workspace.cli.commands.down import down
 from git_workspace.cli.commands.reset import reset
 from git_workspace.cli.commands.remove import remove
+from git_workspace.cli.commands.prune import prune
 from git_workspace.workspace import Workspace
 
 
@@ -60,4 +61,16 @@ def test_on_deactivate_hook_runs_on_remove(workspace_with_hooks: Workspace) -> N
 def test_on_remove_hook_runs_on_remove(workspace_with_hooks: Workspace) -> None:
     up(branch="main", workspace_dir=str(workspace_with_hooks.directory))
     remove(branch="main", workspace_dir=str(workspace_with_hooks.directory))
+    assert (workspace_with_hooks.directory / ".hook-on-remove").exists()
+
+
+def test_on_deactivate_hook_runs_on_prune(workspace_with_hooks: Workspace) -> None:
+    up(branch="feat", workspace_dir=str(workspace_with_hooks.directory))
+    prune(root=str(workspace_with_hooks.directory), older_than_days=-1, dry_run=False)
+    assert (workspace_with_hooks.directory / ".hook-on-deactivate").exists()
+
+
+def test_on_remove_hook_runs_on_prune(workspace_with_hooks: Workspace) -> None:
+    up(branch="feat", workspace_dir=str(workspace_with_hooks.directory))
+    prune(root=str(workspace_with_hooks.directory), older_than_days=-1, dry_run=False)
     assert (workspace_with_hooks.directory / ".hook-on-remove").exists()

@@ -44,10 +44,3 @@ def test_runtime_threshold_overrides_manifest(workspace_with_prune: Workspace) -
 
 def test_nothing_to_prune_does_not_raise(workspace: Workspace) -> None:
     prune(root=str(workspace.directory), older_than_days=-1, dry_run=False)
-
-
-def test_hooks_run_on_prune(workspace_with_hooks: Workspace) -> None:
-    up(branch="feat", workspace_dir=str(workspace_with_hooks.directory))
-    prune(root=str(workspace_with_hooks.directory), older_than_days=-1, dry_run=False)
-    assert (workspace_with_hooks.directory / ".hook-on-deactivate").exists()
-    assert (workspace_with_hooks.directory / ".hook-on-remove").exists()
