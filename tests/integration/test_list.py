@@ -8,9 +8,8 @@ from git_workspace.workspace import Workspace
 def test_returns_empty_before_any_up(
     workspace: Workspace, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    list(workspace_dir=str(workspace.directory))
-    output = capsys.readouterr().out
-    assert "[]" in output
+    worktrees = workspace.list_worktrees()
+    assert worktrees == []
 
 
 def test_lists_worktree_after_up(
@@ -18,7 +17,7 @@ def test_lists_worktree_after_up(
 ) -> None:
     up(branch="main", workspace_dir=str(workspace.directory))
     list(workspace_dir=str(workspace.directory))
-    output = capsys.readouterr().out
+    output = capsys.readouterr().err
     assert "main" in output
 
 
@@ -32,6 +31,6 @@ def test_lists_multiple_worktrees(
         workspace_dir=str(workspace.directory),
     )
     list(workspace_dir=str(workspace.directory))
-    output = capsys.readouterr().out
+    output = capsys.readouterr().err
     assert "main" in output
     assert "feature/second" in output

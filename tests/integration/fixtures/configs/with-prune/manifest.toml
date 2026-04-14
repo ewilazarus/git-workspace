@@ -1,0 +1,7 @@
+version = 1
+
+base_branch = "main"
+
+[prune]
+older_than_days = 30
+exclude_branches = ["main"]

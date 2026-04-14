@@ -31,6 +31,14 @@ class TestList:
     def mock_git_list_worktrees(self, mocker: MockerFixture) -> MagicMock:
         return mocker.patch("git_workspace.worktree.git.list_worktrees")
 
+    @pytest.fixture(autouse=True)
+    def mock_directory_birthtime(self, mocker: MockerFixture) -> MagicMock:
+        from datetime import datetime
+        return mocker.patch(
+            "git_workspace.worktree._directory_birthtime",
+            return_value=datetime(2025, 1, 1),
+        )
+
     def test_calls_git_list_worktrees_with_workspace_directory(
         self, workspace: MagicMock, mock_git_list_worktrees: MagicMock
     ) -> None:
