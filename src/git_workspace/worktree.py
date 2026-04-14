@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import List, TYPE_CHECKING
 
@@ -15,6 +16,12 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
+def _directory_birthtime(directory: Path) -> datetime:
+    stat = directory.stat()
+    ts = getattr(stat, "st_birthtime", None) or stat.st_ctime
+    return datetime.fromtimestamp(ts)
+
+
 @dataclass
 class Worktree:
     """
@@ -24,12 +31,21 @@ class Worktree:
     root directory. The ``is_new`` flag indicates that the worktree was just
     created in the current operation rather than resolved from an existing one,
     which triggers setup hooks and asset linking.
+
+    ``timestamp`` records when the worktree directory was created, used to
+    compute the worktree's age in days.
     """
 
     workspace: Workspace
     directory: Path
     branch: str
     is_new: bool = False
+    timestamp: datetime = field(default_factory=datetime.now)
+
+    @property
+    def age_days(self) -> int:
+        """Returns the number of full days since the worktree directory was created."""
+        return (datetime.now() - self.timestamp).days
 
     @classmethod
     def list(cls, workspace: Workspace) -> List[Worktree]:
@@ -44,9 +60,10 @@ class Worktree:
         return [
             Worktree(
                 workspace=workspace,
-                directory=Path(raw_worktree["directory"]).resolve(),
+                directory=(d := Path(raw_worktree["directory"]).resolve()),
                 branch=raw_worktree["branch"],
                 is_new=False,
+                timestamp=_directory_birthtime(d),
             )
             for raw_worktree in raw_worktrees
         ]

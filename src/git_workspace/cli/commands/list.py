@@ -1,4 +1,6 @@
 from git_workspace.workspace import Workspace
+from git_workspace.ui import console
+from rich.table import Table
 from typing import Annotated
 
 import typer
@@ -27,5 +29,13 @@ def list(
     workspace = Workspace.resolve(workspace_dir)
     worktrees = workspace.list_worktrees()
 
-    # TODO we need to make this better (maybe use rich's tables?)
-    typer.echo(worktrees)
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Branch", style="branch", no_wrap=True)
+    table.add_column("Path", style="path")
+    table.add_column("Age", style="dim", no_wrap=True)
+
+    for worktree in sorted(worktrees, key=lambda w: (w.age_days, w.branch)):
+        age = f"{worktree.age_days}d"
+        table.add_row(worktree.branch, str(worktree.directory), age)
+
+    console.print(table)
