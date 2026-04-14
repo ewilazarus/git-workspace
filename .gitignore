@@ -6,3 +6,5 @@
 .dolt/
 *.db
 .beads-credential-key
+
+lab
