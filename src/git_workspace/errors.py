@@ -42,6 +42,10 @@ class WorkspaceLinkError(GitWorkspaceError):
     """Raised when a symlink cannot be created due to a conflict at the target path."""
 
 
+class WorkspaceCopyError(GitWorkspaceError):
+    """Raised when a file copy cannot be applied due to a conflict at the target path."""
+
+
 class HookExecutionError(GitWorkspaceError):
     """Raised when a hook script exits with a non-zero return code."""
 

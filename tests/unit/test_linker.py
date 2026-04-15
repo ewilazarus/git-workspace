@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.assets import Linker
+from git_workspace.assets import IgnoreManager, Linker
 from git_workspace.errors import WorkspaceLinkError
 from git_workspace.manifest import Link
 
@@ -32,8 +32,13 @@ def worktree(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture
-def linker(workspace: MagicMock, worktree: MagicMock) -> Linker:
-    return Linker(workspace, worktree)
+def ignore(mocker: MockerFixture) -> MagicMock:
+    return mocker.MagicMock(spec=IgnoreManager)
+
+
+@pytest.fixture
+def linker(workspace: MagicMock, worktree: MagicMock, ignore: MagicMock) -> Linker:
+    return Linker(workspace, worktree, ignore)
 
 
 class TestApplyWithOverride:
@@ -48,27 +53,24 @@ class TestApplyWithOverride:
         mock.is_symlink.return_value = False
         return mock
 
-    @pytest.fixture
+    @pytest.fixture(autouse=True)
     def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
         return mocker.patch("git_workspace.assets.git.skip_worktree")
 
-    def test_calls_git_skip_worktree_with_target(
+    def test_apply_calls_skip_worktree_for_override(
         self,
         linker: Linker,
-        source: MagicMock,
-        target: MagicMock,
         mock_git_skip_worktree: MagicMock,
     ) -> None:
-        linker._apply_with_override(source, target)
+        linker._apply(LINK_WITH_OVERRIDE)
 
-        mock_git_skip_worktree.assert_called_once_with(target)
+        mock_git_skip_worktree.assert_called_once()
 
     def test_unlinks_when_target_exists(
         self,
         linker: Linker,
         source: MagicMock,
         target: MagicMock,
-        mock_git_skip_worktree: MagicMock,
     ) -> None:
         target.exists.return_value = True
 
@@ -81,7 +83,6 @@ class TestApplyWithOverride:
         linker: Linker,
         source: MagicMock,
         target: MagicMock,
-        mock_git_skip_worktree: MagicMock,
     ) -> None:
         target.is_symlink.return_value = True
 
@@ -94,7 +95,6 @@ class TestApplyWithOverride:
         linker: Linker,
         source: MagicMock,
         target: MagicMock,
-        mock_git_skip_worktree: MagicMock,
     ) -> None:
         linker._apply_with_override(source, target)
 
@@ -105,7 +105,6 @@ class TestApplyWithOverride:
         linker: Linker,
         source: MagicMock,
         target: MagicMock,
-        mock_git_skip_worktree: MagicMock,
     ) -> None:
         linker._apply_with_override(source, target)
 
@@ -164,28 +163,13 @@ class TestApply:
     def mock_apply(self, mocker: MockerFixture, linker: Linker) -> MagicMock:
         return mocker.patch.object(linker, "_apply")
 
-    @pytest.fixture
-    def mock_sync(self, mocker: MockerFixture, linker: Linker) -> MagicMock:
-        return mocker.patch.object(linker._ignore_manager, "sync")
-
-    def test_applies_each_link(
-        self, linker: Linker, mock_apply: MagicMock, mock_sync: MagicMock
-    ) -> None:
+    def test_applies_each_link(self, linker: Linker, mock_apply: MagicMock) -> None:
         linker.apply()
 
-        assert mock_apply.call_count == len(linker._links)
+        assert mock_apply.call_count == len(linker._assets)
 
-    def test_calls_apply_with_each_link(
-        self, linker: Linker, mock_apply: MagicMock, mock_sync: MagicMock
-    ) -> None:
+    def test_calls_apply_with_each_link(self, linker: Linker, mock_apply: MagicMock) -> None:
         linker.apply()
 
         applied_links = [call.args[0] for call in mock_apply.call_args_list]
-        assert applied_links == linker._links
-
-    def test_syncs_ignore_manager_after_applying_links(
-        self, linker: Linker, mock_apply: MagicMock, mock_sync: MagicMock
-    ) -> None:
-        linker.apply()
-
-        mock_sync.assert_called_once()
+        assert applied_links == linker._assets

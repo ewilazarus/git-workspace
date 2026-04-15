@@ -8,7 +8,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased] - 0.2.0
 
 ### Added
-- Added `SKILL.md` to instruct agents on how to use this tool
 - Rich terminal UI: live-streaming hook output, progress bar for link application, styled branch/path colours
 - `gw ls` renders a Rich table with Branch, Path, and Age columns, sorted by age then alphabetically
 - `gw root` command — prints workspace root path and exits 0/1, intended for agent/scripting use
@@ -18,6 +17,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `GIT_WORKSPACE_LOG_LEVEL` environment variable to enable debug/info/warning logging to stderr
 - GitHub Actions: CI workflow (lint, type check, unit + integration tests) and PyPI publish on semver tag push
 - Ruff (lint + format) and ty (type check) configured with pre-commit hooks
+- `SKILL.md` to instruct agents on how to use this tool
+- `[[copy]]` manifest directive — copies files from `.workspace/assets` into worktrees (idempotent on reset, atomic ignore sync shared with links)
 
 ### Changed
 - Worktree age is derived from directory birthtime (`st_birthtime` on macOS, `st_ctime` fallback on Linux)

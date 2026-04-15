@@ -21,6 +21,16 @@ def mock_hook_runner(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture(autouse=True)
+def mock_ignore_manager(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.cli.commands.reset.IgnoreManager")
+
+
+@pytest.fixture(autouse=True)
+def mock_copier(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.cli.commands.reset.Copier")
+
+
+@pytest.fixture(autouse=True)
 def mock_linker(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("git_workspace.cli.commands.reset.Linker")
 
@@ -34,15 +44,20 @@ class TestReset:
         reset(branch=BRANCH)
         mock_workspace_resolve.return_value.resolve_worktree.assert_called_once_with(BRANCH)
 
-    def test_applies_linker(
+    def test_applies_copier_and_linker(
         self,
         mock_workspace_resolve: MagicMock,
+        mock_ignore_manager: MagicMock,
+        mock_copier: MagicMock,
         mock_linker: MagicMock,
     ) -> None:
         reset()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
-        mock_linker.assert_called_once_with(workspace, worktree)
+        ignore = mock_ignore_manager.return_value.__enter__.return_value
+        mock_copier.assert_called_once_with(workspace, worktree, ignore)
+        mock_copier.return_value.apply.assert_called_once()
+        mock_linker.assert_called_once_with(workspace, worktree, ignore)
         mock_linker.return_value.apply.assert_called_once()
 
     def test_creates_hook_runner_with_runtime_vars(

@@ -77,6 +77,16 @@ def workspace_with_links(setup: Setup, tmp_path: Path) -> Workspace:
 
 
 @pytest.fixture
+def workspace_with_copies(setup: Setup, tmp_path: Path) -> Workspace:
+    setup(config="with-copies")
+    return Workspace.clone(
+        workspace_dir=str(tmp_path / "workspace"),
+        url=str(tmp_path / "repo"),
+        config_url=str(tmp_path / "configs" / "with-copies"),
+    )
+
+
+@pytest.fixture
 def workspace_with_hooks(setup: Setup, tmp_path: Path) -> Workspace:
     setup(config="with-hooks")
     return Workspace.clone(

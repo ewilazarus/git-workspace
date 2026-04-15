@@ -1,6 +1,9 @@
 import logging
 import re
+import shutil
+from abc import ABC, abstractmethod
 from pathlib import Path
+from types import TracebackType
 
 from rich.progress import (
     BarColumn,
@@ -11,8 +14,8 @@ from rich.progress import (
 )
 
 from git_workspace import git
-from git_workspace.errors import WorkspaceLinkError
-from git_workspace.manifest import Link
+from git_workspace.errors import WorkspaceCopyError, WorkspaceLinkError
+from git_workspace.manifest import Asset, Copy, Link
 from git_workspace.ui import console, print_success
 from git_workspace.workspace import Workspace
 from git_workspace.worktree import Worktree
@@ -24,9 +27,10 @@ class IgnoreManager:
     """
     Manages the git-workspace-owned block inside `.git/info/exclude`.
 
-    Wraps a clearly delimited section in the exclude file so that entries
-    added by git-workspace can be replaced atomically on each sync without
-    disturbing any lines written by the user.
+    Intended to be used as a context manager around one or more
+    ``AssetManager.apply()`` calls. Each non-override asset collects its
+    target path via :meth:`collect`; on exit the full set is written to the
+    exclude file in a single atomic sync.
     """
 
     BEGIN_IGNORE_MARKER = "# >>> git-workspace managed >>>"
@@ -40,6 +44,22 @@ class IgnoreManager:
 
     def __init__(self, workspace: Workspace) -> None:
         self._workspace = workspace
+        self._entries: list[Path] = []
+
+    def __enter__(self) -> IgnoreManager:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        if exc_type is None:
+            self.sync(self._entries)
+
+    def collect(self, entry: Path) -> None:
+        self._entries.append(entry)
 
     def _compose_ignore_block(self, ignore_entries: list[Path]) -> str:
         builder = []
@@ -67,26 +87,89 @@ class IgnoreManager:
         self._workspace.paths.ignore_file.write_text(new_file_content)
 
 
-class Linker:
+class AssetManager[T: Asset](ABC):
     """
-    Applies symbolic links defined in the workspace manifest into a worktree.
+    Base class for applying manifest-defined assets into a worktree.
 
-    For each link, the source is resolved relative to `.workspace/assets` and
-    the target relative to the worktree root. Links marked as overrides replace
-    existing tracked files (using ``git update-index --skip-worktree``); all
-    other links are recorded in `.git/info/exclude` to keep them out of source
-    control.
+    Subclasses implement ``_apply_with_override`` and ``_apply_without_override``
+    to define how an individual asset is materialised (e.g. symlink vs copy).
+    Override assets are marked with ``git update-index --skip-worktree``;
+    non-override assets are registered with the shared :class:`IgnoreManager`.
     """
 
-    def __init__(self, workspace: Workspace, worktree: Worktree) -> None:
+    asset_name: str
+    asset_name_plural: str
+
+    def __init__(
+        self,
+        workspace: Workspace,
+        worktree: Worktree,
+        ignore: IgnoreManager,
+        assets: list[T],
+    ) -> None:
         self._workspace = workspace
-        self._links = workspace.manifest.links
         self._worktree_dir = worktree.dir
-        self._ignore_manager = IgnoreManager(workspace)
+        self._ignore = ignore
+        self._assets = assets
+
+    @abstractmethod
+    def _apply_with_override(self, source: Path, target: Path) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _apply_without_override(self, source: Path, target: Path) -> None:
+        raise NotImplementedError
+
+    def _apply(self, asset: T) -> None:
+        source = (self._workspace.paths.assets / asset.source).absolute()
+        target = (self._worktree_dir / asset.target).absolute()
+
+        if asset.override:
+            git.skip_worktree(target)
+            self._apply_with_override(source, target)
+        else:
+            self._apply_without_override(source, target)
+            self._ignore.collect(target)
+
+    def apply(self) -> None:
+        """
+        Applies all assets, registering non-override targets with the
+        shared :class:`IgnoreManager`.
+        """
+        if self._assets:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console,
+                transient=True,
+            ) as progress:
+                task = progress.add_task(
+                    f"  Applying {self.asset_name_plural}", total=len(self._assets)
+                )
+                for asset in self._assets:
+                    progress.update(task, description=f"  [path]{asset.target}[/path]")
+                    self._apply(asset)
+                    progress.advance(task)
+            print_success(f"  {len(self._assets)} {self.asset_name}(s) applied")
+
+
+class Linker(AssetManager[Link]):
+    """
+    Applies symbolic links from ``.workspace/assets`` into a worktree.
+
+    Override links replace existing tracked files; non-override links fail
+    if the target already exists or is a symlink pointing elsewhere.
+    """
+
+    asset_name = "link"
+    asset_name_plural = "links"
+
+    def __init__(self, workspace: Workspace, worktree: Worktree, ignore: IgnoreManager) -> None:
+        super().__init__(workspace, worktree, ignore, workspace.manifest.links)
 
     def _apply_with_override(self, source: Path, target: Path) -> None:
-        git.skip_worktree(target)
-
         if target.exists() or target.is_symlink():
             logger.debug("unlinking existing target before override: %s", target)
             target.unlink()
@@ -109,43 +192,45 @@ class Linker:
         logger.debug("symlinking %s -> %s", target, source)
         target.symlink_to(source)
 
-    def _apply(self, link: Link, ignore_entries: list[Path]) -> None:
-        source = (self._workspace.paths.assets / link.source).absolute()
-        target = (self._worktree_dir / link.target).absolute()
 
-        if link.override:
-            self._apply_with_override(source, target)
+class Copier(AssetManager[Copy]):
+    """
+    Copies files from ``.workspace/assets`` into a worktree.
+
+    Unlike links, copies are idempotent: non-override copies silently
+    overwrite existing files on reapplication. The only error case is
+    attempting to copy over an existing symlink.
+    """
+
+    asset_name = "copy"
+    asset_name_plural = "copies"
+
+    def __init__(self, workspace: Workspace, worktree: Worktree, ignore: IgnoreManager) -> None:
+        super().__init__(workspace, worktree, ignore, workspace.manifest.copies)
+
+    def _apply_with_override(self, source: Path, target: Path) -> None:
+        if target.exists() or target.is_symlink():
+            logger.debug("removing existing target before override: %s", target)
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+
+        logger.debug("copying (override) %s -> %s", source, target)
+        if source.is_dir():
+            shutil.copytree(source, target)
         else:
-            self._apply_without_override(source, target)
-            ignore_entries.append(target)
+            shutil.copy2(source, target)
 
-    def apply(self) -> None:
-        """
-        Creates all symlinks defined in the manifest and syncs the ignore file.
+    def _apply_without_override(self, source: Path, target: Path) -> None:
+        if target.is_symlink():
+            logger.warning("target %s is a symlink, cannot copy over it", target)
+            raise WorkspaceCopyError("can't copy to symlink")
 
-        Iterates over each link entry, creates the symlink (with or without
-        override semantics), then writes all non-override targets into the
-        managed block of `.git/info/exclude`.
-
-        :raises WorkspaceLinkError: If a non-override link conflicts with an
-            existing file or a symlink pointing elsewhere.
-        """
-        ignore_entries: list[Path] = []
-
-        if self._links:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console,
-                transient=True,
-            ) as progress:
-                task = progress.add_task("  Applying links", total=len(self._links))
-                for link in self._links:
-                    progress.update(task, description=f"  [path]{link.target}[/path]")
-                    self._apply(link, ignore_entries)
-                    progress.advance(task)
-            print_success(f"  {len(self._links)} link(s) applied")
-
-        self._ignore_manager.sync(ignore_entries)
+        logger.debug("copying %s -> %s", source, target)
+        if source.is_dir():
+            if target.is_dir():
+                shutil.rmtree(target)
+            shutil.copytree(source, target)
+        else:
+            shutil.copy2(source, target)

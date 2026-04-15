@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -13,24 +14,32 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Link:
+class Asset:
     """
-    Defines a symbolic link from the workspace configuration into a worktree.
+    Base for manifest-defined assets that are applied into worktrees.
 
-    Links are resolved from `.workspace/files` into the project root of each
-    worktree.
-
-    If `override` is True, the target path is first marked with
-    `git update-index --skip-worktree` before the link is created. This allows
-    the link to replace an existing tracked file.
-
-    If `override` is False, the target is added to `.git/info/exclude` to avoid
-    leaking the linked file into source control.
+    ``source`` is resolved relative to ``.workspace/assets``, ``target``
+    relative to the worktree root. If ``override`` is True the target is
+    marked with ``git update-index --skip-worktree`` before being applied.
     """
 
     source: str
     target: str
     override: bool = False
+
+
+@dataclass
+class Link(Asset):
+    """An asset applied as a symbolic link."""
+
+    ...
+
+
+@dataclass
+class Copy(Asset):
+    """An asset applied as a file copy."""
+
+    ...
 
 
 @dataclass
@@ -88,8 +97,9 @@ class Manifest:
     - version: schema version of the manifest
     - base_branch: default base branch used when creating new branches that do
       not exist locally or remotely
+    - copies: files copied into each worktree from ``.workspace/assets``
+    - links: symbolic links applied to each worktree from ``.workspace/assets``
     - hooks: optional lifecycle hooks configuration
-    - links: symbolic links applied to each worktree
     - prune: optional prune configuration for workspace cleanup
     - vars: optional set of variables to be injected as environment variables
         during hooks execution
@@ -100,6 +110,7 @@ class Manifest:
 
     version: int
     base_branch: str
+    copies: list[Copy] = field(default_factory=list)
     links: list[Link] = field(default_factory=list)
     vars: dict[str, str] = field(default_factory=dict)
     hooks: Hooks = field(default_factory=Hooks)
@@ -114,14 +125,16 @@ class Manifest:
         return data.get("base_branch", cls.DEFAULT_BRANCH)
 
     @classmethod
-    def _parse_links(cls, data: dict[str, Any]) -> list[Link]:
+    def _parse_assets[T](
+        cls, label: str, factory: Callable[[str, str, bool], T], data: dict[str, Any]
+    ) -> list[T]:
         return [
-            Link(
-                source=link_data["source"],
-                target=link_data["target"],
-                override=link_data.get("override", False),
+            factory(
+                asset_data["source"],
+                asset_data["target"],
+                asset_data.get("override", False),
             )
-            for link_data in data.get("link", [])
+            for asset_data in data.get(label, [])
         ]
 
     @classmethod
@@ -178,17 +191,19 @@ class Manifest:
 
         version = cls._parse_version(data)
         base_branch = cls._parse_base_branch(data)
-        links = cls._parse_links(data)
+        copies = cls._parse_assets("copy", Copy, data)
+        links = cls._parse_assets("link", Link, data)
         vars = cls._parse_vars(data)
         hooks = cls._parse_hooks(data)
         prune = cls._parse_prune(data)
 
         logger.debug(
-            "manifest loaded: version=%d base_branch=%r links=%d hooks=%s prune=%s",
+            "manifest loaded: version=%d base_branch=%r copies=%d links=%d hooks=%s prune=%s",
             version,
             base_branch,
+            len(copies),
             len(links),
             {k: v for k, v in hooks.__dict__.items() if v},
             f"older_than_days={prune.older_than_days}" if prune else None,
         )
-        return Manifest(version, base_branch, links, vars, hooks, prune)
+        return Manifest(version, base_branch, copies, links, vars, hooks, prune)

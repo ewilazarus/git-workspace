@@ -22,6 +22,16 @@ def mock_hook_runner(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture(autouse=True)
+def mock_ignore_manager(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.cli.commands.up.IgnoreManager")
+
+
+@pytest.fixture(autouse=True)
+def mock_copier(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.cli.commands.up.Copier")
+
+
+@pytest.fixture(autouse=True)
 def mock_linker(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("git_workspace.cli.commands.up.Linker")
 
@@ -59,10 +69,12 @@ class TestUp:
         worktree = workspace.resolve_or_create_worktree.return_value
         mock_hook_runner.assert_called_once_with(workspace, worktree, runtime_vars={})
 
-    def test_applies_linker_and_runs_setup_hooks_when_worktree_is_new(
+    def test_applies_assets_and_runs_setup_hooks_when_worktree_is_new(
         self,
         mock_workspace_resolve: MagicMock,
         mock_hook_runner: MagicMock,
+        mock_ignore_manager: MagicMock,
+        mock_copier: MagicMock,
         mock_linker: MagicMock,
     ) -> None:
         workspace = mock_workspace_resolve.return_value
@@ -71,14 +83,18 @@ class TestUp:
 
         up()
 
-        mock_linker.assert_called_once_with(workspace, worktree)
+        ignore = mock_ignore_manager.return_value.__enter__.return_value
+        mock_copier.assert_called_once_with(workspace, worktree, ignore)
+        mock_copier.return_value.apply.assert_called_once()
+        mock_linker.assert_called_once_with(workspace, worktree, ignore)
         mock_linker.return_value.apply.assert_called_once()
         mock_hook_runner.return_value.run_on_setup_hooks.assert_called_once()
 
-    def test_skips_linker_and_setup_hooks_when_worktree_is_not_new(
+    def test_skips_assets_and_setup_hooks_when_worktree_is_not_new(
         self,
         mock_workspace_resolve: MagicMock,
         mock_hook_runner: MagicMock,
+        mock_copier: MagicMock,
         mock_linker: MagicMock,
     ) -> None:
         workspace = mock_workspace_resolve.return_value
@@ -87,6 +103,7 @@ class TestUp:
 
         up()
 
+        mock_copier.assert_not_called()
         mock_linker.assert_not_called()
         mock_hook_runner.return_value.run_on_setup_hooks.assert_not_called()
 

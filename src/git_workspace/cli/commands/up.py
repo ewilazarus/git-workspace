@@ -2,7 +2,7 @@ from typing import Annotated
 
 import typer
 
-from git_workspace.assets import Linker
+from git_workspace.assets import Copier, IgnoreManager, Linker
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.hooks import HookRunner
 from git_workspace.ui import console, print_success, styled_branch, styled_path
@@ -71,10 +71,10 @@ def up(
     Ensures that a worktree exists for the target branch and then performs
     lightweight actions to enter or resume working in that workspace.
 
-    If the worktree does not exist, on_setup hooks run first. On every
-    invocation, on_activate hooks run. Unless --detached is passed,
-    on_attach hooks also run — use --detached for headless or automated
-    workflows.
+    If the worktree does not exist, copies and links from the manifest are
+    applied first, followed by on_setup hooks. On every invocation,
+    on_activate hooks run. Unless --detached is passed, on_attach hooks
+    also run — use --detached for headless or automated workflows.
     """
     workspace = Workspace.resolve(workspace_dir)
     worktree = workspace.resolve_or_create_worktree(branch, base_branch)
@@ -88,7 +88,10 @@ def up(
     )
 
     if worktree.is_new:
-        Linker(workspace, worktree).apply()
+        with IgnoreManager(workspace) as ignore:
+            Copier(workspace, worktree, ignore).apply()
+            Linker(workspace, worktree, ignore).apply()
+
         hook_runner.run_on_setup_hooks()
 
     hook_runner.run_on_activate_hooks()
