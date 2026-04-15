@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased] - 0.2.0
 
 ### Added
+- Added `SKILL.md` to instruct agents on how to use this tool
 - Rich terminal UI: live-streaming hook output, progress bar for link application, styled branch/path colours
 - `gw ls` renders a Rich table with Branch, Path, and Age columns, sorted by age then alphabetically
 - `gw root` command — prints workspace root path and exits 0/1, intended for agent/scripting use
