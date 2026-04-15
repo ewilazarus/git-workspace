@@ -20,6 +20,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `SKILL.md` to instruct agents on how to use this tool
 - `[[copy]]` manifest directive — copies files from `.workspace/assets` into worktrees (idempotent on reset, atomic ignore sync shared with links)
 - `GIT_WORKSPACE_NAME` environment variable hook injection
+- Inline shell commands in hooks — entries that don't match a file in `.workspace/bin` are executed via `sh -c`
 
 ### Changed
 - Worktree age is derived from directory birthtime (`st_birthtime` on macOS, `st_ctime` fallback on Linux)

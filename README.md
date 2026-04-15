@@ -172,9 +172,9 @@ base_branch = "main"
 node-version = "22"
 registry     = "https://registry.npmjs.org"
 
-# Lifecycle hooks (scripts in .workspace/bin/)
+# Lifecycle hooks (.workspace/bin/ scripts and inline commands)
 [hooks]
-on_setup      = ["install_deps"]
+on_setup      = ["install_deps", "docker build . -t myproj:latest"]
 on_activate   = ["load_env"]
 on_attach     = ["open_editor"]
 on_deactivate = ["save_state"]
@@ -205,7 +205,7 @@ exclude_branches = ["main", "develop"]
 
 ## Lifecycle hooks
 
-Hooks are executable scripts stored in `.workspace/bin/`. They run with a rich set of environment variables:
+Each hook entry can be a script in `.workspace/bin/` or an inline shell command. If the entry matches a file in `.workspace/bin/`, it runs as a script; otherwise it's executed via `sh -c`. Both forms receive the following environment variables:
 
 | Variable | Value |
 |---|---|
@@ -235,6 +235,15 @@ node_version="$GIT_WORKSPACE_VAR_NODE_VERSION"
 fnm use "$node_version" || fnm install "$node_version"
 npm install
 ```
+
+**Mix bin scripts and inline commands** in the same hook list:
+
+```toml
+[hooks]
+on_setup = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
+```
+
+Here `install_deps` runs `.workspace/bin/install_deps`, while `npm install` and `echo ready` run as shell commands.
 
 **Pass runtime variables** at call time with `-v`:
 

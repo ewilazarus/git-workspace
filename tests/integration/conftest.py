@@ -97,6 +97,16 @@ def workspace_with_hooks(setup: Setup, tmp_path: Path) -> Workspace:
 
 
 @pytest.fixture
+def workspace_with_inline_hooks(setup: Setup, tmp_path: Path) -> Workspace:
+    setup(config="with-inline-hooks")
+    return Workspace.clone(
+        workspace_dir=str(tmp_path / "workspace"),
+        url=str(tmp_path / "repo"),
+        config_url=str(tmp_path / "configs" / "with-inline-hooks"),
+    )
+
+
+@pytest.fixture
 def workspace_with_vars(setup: Setup, tmp_path: Path) -> Workspace:
     setup(config="with-vars")
     return Workspace.clone(

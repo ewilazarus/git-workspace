@@ -6,6 +6,11 @@ from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
 
 
+def test_inline_command_runs_as_shell(workspace_with_inline_hooks: Workspace) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_inline_hooks.dir))
+    assert (workspace_with_inline_hooks.dir / ".inline-hook-ran").exists()
+
+
 def test_on_setup_hook_runs_on_first_up(workspace_with_hooks: Workspace) -> None:
     up(branch="main", workspace_dir=str(workspace_with_hooks.dir))
     assert (workspace_with_hooks.dir / ".hook-on-setup").exists()

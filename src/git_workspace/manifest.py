@@ -47,11 +47,9 @@ class Hooks:
     """
     Defines lifecycle hooks executed during workspace operations.
 
-    Each hook is a list of executables relative to `.workspace/bin`, executed in
-    the order defined.
-
-    Hooks allow customizing workspace behavior, such as installing dependencies,
-    initializing the environment, or cleaning up resources.
+    Each hook is a list of entries executed in order. An entry that matches a
+    file in ``.workspace/bin`` is run as a script; otherwise it is executed as
+    an inline shell command via ``sh -c``.
 
     Available hooks:
 

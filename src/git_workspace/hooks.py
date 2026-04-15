@@ -59,16 +59,24 @@ class HookRunner:
 
         return env
 
+    def _resolve_command(self, hook_name: str) -> list[str]:
+        bin_path = self._workspace.paths.bin / hook_name
+        if bin_path.is_file():
+            logger.debug("resolved hook %r to bin script: %s", hook_name, bin_path)
+            return [str(bin_path)]
+        logger.debug("no bin script for %r, falling back to shell: sh -c %r", hook_name, hook_name)
+        return ["sh", "-c", hook_name]
+
     def _run_hook(self, hook_name: str, env: dict[str, str]) -> None:
-        hook_path = str(self._workspace.paths.bin / hook_name)
+        cmd = self._resolve_command(hook_name)
         worktree_dir = self._worktree_dir
-        logger.debug("running hook %r from %s in %s", hook_name, hook_path, worktree_dir)
+        logger.debug("running hook %r as %s in %s", hook_name, cmd, worktree_dir)
 
         spinner = Spinner("dots", text=f"   {hook_name}")
         output_lines: list[Text] = []
 
         with subprocess.Popen(
-            [hook_path],
+            cmd,
             cwd=worktree_dir,
             env=env,
             stdout=subprocess.PIPE,

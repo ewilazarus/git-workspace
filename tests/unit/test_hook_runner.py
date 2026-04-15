@@ -47,6 +47,11 @@ def hook_runner(workspace: MagicMock, worktree: MagicMock) -> HookRunner:
 
 
 @pytest.fixture(autouse=True)
+def mock_bin_is_file(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("pathlib.Path.is_file", return_value=True)
+
+
+@pytest.fixture(autouse=True)
 def mock_popen(mocker: MockerFixture) -> MagicMock:
     mock = mocker.patch("git_workspace.hooks.subprocess.Popen")
     mock.return_value.__enter__.return_value.returncode = 0
@@ -105,6 +110,29 @@ class TestBuildEnv:
         env = hook_runner._build_env("ON_TEST")
 
         assert env["GIT_WORKSPACE_VAR_MY_RUNTIME_VAR"] == "value"
+
+
+class TestResolveCommand:
+    def test_runs_bin_script_when_file_exists(
+        self,
+        hook_runner: HookRunner,
+        mock_popen: MagicMock,
+    ) -> None:
+        hook_runner.run_on_setup_hooks()
+
+        assert mock_popen.call_args.args[0] == [str(BIN_DIR / "setup.sh")]
+
+    def test_runs_shell_command_when_no_bin_script(
+        self,
+        hook_runner: HookRunner,
+        mock_bin_is_file: MagicMock,
+        mock_popen: MagicMock,
+    ) -> None:
+        mock_bin_is_file.return_value = False
+
+        hook_runner.run_on_setup_hooks()
+
+        assert mock_popen.call_args.args[0] == ["sh", "-c", "setup.sh"]
 
 
 class TestRunOnSetupHooks:
