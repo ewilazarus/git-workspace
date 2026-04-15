@@ -17,6 +17,8 @@ Manage isolated git worktrees for a repository.
 A workspace consists of a shared bare repository and a set of per-branch worktrees, each with its own local environment and configuration.
 
 The primary command is `up`, which spawns a git worktree, setting it up first if needed.
+
+⧉  https://github.com/ewilazarus/git-workspace
 """
 
 app = typer.Typer(help=HELP, no_args_is_help=True)
