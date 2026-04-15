@@ -118,7 +118,7 @@ base_branch = "main"
 # Examples:
 
 # [hooks]
-# on_setup      = ["01-install-deps.sh", "npm install", "echo setup done"]
+# on_setup      = ["01-install-deps.sh", "npm install", "echo \"done\""]
 # on_activate   = ["02-load-env.sh"]
 # on_attach     = ["03-open-editor.sh"]
 # on_deactivate = ["04-stop-services.sh"]
