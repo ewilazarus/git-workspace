@@ -1,13 +1,33 @@
 [project]
 name = "git-workspace-cli"
-version = "0.1.0"
-description = "An opinionated git plugin for managing worktrees"
+version = "0.2.0"
+description = "An opinionated git plugin that wraps git worktrees with a lifecycle system"
 readme = "README.md"
+license = "MIT"
 authors = [{ name = "Gabriel Lima", email = "gvclima@gmail.com" }]
-requires-python = ">=3.15"
+requires-python = ">=3.14"
+keywords = ["git", "worktree", "workspace", "cli", "developer-tools"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development :: Version Control :: Git",
+]
 dependencies = [
  "typer>=0.24.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ewilazarus/git-workspace"
+Repository = "https://github.com/ewilazarus/git-workspace"
+Issues = "https://github.com/ewilazarus/git-workspace/issues"
+Changelog = "https://github.com/ewilazarus/git-workspace/blob/main/CHANGELOG.md"
 
 [tool.uv.build-backend]
 module-name = "git_workspace"

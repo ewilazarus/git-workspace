@@ -1,11 +1,8 @@
-from __future__ import annotations
-
 import logging
+import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
-
-import tomllib
 
 if TYPE_CHECKING:
     from git_workspace.workspace import Workspace

@@ -78,7 +78,7 @@ Each subdirectory is a fully functional git worktree. You work inside them like 
 
 ## Installation
 
-Requires Python 3.15+.
+Requires Python 3.14+.
 
 **With `uv` (recommended):**
 

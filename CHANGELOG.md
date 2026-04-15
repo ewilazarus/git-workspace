@@ -23,6 +23,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Inline shell commands in hooks — entries that don't match a file in `.workspace/bin` are executed via `sh -c`
 
 ### Changed
+- Minimum Python version lowered from 3.15 to 3.14
 - Worktree age is derived from directory birthtime (`st_birthtime` on macOS, `st_ctime` fallback on Linux)
 
 ### Fixed
