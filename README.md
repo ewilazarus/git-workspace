@@ -243,7 +243,7 @@ npm install
 on_setup = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
 ```
 
-Here `install_deps` runs `.workspace/bin/install_deps`, while `npm install` and `echo ready` run as shell commands.
+Here `install_deps` runs `.workspace/bin/install_deps`, while `docker build . -t myproj:latest` and `echo ready` run as shell commands.
 
 **Pass runtime variables** at call time with `-v`:
 
