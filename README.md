@@ -207,9 +207,9 @@ Hooks are executable scripts stored in `.workspace/bin/`. They run with a rich s
 | Variable | Value |
 |---|---|
 | `GIT_WORKSPACE_ROOT` | Absolute path to the workspace root |
+| `GIT_WORKSPACE_NAME` | Workspace root directory name |
 | `GIT_WORKSPACE_WORKTREE` | Absolute path to the current worktree |
 | `GIT_WORKSPACE_BRANCH` | Current branch name |
-| `GIT_WORKSPACE_BRANCH_NO_SLASH` | Branch name with `/` replaced by `_` |
 | `GIT_WORKSPACE_EVENT` | The lifecycle event that triggered the hook |
 | `GIT_WORKSPACE_VAR_*` | All manifest and runtime variables |
 

@@ -8,6 +8,7 @@ from git_workspace.hooks import HookRunner
 
 BRANCH = "feat/GWS-001"
 WORKSPACE_DIR = Path("/workspace")
+WORKSPACE_NAME = "workspace"
 WORKTREE_DIR = Path("/workspace/feat/GWS-001")
 BIN_DIR = Path("/workspace/.workspace/bin")
 
@@ -67,6 +68,11 @@ class TestBuildEnv:
         env = hook_runner._build_env("ON_TEST")
 
         assert env["GIT_WORKSPACE_ROOT"] == str(WORKSPACE_DIR)
+
+    def test_sets_name(self, hook_runner: HookRunner) -> None:
+        env = hook_runner._build_env("ON_TEST")
+
+        assert env["GIT_WORKSPACE_NAME"] == WORKSPACE_NAME
 
     def test_sets_worktree(self, hook_runner: HookRunner) -> None:
         env = hook_runner._build_env("ON_TEST")
