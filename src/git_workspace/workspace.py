@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from git_workspace.worktree import Worktree
 from pathlib import Path
 import shutil
@@ -13,6 +14,8 @@ from git_workspace.errors import (
 )
 from git_workspace import utils
 from git_workspace.manifest import Manifest
+
+logger = logging.getLogger(__name__)
 
 
 class WorkspacePaths:
@@ -119,12 +122,15 @@ class WorkspaceResolver:
     @classmethod
     def _resolve(cls, path: Path) -> Path:
         for candidate in [path, *path.parents]:
+            logger.debug("trying workspace candidate: %s", candidate)
             try:
                 WorkspaceValidator.validate(candidate)
+                logger.info("resolved workspace root: %s", candidate)
                 return candidate
             except InvalidWorkspaceError:
                 continue
 
+        logger.warning("could not resolve workspace root from: %s", path)
         raise UnableToResolveWorkspaceError(
             f"Unable to resolve workspace root path from: {path!r}"
         )
@@ -169,6 +175,7 @@ class WorkspaceFactory:
 
     @classmethod
     def _create_from_remote(cls, url: str, git_path: Path) -> None:
+        logger.info("cloning bare repository from %r to %s", url, git_path)
         try:
             git.clone(url, target=git_path, bare=True)
         except GitCloneError as e:
@@ -176,6 +183,7 @@ class WorkspaceFactory:
 
     @classmethod
     def _create_new(cls, git_path: Path) -> None:
+        logger.info("initializing new bare repository at %s", git_path)
         try:
             git.init(git_path, bare=True)
         except GitInitError as e:
@@ -183,6 +191,7 @@ class WorkspaceFactory:
 
     @classmethod
     def _create_config_from_remote(cls, config_url: str, config_path: Path) -> None:
+        logger.info("cloning config repository from %r to %s", config_url, config_path)
         try:
             git.clone(config_url, target=config_path)
         except GitCloneError as e:
@@ -190,6 +199,7 @@ class WorkspaceFactory:
 
     @classmethod
     def _create_config_new(cls, config_path: Path) -> None:
+        logger.info("seeding default config from %r", cls.DEFAULT_CONFIG_URL)
         try:
             git.clone(
                 cls.DEFAULT_CONFIG_URL,
@@ -234,6 +244,7 @@ class WorkspaceFactory:
         :returns: A ``Workspace`` instance rooted at ``directory``.
         :raises WorkspaceCreationError: If any git operation during setup fails.
         """
+        logger.info("creating workspace at %s (url=%r, config_url=%r)", dir, url, config_url)
         dir.mkdir(parents=True, exist_ok=True)
         paths = WorkspacePaths(dir)
 
@@ -247,6 +258,7 @@ class WorkspaceFactory:
         else:
             cls._create_config_new(paths.config)
 
+        logger.info("workspace created at %s", dir)
         return Workspace(dir)
 
 

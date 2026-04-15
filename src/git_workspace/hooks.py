@@ -1,5 +1,4 @@
-from git_workspace.worktree import Worktree
-from git_workspace.workspace import Workspace
+import logging
 import os
 import re
 import subprocess
@@ -11,6 +10,10 @@ from rich.text import Text
 
 from git_workspace.errors import HookExecutionError
 from git_workspace.ui import console, print_success, print_error
+from git_workspace.worktree import Worktree
+from git_workspace.workspace import Workspace
+
+logger = logging.getLogger(__name__)
 
 
 class HookRunner:
@@ -58,6 +61,7 @@ class HookRunner:
     def _run_hook(self, hook_name: str, env: dict[str, str]) -> None:
         hook_path = str(self._workspace.paths.bin / hook_name)
         worktree_dir = self._worktree_dir
+        logger.debug("running hook %r from %s in %s", hook_name, hook_path, worktree_dir)
 
         spinner = Spinner("dots", text=f"   {hook_name}")
         output_lines: list[Text] = []
@@ -80,9 +84,11 @@ class HookRunner:
                     live.update(Group(spinner, *output_lines[-6:]))
 
         if proc.returncode != 0:
+            logger.error("hook %r exited with code %d", hook_name, proc.returncode)
             print_error(f"Hook [bold]{hook_name}[/] failed")
             raise HookExecutionError()
 
+        logger.debug("hook %r completed successfully", hook_name)
         print_success(f"  {hook_name}")
 
     def _run_hooks(self, event: str, hook_names: list[str]) -> None:

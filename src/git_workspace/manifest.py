@@ -1,10 +1,13 @@
 from __future__ import annotations
+import logging
 from typing import Any, TYPE_CHECKING
 import tomllib
 from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
     from git_workspace.workspace import Workspace
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -158,10 +161,14 @@ class Manifest:
         :param path: Path to the manifest file
         :returns: Parsed Manifest instance
         """
+        logger.debug("loading manifest from %s", workspace.paths.manifest)
         try:
             data = tomllib.loads(workspace.paths.manifest.read_text())
         except OSError, tomllib.TOMLDecodeError:
-            # TODO: log
+            logger.warning(
+                "failed to read manifest at %s, falling back to defaults",
+                workspace.paths.manifest,
+            )
             return Manifest(
                 version=cls.DEFAULT_VERSION,
                 base_branch=cls.DEFAULT_BRANCH,
@@ -174,4 +181,10 @@ class Manifest:
         hooks = cls._parse_hooks(data)
         prune = cls._parse_prune(data)
 
+        logger.debug(
+            "manifest loaded: version=%d base_branch=%r links=%d hooks=%s prune=%s",
+            version, base_branch, len(links),
+            {k: v for k, v in hooks.__dict__.items() if v},
+            f"older_than_days={prune.older_than_days}" if prune else None,
+        )
         return Manifest(version, base_branch, links, vars, hooks, prune)

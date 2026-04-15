@@ -1,3 +1,4 @@
+import logging
 import re
 from git_workspace.worktree import Worktree
 from git_workspace.manifest import Link
@@ -15,6 +16,8 @@ from rich.progress import (
 from git_workspace import git
 from git_workspace.ui import console, print_success
 from git_workspace.workspace import Workspace
+
+logger = logging.getLogger(__name__)
 
 
 class IgnoreManager:
@@ -85,19 +88,29 @@ class Linker:
         git.skip_worktree(target)
 
         if target.exists() or target.is_symlink():
+            logger.debug("unlinking existing target before override: %s", target)
             target.unlink()
 
+        logger.debug("symlinking (override) %s -> %s", target, source)
         target.symlink_to(source)
 
     def _apply_without_override(self, source: Path, target: Path) -> None:
         if target.is_symlink():
             if target.readlink() == source:
+                logger.debug("symlink already correct, skipping: %s", target)
                 return
+            logger.warning(
+                "target %s is a symlink pointing elsewhere, cannot link", target
+            )
             raise WorkspaceLinkError("can't link to link")
 
         if target.exists():
+            logger.warning(
+                "target %s already exists, cannot link without override", target
+            )
             raise WorkspaceLinkError("can't link to existing file")
 
+        logger.debug("symlinking %s -> %s", target, source)
         target.symlink_to(source)
 
     def _apply(self, link: Link, ignore_entries: list[Path]) -> None:
