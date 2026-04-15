@@ -1,7 +1,7 @@
 import pytest
 
-from git_workspace.cli.commands.up import up
 from git_workspace.cli.commands.reset import reset
+from git_workspace.cli.commands.up import up
 from git_workspace.errors import WorkspaceLinkError
 from git_workspace.workspace import Workspace
 
@@ -44,9 +44,7 @@ def test_override_link_is_not_added_to_exclude_file(
 ) -> None:
     up(branch="main", workspace_dir=str(workspace_with_links.dir))
     exclude_content = workspace_with_links.paths.ignore_file.read_text()
-    settings_path = str(
-        (workspace_with_links.dir / "main" / "settings.json").absolute()
-    )
+    settings_path = str((workspace_with_links.dir / "main" / "settings.json").absolute())
     assert settings_path not in exclude_content
 
 

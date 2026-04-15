@@ -1,8 +1,5 @@
 import logging
 import re
-from git_workspace.worktree import Worktree
-from git_workspace.manifest import Link
-from git_workspace.errors import WorkspaceLinkError
 from pathlib import Path
 
 from rich.progress import (
@@ -14,8 +11,11 @@ from rich.progress import (
 )
 
 from git_workspace import git
+from git_workspace.errors import WorkspaceLinkError
+from git_workspace.manifest import Link
 from git_workspace.ui import console, print_success
 from git_workspace.workspace import Workspace
+from git_workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
 
@@ -99,15 +99,11 @@ class Linker:
             if target.readlink() == source:
                 logger.debug("symlink already correct, skipping: %s", target)
                 return
-            logger.warning(
-                "target %s is a symlink pointing elsewhere, cannot link", target
-            )
+            logger.warning("target %s is a symlink pointing elsewhere, cannot link", target)
             raise WorkspaceLinkError("can't link to link")
 
         if target.exists():
-            logger.warning(
-                "target %s already exists, cannot link without override", target
-            )
+            logger.warning("target %s already exists, cannot link without override", target)
             raise WorkspaceLinkError("can't link to existing file")
 
         logger.debug("symlinking %s -> %s", target, source)

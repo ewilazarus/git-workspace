@@ -1,8 +1,8 @@
-import typer
 import pytest
+import typer
 
-from git_workspace.cli.commands.up import up
 from git_workspace.cli.commands.prune import prune
+from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
 
 

@@ -32,9 +32,7 @@ class TestReset:
 
     def test_resolves_worktree(self, mock_workspace_resolve: MagicMock) -> None:
         reset(branch=BRANCH)
-        mock_workspace_resolve.return_value.resolve_worktree.assert_called_once_with(
-            BRANCH
-        )
+        mock_workspace_resolve.return_value.resolve_worktree.assert_called_once_with(BRANCH)
 
     def test_applies_linker(
         self,
@@ -52,7 +50,7 @@ class TestReset:
         mock_workspace_resolve: MagicMock,
         mock_hook_runner: MagicMock,
     ) -> None:
-        reset(runtime_vars=RUNTIME_VARS)
+        reset(runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
         mock_hook_runner.assert_called_once_with(
@@ -67,9 +65,7 @@ class TestReset:
         reset()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
-        mock_hook_runner.assert_called_once_with(
-            workspace, worktree, runtime_vars={}
-        )
+        mock_hook_runner.assert_called_once_with(workspace, worktree, runtime_vars={})
 
     def test_runs_setup_hooks(self, mock_hook_runner: MagicMock) -> None:
         reset()

@@ -1,8 +1,10 @@
-from git_workspace.errors import InvalidWorkspaceError
 from pathlib import Path
-from git_workspace.workspace import WorkspaceValidator
+
 import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
+
+from git_workspace.errors import InvalidWorkspaceError
+from git_workspace.workspace import WorkspaceValidator
 
 WORKSPACE_HAPPY = "/happy"
 WORKSPACE_NOT_DIRECTORY = "/not-directory"

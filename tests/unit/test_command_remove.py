@@ -27,16 +27,14 @@ class TestRemove:
 
     def test_resolves_worktree(self, mock_workspace_resolve: MagicMock) -> None:
         remove(branch=BRANCH)
-        mock_workspace_resolve.return_value.resolve_worktree.assert_called_once_with(
-            BRANCH
-        )
+        mock_workspace_resolve.return_value.resolve_worktree.assert_called_once_with(BRANCH)
 
     def test_creates_hook_runner_with_runtime_vars(
         self,
         mock_workspace_resolve: MagicMock,
         mock_hook_runner: MagicMock,
     ) -> None:
-        remove(runtime_vars=RUNTIME_VARS)
+        remove(runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
         mock_hook_runner.assert_called_once_with(
@@ -51,9 +49,7 @@ class TestRemove:
         remove()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
-        mock_hook_runner.assert_called_once_with(
-            workspace, worktree, runtime_vars={}
-        )
+        mock_hook_runner.assert_called_once_with(workspace, worktree, runtime_vars={})
 
     def test_runs_deactivate_hooks(self, mock_hook_runner: MagicMock) -> None:
         remove()
@@ -63,16 +59,12 @@ class TestRemove:
         remove()
         mock_hook_runner.return_value.run_on_remove_hooks.assert_called_once()
 
-    def test_deletes_worktree_with_force(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
+    def test_deletes_worktree_with_force(self, mock_workspace_resolve: MagicMock) -> None:
         remove(force=True)
         worktree = mock_workspace_resolve.return_value.resolve_worktree.return_value
         worktree.delete.assert_called_once_with(True)
 
-    def test_deletes_worktree_without_force(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
+    def test_deletes_worktree_without_force(self, mock_workspace_resolve: MagicMock) -> None:
         remove(force=False)
         worktree = mock_workspace_resolve.return_value.resolve_worktree.return_value
         worktree.delete.assert_called_once_with(False)

@@ -8,8 +8,8 @@ from git_workspace.errors import (
     GitFetchError,
     GitInitError,
     WorktreeCreationError,
-    WorktreeRemovalError,
     WorktreeListingError,
+    WorktreeRemovalError,
 )
 
 logger = logging.getLogger(__name__)
@@ -159,9 +159,7 @@ def skip_worktree(path: Path) -> None:
     )
 
 
-def create_worktree_from_local_branch(
-    worktree_dir: Path, branch: str, cwd: Path
-) -> None:
+def create_worktree_from_local_branch(worktree_dir: Path, branch: str, cwd: Path) -> None:
     """
     Creates a worktree for an existing local branch
 
@@ -174,13 +172,13 @@ def create_worktree_from_local_branch(
     cmd = ["git", "worktree", "add", worktree_dir, branch]
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
-        logger.error("failed to create worktree for local branch %r: %s", branch, result.stderr.strip())
+        logger.error(
+            "failed to create worktree for local branch %r: %s", branch, result.stderr.strip()
+        )
         raise WorktreeCreationError(result.stderr.strip())
 
 
-def create_worktree_from_remote_branch(
-    worktree_dir: Path, branch: str, cwd: Path
-) -> None:
+def create_worktree_from_remote_branch(worktree_dir: Path, branch: str, cwd: Path) -> None:
     """
     Creates a worktree with a new local branch tracking origin/<branch>
 
@@ -202,7 +200,9 @@ def create_worktree_from_remote_branch(
     ]
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
-        logger.error("failed to create worktree for remote branch %r: %s", branch, result.stderr.strip())
+        logger.error(
+            "failed to create worktree for remote branch %r: %s", branch, result.stderr.strip()
+        )
         raise WorktreeCreationError(result.stderr.strip())
 
 
@@ -224,18 +224,24 @@ def create_worktree_new(
     :param cwd: The git repository directory. If None, uses the current directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
-    logger.debug("creating new worktree for branch %r from %r at %s", branch, base_branch, worktree_dir)
+    logger.debug(
+        "creating new worktree for branch %r from %r at %s", branch, base_branch, worktree_dir
+    )
     cmd = ["git", "worktree", "add", "-b", branch, worktree_dir, base_branch]
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
         # Base ref doesn't exist — repo has no commits yet. Create an orphan worktree.
-        logger.debug("base branch %r not found, falling back to orphan worktree for %r", base_branch, branch)
-        orphan_cmd = ["git", "worktree", "add", "--orphan", "-b", branch, worktree_dir]
-        orphan_result = subprocess.run(
-            orphan_cmd, cwd=cwd, capture_output=True, text=True
+        logger.debug(
+            "base branch %r not found, falling back to orphan worktree for %r", base_branch, branch
         )
+        orphan_cmd = ["git", "worktree", "add", "--orphan", "-b", branch, worktree_dir]
+        orphan_result = subprocess.run(orphan_cmd, cwd=cwd, capture_output=True, text=True)
         if orphan_result.returncode != 0:
-            logger.error("failed to create orphan worktree for branch %r: %s", branch, orphan_result.stderr.strip())
+            logger.error(
+                "failed to create orphan worktree for branch %r: %s",
+                branch,
+                orphan_result.stderr.strip(),
+            )
             raise WorktreeCreationError(result.stderr.strip())
 
 

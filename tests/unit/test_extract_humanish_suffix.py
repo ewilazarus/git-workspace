@@ -1,7 +1,7 @@
-from git_workspace.errors import InvalidInputError
 import pytest
 
 from git_workspace import utils
+from git_workspace.errors import InvalidInputError
 
 
 @pytest.mark.parametrize(

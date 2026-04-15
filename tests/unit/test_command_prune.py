@@ -1,7 +1,7 @@
 import pytest
 
-from git_workspace.errors import UnableToResolveWorkspaceError
 from git_workspace.cli.commands.prune import prune
+from git_workspace.errors import UnableToResolveWorkspaceError
 
 
 class TestPrune:

@@ -1,8 +1,8 @@
 import os
 import shutil
 import subprocess
-from typing import Protocol
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 
@@ -104,5 +104,3 @@ def workspace_with_prune(setup: Setup, tmp_path: Path) -> Workspace:
         url=str(tmp_path / "repo"),
         config_url=str(tmp_path / "configs" / "with-prune"),
     )
-
-

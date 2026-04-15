@@ -1,5 +1,5 @@
-from git_workspace.cli.commands.up import up
 from git_workspace.cli.commands.down import down
+from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
 
 

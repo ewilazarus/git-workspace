@@ -1,9 +1,10 @@
-from git_workspace.workspace import Workspace
-from git_workspace.ui import console
-from rich.table import Table
 from typing import Annotated
 
 import typer
+from rich.table import Table
+
+from git_workspace.ui import console
+from git_workspace.workspace import Workspace
 
 app = typer.Typer()
 

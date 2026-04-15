@@ -1,8 +1,9 @@
-from git_workspace.workspace import Workspace
-from git_workspace.ui import console, print_success, styled_path
 from typing import Annotated
 
 import typer
+
+from git_workspace.ui import console, print_success, styled_path
+from git_workspace.workspace import Workspace
 
 app = typer.Typer()
 

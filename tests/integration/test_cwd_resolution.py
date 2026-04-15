@@ -13,7 +13,6 @@ from git_workspace.cli.commands.reset import reset
 from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
 
-
 # ---------------------------------------------------------------------------
 # No --root: cwd is the workspace directory
 # ---------------------------------------------------------------------------
@@ -25,43 +24,33 @@ def test_up_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) 
     assert (workspace.dir / "main").is_dir()
 
 
-def test_down_without_root(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_down_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir)
     down(branch="main")
 
 
-def test_reset_without_root(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_reset_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir)
     reset(branch="main")
     assert (workspace.dir / "main").is_dir()
 
 
-def test_remove_without_root(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_remove_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir)
     remove(branch="main")
     assert not (workspace.dir / "main").exists()
 
 
-def test_list_without_root(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_list_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir)
     list()
 
 
-def test_edit_without_root(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_edit_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EDITOR", "true")
     monkeypatch.setenv("VISUAL", "true")
     monkeypatch.chdir(workspace.dir)
@@ -73,35 +62,27 @@ def test_edit_without_root(
 # ---------------------------------------------------------------------------
 
 
-def test_up_without_branch(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_up_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir / "main")
     up(workspace_dir=str(workspace.dir))
     assert (workspace.dir / "main").is_dir()
 
 
-def test_down_without_branch(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_down_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir / "main")
     down(workspace_dir=str(workspace.dir))
 
 
-def test_reset_without_branch(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_reset_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir / "main")
     reset(workspace_dir=str(workspace.dir))
     assert (workspace.dir / "main").is_dir()
 
 
-def test_remove_without_branch(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_remove_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir / "main")
     remove(workspace_dir=str(workspace.dir))
@@ -113,9 +94,7 @@ def test_remove_without_branch(
 # ---------------------------------------------------------------------------
 
 
-def test_up_without_root_and_branch(
-    workspace: Workspace, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_up_without_root_and_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     up(branch="main", workspace_dir=str(workspace.dir))
     monkeypatch.chdir(workspace.dir / "main")
     up()

@@ -1,7 +1,7 @@
 import pytest
 
-from git_workspace.cli.commands.up import up
 from git_workspace.cli.commands.edit import edit
+from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
 
 

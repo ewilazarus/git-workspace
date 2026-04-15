@@ -1,12 +1,12 @@
-from git_workspace.hooks import HookRunner
-from git_workspace.assets import Linker
-from git_workspace.workspace import Workspace
-from git_workspace.ui import console, print_success, styled_branch, styled_path
 from typing import Annotated
 
 import typer
 
+from git_workspace.assets import Linker
 from git_workspace.cli.parsers import parse_vars
+from git_workspace.hooks import HookRunner
+from git_workspace.ui import console, print_success, styled_branch, styled_path
+from git_workspace.workspace import Workspace
 
 app = typer.Typer()
 
@@ -50,8 +50,7 @@ def up(
             "--detached",
             "-d",
             help=(
-                "Skip on_attach hooks after activation. "
-                "Suitable for headless or agent workflows."
+                "Skip on_attach hooks after activation. Suitable for headless or agent workflows."
             ),
             is_flag=True,
         ),

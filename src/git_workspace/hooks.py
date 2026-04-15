@@ -9,9 +9,9 @@ from rich.spinner import Spinner
 from rich.text import Text
 
 from git_workspace.errors import HookExecutionError
-from git_workspace.ui import console, print_success, print_error
-from git_workspace.worktree import Worktree
+from git_workspace.ui import console, print_error, print_success
 from git_workspace.workspace import Workspace
+from git_workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +76,7 @@ class HookRunner:
             bufsize=1,
         ) as proc:
             assert proc.stdout is not None
-            with Live(
-                spinner, console=console, refresh_per_second=15, transient=True
-            ) as live:
+            with Live(spinner, console=console, refresh_per_second=15, transient=True) as live:
                 for raw in proc.stdout:
                     output_lines.append(Text(raw.rstrip(), style="hook"))
                     live.update(Group(spinner, *output_lines[-6:]))

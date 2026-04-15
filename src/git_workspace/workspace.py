@@ -1,19 +1,19 @@
 from __future__ import annotations
-import logging
-from git_workspace.worktree import Worktree
-from pathlib import Path
-import shutil
 
-from git_workspace import git
+import logging
+import shutil
+from pathlib import Path
+
+from git_workspace import git, utils
 from git_workspace.errors import (
-    InvalidWorkspaceError,
-    UnableToResolveWorkspaceError,
     GitCloneError,
     GitInitError,
+    InvalidWorkspaceError,
+    UnableToResolveWorkspaceError,
     WorkspaceCreationError,
 )
-from git_workspace import utils
 from git_workspace.manifest import Manifest
+from git_workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
 
@@ -91,15 +91,11 @@ class WorkspaceValidator:
 
         # Workspace root must be a directory
         if not path.is_dir():
-            raise InvalidWorkspaceError(
-                f"The following path is not a valid directory: {path!r}"
-            )
+            raise InvalidWorkspaceError(f"The following path is not a valid directory: {path!r}")
 
         # Workspace root must have a child `.git` directory
         if not paths.git.is_dir():
-            raise InvalidWorkspaceError(
-                f"No {paths.git!r} folder found under the path: {path!r}"
-            )
+            raise InvalidWorkspaceError(f"No {paths.git!r} folder found under the path: {path!r}")
 
         # Workspace root must have a child `.workspace` directory
         if not paths.config.is_dir():
@@ -131,9 +127,7 @@ class WorkspaceResolver:
                 continue
 
         logger.warning("could not resolve workspace root from: %s", path)
-        raise UnableToResolveWorkspaceError(
-            f"Unable to resolve workspace root path from: {path!r}"
-        )
+        raise UnableToResolveWorkspaceError(f"Unable to resolve workspace root path from: {path!r}")
 
     @classmethod
     def resolve(cls, raw_workspace_dir: str | None) -> Workspace:
@@ -149,9 +143,9 @@ class WorkspaceResolver:
         :returns: The resolved ``Workspace`` for the root path
         """
         try:
-            workspace_dir = (
-                Path(raw_workspace_dir) if raw_workspace_dir else Path.cwd()
-            ).resolve(strict=True)
+            workspace_dir = (Path(raw_workspace_dir) if raw_workspace_dir else Path.cwd()).resolve(
+                strict=True
+            )
         except FileNotFoundError as e:
             raise InvalidWorkspaceError(
                 f"The following path is invalid: {raw_workspace_dir!r}"
@@ -207,9 +201,7 @@ class WorkspaceFactory:
                 branch=cls.DEFAULT_CONFIG_BRANCH,
             )
         except GitCloneError as e:
-            raise WorkspaceCreationError(
-                "Failed to clone example config repository"
-            ) from e
+            raise WorkspaceCreationError("Failed to clone example config repository") from e
 
         config_git_path = config_path / ".git"
         shutil.rmtree(config_git_path, ignore_errors=True)
@@ -217,9 +209,7 @@ class WorkspaceFactory:
         try:
             git.init(config_path, bare=False)
         except GitInitError as e:
-            raise WorkspaceCreationError(
-                "Failed to re-initialize example config repository"
-            ) from e
+            raise WorkspaceCreationError("Failed to re-initialize example config repository") from e
 
     @classmethod
     def create(
@@ -314,9 +304,7 @@ class Workspace:
         )
 
     @classmethod
-    def clone(
-        cls, workspace_dir: str | None, url: str, config_url: str | None
-    ) -> Workspace:
+    def clone(cls, workspace_dir: str | None, url: str, config_url: str | None) -> Workspace:
         """
         Creates a new workspace by cloning an existing remote repository.
 
@@ -356,9 +344,7 @@ class Workspace:
         """
         return Worktree.resolve(self, branch)
 
-    def resolve_or_create_worktree(
-        self, branch: str | None, base_branch: str | None
-    ) -> Worktree:
+    def resolve_or_create_worktree(self, branch: str | None, base_branch: str | None) -> Worktree:
         """
         Resolves an existing worktree or creates a new one for the given branch.
 

@@ -1,6 +1,8 @@
-from git_workspace.workspace import WorkspacePaths
 from pathlib import Path
+
 import pytest
+
+from git_workspace.workspace import WorkspacePaths
 
 ROOT = Path("/")
 

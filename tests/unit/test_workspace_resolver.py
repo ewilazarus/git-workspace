@@ -1,10 +1,12 @@
-from pytest_mock import MockerFixture
-from pathlib import Path
-from git_workspace.errors import InvalidWorkspaceError, UnableToResolveWorkspaceError
 import os
-from git_workspace.workspace import WorkspaceResolver
-from pyfakefs.fake_filesystem import FakeFilesystem
+from pathlib import Path
+
 import pytest
+from pyfakefs.fake_filesystem import FakeFilesystem
+from pytest_mock import MockerFixture
+
+from git_workspace.errors import InvalidWorkspaceError, UnableToResolveWorkspaceError
+from git_workspace.workspace import WorkspaceResolver
 
 WORKSPACE = "/Users/ewilzarus/Workspaces/git-workspace"
 

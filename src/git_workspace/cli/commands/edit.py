@@ -1,8 +1,9 @@
-from git_workspace.workspace import Workspace
 from typing import Annotated
 
 import click
 import typer
+
+from git_workspace.workspace import Workspace
 
 app = typer.Typer()
 

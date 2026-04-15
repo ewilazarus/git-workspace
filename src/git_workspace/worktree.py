@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import builtins
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from git_workspace import git
 from git_workspace.errors import GitFetchError, WorktreeResolutionError
@@ -47,7 +48,7 @@ class Worktree:
         return (datetime.now() - self.timestamp).days
 
     @classmethod
-    def list(cls, workspace: Workspace) -> List[Worktree]:
+    def list(cls, workspace: Workspace) -> builtins.list[Worktree]:
         """
         Returns all worktrees currently registered in the workspace.
 
@@ -68,15 +69,11 @@ class Worktree:
         ]
 
     @classmethod
-    def _try_resolve_existing(
-        cls, workspace: Workspace, branch: str
-    ) -> Worktree | None:
+    def _try_resolve_existing(cls, workspace: Workspace, branch: str) -> Worktree | None:
         existing_worktrees = cls.list(workspace)
         worktree = next((wt for wt in existing_worktrees if wt.branch == branch), None)
         if worktree:
-            logger.debug(
-                "found existing worktree for branch %r at %s", branch, worktree.dir
-            )
+            logger.debug("found existing worktree for branch %r at %s", branch, worktree.dir)
         else:
             logger.debug("no existing worktree for branch %r", branch)
         return worktree
@@ -173,9 +170,7 @@ class Worktree:
             logger.warning("cwd is not inside a git worktree")
             raise WorktreeResolutionError("can't resolve worktree from cwd")
         branch = git.get_worktree_branch(cwd=worktree_dir)
-        logger.debug(
-            "resolved worktree from cwd: branch=%r dir=%s", branch, worktree_dir
-        )
+        logger.debug("resolved worktree from cwd: branch=%r dir=%s", branch, worktree_dir)
 
         return Worktree(
             workspace=workspace,

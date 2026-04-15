@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import logging
-from typing import Any, TYPE_CHECKING
-import tomllib
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+import tomllib
 
 if TYPE_CHECKING:
     from git_workspace.workspace import Workspace
@@ -183,7 +185,9 @@ class Manifest:
 
         logger.debug(
             "manifest loaded: version=%d base_branch=%r links=%d hooks=%s prune=%s",
-            version, base_branch, len(links),
+            version,
+            base_branch,
+            len(links),
             {k: v for k, v in hooks.__dict__.items() if v},
             f"older_than_days={prune.older_than_days}" if prune else None,
         )

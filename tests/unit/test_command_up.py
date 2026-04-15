@@ -31,9 +31,7 @@ class TestUp:
         up(workspace_dir=WORKSPACE_DIR)
         mock_workspace_resolve.assert_called_once_with(WORKSPACE_DIR)
 
-    def test_resolves_or_creates_worktree(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
+    def test_resolves_or_creates_worktree(self, mock_workspace_resolve: MagicMock) -> None:
         up(branch=BRANCH, base_branch=BASE_BRANCH)
         mock_workspace_resolve.return_value.resolve_or_create_worktree.assert_called_once_with(
             BRANCH, BASE_BRANCH
@@ -44,7 +42,7 @@ class TestUp:
         mock_workspace_resolve: MagicMock,
         mock_hook_runner: MagicMock,
     ) -> None:
-        up(runtime_vars=RUNTIME_VARS)
+        up(runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
         mock_hook_runner.assert_called_once_with(
@@ -59,9 +57,7 @@ class TestUp:
         up()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
-        mock_hook_runner.assert_called_once_with(
-            workspace, worktree, runtime_vars={}
-        )
+        mock_hook_runner.assert_called_once_with(workspace, worktree, runtime_vars={})
 
     def test_applies_linker_and_runs_setup_hooks_when_worktree_is_new(
         self,

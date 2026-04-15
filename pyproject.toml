@@ -20,7 +20,24 @@ requires = ["uv_build>=0.10.9,<0.11.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = ["pyfakefs>=6.1.6", "pytest>=9.0.3", "pytest-mock>=3.15.1"]
+dev = [
+    "pre-commit>=4.5.1",
+    "pyfakefs>=6.1.6",
+    "pytest>=9.0.3",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.15.10",
+    "ty>=0.0.30",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["git_workspace"]
