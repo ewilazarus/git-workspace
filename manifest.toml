@@ -1,19 +1,37 @@
-# The manifest schema version. Used to ensure compatibility with the CLI.
+# =============================================================================
+# git-workspace manifest
+# =============================================================================
+#
+# This file configures how git-workspace sets up and manages worktrees.
+# Place it at `.workspace/manifest.toml` inside your workspace.
+
+# Schema version. Used to ensure compatibility with the CLI.
 
 version = 1
 
-# The base branch to use when creating a new branch that does not already exist
-# locally or on the remote. Existing local or remote branches are used as-is.
-# This can be overridden with the `-b/--base` flag in `setup` and `up`.
+# =============================================================================
+# Base branch
+# =============================================================================
+#
+# The branch used as a starting point when creating a new worktree for a
+# branch that does not already exist locally or on the remote.
+# Can be overridden per-command with the `-b/--base` flag.
 
 base_branch = "main"
 
-# Links are symbolic links relative from `.workspace/assets` to your project 
-# root.
-# For overridden links, `git update-index --skip-worktree {target}` is called
-# before the symbolic link is created.
-# Non-overridden links are automatically added to `.git/info/exclude` so they
-# do not leak into source control by accident.
+# =============================================================================
+# Links
+# =============================================================================
+#
+# Symbolic links from `.workspace/assets` into each worktree.
+# `source` is relative to `.workspace/assets`, `target` is relative to the
+# worktree root.
+#
+# By default, linked targets are added to `.git/info/exclude` so they don't
+# leak into source control. Set `override = true` to replace a tracked file
+# instead — the target is marked with `git update-index --skip-worktree`
+# before the symlink is created.
+#
 # Examples:
 
 # [[link]]
@@ -25,39 +43,93 @@ base_branch = "main"
 # target = "deployments/docker-compose.override.yml"
 #
 # [[link]]
-# source = "config.yaml"
-# target = "config.yaml"
+# source   = "settings.json"
+# target   = "settings.json"
 # override = true
 
-# Variables are automatically injected into all hook scripts as environment 
-# variables.
-# Each variable is normalized (uppercased, non-alphanumeric characters replaced
-# with `_`) and exposed with the `GIT_WORKSPACE_VAR_` prefix.
-# For example, `env_file` will become `GIT_WORKSPACE_VAR_ENV_FILE`
-# Variables can also be provided at runtime using the --var option in commands
-# such as `up`, `reset`, and `rm`.
-# Values passed via the CLI take precedence over those defined in manifest.toml.
+# =============================================================================
+# Copies
+# =============================================================================
+#
+# File copies from `.workspace/assets` into each worktree.
+# Same `source`/`target`/`override` semantics as links, but the result is an
+# independent file rather than a symlink — changes to the copy do not affect
+# the original asset.
+#
+# Non-override copies are added to `.git/info/exclude`, just like links.
+# Copies are idempotent: on `reset`, existing files are silently overwritten.
+# Use copies when you need each worktree to have its own mutable version of a
+# file (e.g. a local config that gets edited per-branch).
+#
+# Examples:
+
+# [[copy]]
+# source = "config.local.yaml"
+# target = "config.local.yaml"
+#
+# [[copy]]
+# source   = ".env.template"
+# target   = ".env"
+# override = true
+
+# =============================================================================
+# Variables
+# =============================================================================
+#
+# Key-value pairs injected as environment variables into all hook scripts.
+# Each key is normalized to uppercase with non-alphanumeric characters replaced
+# by `_`, then prefixed with `GIT_WORKSPACE_VAR_`.
+#
+#   env_file = ".env.local"  →  GIT_WORKSPACE_VAR_ENV_FILE=".env.local"
+#
+# Variables can also be passed at runtime with `--var key=value` on commands
+# like `up`, `reset`, and `rm`. Runtime values take precedence over manifest
+# values.
+#
 # Examples:
 
 # [vars]
 # env_file = ".env.local"
 
-# Hook entries are relative paths to executables in `.workspace/bin`.
-# Each hook is executed in the order listed.
+# =============================================================================
+# Hooks
+# =============================================================================
+#
+# Lifecycle scripts executed at specific points during workspace operations.
+# Each entry is a path relative to `.workspace/bin`, executed in order.
+#
+# Available hooks:
+#   on_setup      — runs after a worktree is first created or reset.
+#                   Use for installing dependencies, generating configs, etc.
+#   on_activate   — runs on every `up` invocation (attached and detached).
+#                   Use for lightweight per-session tasks.
+#   on_attach     — runs on `up` only in attached (interactive) mode.
+#                   Skipped when `--detached` is passed.
+#   on_deactivate — runs on `down` and `rm`.
+#                   Counterpart to on_activate; use for teardown.
+#   on_remove     — runs on `rm`, after deactivation, before the worktree is
+#                   deleted. Use for final cleanup.
+#
 # Examples:
 
 # [hooks]
-# on_setup = ["01-on-setup.sh"]
-# on_activate = ["02-on-activate.sh"]
-# on_attach = ["03-on-attach.sh"]
-# on_deactivate = ["04-on-deactivate.sh"]
-# on_remove = ["05-on-remove.sh"]
+# on_setup      = ["01-install-deps.sh"]
+# on_activate   = ["02-load-env.sh"]
+# on_attach     = ["03-open-editor.sh"]
+# on_deactivate = ["04-stop-services.sh"]
+# on_remove     = ["05-cleanup.sh"]
 
-# Prune defines the rules used by the `prune` command. Maximum age can be
-# overridden with the `--older-than-days` flag.
-# Excluded branches are never pruned, regardless of age.
+# =============================================================================
+# Prune
+# =============================================================================
+#
+# Rules for the `prune` command, which removes stale worktrees by age.
+# `older_than_days` sets the age threshold (can be overridden with
+# `--older-than-days` on the CLI). Branches listed in `exclude_branches`
+# are never pruned, regardless of age.
+#
 # Example:
 
 # [prune]
-# older_than_days = 30
+# older_than_days  = 30
 # exclude_branches = ["main"]
