@@ -2,8 +2,6 @@ import re
 import subprocess
 from pathlib import Path
 
-import structlog
-
 from git_workspace.errors import (
     GitCloneError,
     GitFetchError,
@@ -12,8 +10,6 @@ from git_workspace.errors import (
     WorktreeRemovalError,
     WorktreeListingError,
 )
-
-logger = structlog.get_logger(__name__)
 
 PARSE_WORKTREE_RE = re.compile(
     r"worktree (?P<directory>.+)\n"
@@ -212,7 +208,9 @@ def create_worktree_new(
     if result.returncode != 0:
         # Base ref doesn't exist — repo has no commits yet. Create an orphan worktree.
         orphan_cmd = ["git", "worktree", "add", "--orphan", "-b", branch, worktree_dir]
-        orphan_result = subprocess.run(orphan_cmd, cwd=cwd, capture_output=True, text=True)
+        orphan_result = subprocess.run(
+            orphan_cmd, cwd=cwd, capture_output=True, text=True
+        )
         if orphan_result.returncode != 0:
             raise WorktreeCreationError(result.stderr.strip())
 

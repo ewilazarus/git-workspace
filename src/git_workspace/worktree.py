@@ -8,12 +8,8 @@ from typing import List, TYPE_CHECKING
 from git_workspace import git
 from git_workspace.errors import GitFetchError, WorktreeResolutionError
 
-import structlog
-
 if TYPE_CHECKING:
     from git_workspace.workspace import Workspace
-
-logger = structlog.get_logger(__name__)
 
 
 def _directory_birthtime(directory: Path) -> datetime:

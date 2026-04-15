@@ -3,12 +3,8 @@ from typing import Any, TYPE_CHECKING
 import tomllib
 from dataclasses import dataclass, field
 
-import structlog
-
 if TYPE_CHECKING:
     from git_workspace.workspace import Workspace
-
-logger = structlog.get_logger(__name__)
 
 
 @dataclass

@@ -5,7 +5,9 @@ description = "An opinionated git plugin for managing worktrees"
 readme = "README.md"
 authors = [{ name = "Gabriel Lima", email = "gvclima@gmail.com" }]
 requires-python = ">=3.15"
-dependencies = ["gitpython>=3.1.46", "structlog>=25.5.0", "typer>=0.24.1"]
+dependencies = [
+ "typer>=0.24.1",
+]
 
 [tool.uv.build-backend]
 module-name = "git_workspace"

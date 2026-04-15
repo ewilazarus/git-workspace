@@ -263,4 +263,4 @@ If it turns out to be useful to you too, that's a bonus. Contributions and feedb
 
 ---
 
-*Built with [Typer](https://typer.tiangolo.com), [structlog](https://www.structlog.org), and a deep appreciation for git worktrees.*
+*Built with [Typer](https://typer.tiangolo.com), and a deep appreciation for git worktrees.*

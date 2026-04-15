@@ -3,8 +3,6 @@ from git_workspace.worktree import Worktree
 from pathlib import Path
 import shutil
 
-import structlog
-
 from git_workspace import git
 from git_workspace.errors import (
     InvalidWorkspaceError,
@@ -15,8 +13,6 @@ from git_workspace.errors import (
 )
 from git_workspace import utils
 from git_workspace.manifest import Manifest
-
-logger = structlog.get_logger(__name__)
 
 
 class WorkspacePaths:
