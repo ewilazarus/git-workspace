@@ -96,7 +96,12 @@ base_branch = "main"
 # =============================================================================
 #
 # Lifecycle scripts executed at specific points during workspace operations.
-# Each entry is a path relative to `.workspace/bin`, executed in order.
+# Each entry is either a filename in `.workspace/bin/` or an inline shell
+# command. If the entry matches a file in `.workspace/bin/`, it runs as a
+# script; otherwise it is executed via `sh -c`. You can mix both freely.
+#
+# All hooks receive GIT_WORKSPACE_* and GIT_WORKSPACE_VAR_* environment
+# variables (see the Variables section above).
 #
 # Available hooks:
 #   on_setup      — runs after a worktree is first created or reset.
@@ -113,7 +118,7 @@ base_branch = "main"
 # Examples:
 
 # [hooks]
-# on_setup      = ["01-install-deps.sh"]
+# on_setup      = ["01-install-deps.sh", "npm install", "echo setup done"]
 # on_activate   = ["02-load-env.sh"]
 # on_attach     = ["03-open-editor.sh"]
 # on_deactivate = ["04-stop-services.sh"]
