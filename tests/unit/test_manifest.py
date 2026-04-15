@@ -12,9 +12,7 @@ def workspace(mocker: MockerFixture) -> MagicMock:
 
 
 class TestLoad:
-    def test_returns_default_manifest_on_os_error(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_returns_default_manifest_on_os_error(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.side_effect = OSError
 
         result = Manifest.load(workspace)
@@ -22,9 +20,7 @@ class TestLoad:
         assert result.version == Manifest.DEFAULT_VERSION
         assert result.base_branch == Manifest.DEFAULT_BRANCH
 
-    def test_returns_default_manifest_on_toml_decode_error(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_returns_default_manifest_on_toml_decode_error(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = "!!! invalid toml"
 
         result = Manifest.load(workspace)
@@ -39,9 +35,7 @@ class TestLoad:
 
         assert result.version == 2
 
-    def test_uses_default_version_when_absent_from_toml(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_uses_default_version_when_absent_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = ""
 
         result = Manifest.load(workspace)
@@ -55,9 +49,7 @@ class TestLoad:
 
         assert result.base_branch == "develop"
 
-    def test_uses_default_base_branch_when_absent_from_toml(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_uses_default_base_branch_when_absent_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = ""
 
         result = Manifest.load(workspace)
@@ -76,9 +68,7 @@ override = true
 
         assert result.links == [Link(source="env", target=".env", override=True)]
 
-    def test_link_override_defaults_to_false_when_absent(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_link_override_defaults_to_false_when_absent(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = """
 [[link]]
 source = "env"
@@ -89,9 +79,7 @@ target = ".env"
 
         assert result.links == [Link(source="env", target=".env", override=False)]
 
-    def test_returns_empty_links_when_absent_from_toml(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_returns_empty_links_when_absent_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = ""
 
         result = Manifest.load(workspace)
@@ -109,9 +97,7 @@ BAZ = "qux"
 
         assert result.vars == {"FOO": "bar", "BAZ": "qux"}
 
-    def test_returns_empty_vars_when_absent_from_toml(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_returns_empty_vars_when_absent_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = ""
 
         result = Manifest.load(workspace)
@@ -138,9 +124,7 @@ on_remove = ["remove.sh"]
             on_remove=["remove.sh"],
         )
 
-    def test_returns_default_hooks_when_absent_from_toml(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_returns_default_hooks_when_absent_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = ""
 
         result = Manifest.load(workspace)
@@ -161,9 +145,7 @@ exclude_branches = ["main", "develop"]
             exclude_branches=["main", "develop"],
         )
 
-    def test_returns_none_for_prune_when_absent_from_toml(
-        self, workspace: MagicMock
-    ) -> None:
+    def test_returns_none_for_prune_when_absent_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = ""
 
         result = Manifest.load(workspace)

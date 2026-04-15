@@ -78,9 +78,7 @@ class TestBuildEnv:
 
         assert env["GIT_WORKSPACE_EVENT"] == "ON_TEST"
 
-    def test_includes_manifest_vars(
-        self, workspace: MagicMock, worktree: MagicMock
-    ) -> None:
+    def test_includes_manifest_vars(self, workspace: MagicMock, worktree: MagicMock) -> None:
         workspace.manifest.vars = {"FOO": "bar"}
         hook_runner = HookRunner(workspace, worktree, {})
 
@@ -88,18 +86,14 @@ class TestBuildEnv:
 
         assert env["GIT_WORKSPACE_VAR_FOO"] == "bar"
 
-    def test_includes_runtime_vars(
-        self, workspace: MagicMock, worktree: MagicMock
-    ) -> None:
+    def test_includes_runtime_vars(self, workspace: MagicMock, worktree: MagicMock) -> None:
         hook_runner = HookRunner(workspace, worktree, {"BAZ": "qux"})
 
         env = hook_runner._build_env("ON_TEST")
 
         assert env["GIT_WORKSPACE_VAR_BAZ"] == "qux"
 
-    def test_normalizes_var_keys(
-        self, workspace: MagicMock, worktree: MagicMock
-    ) -> None:
+    def test_normalizes_var_keys(self, workspace: MagicMock, worktree: MagicMock) -> None:
         hook_runner = HookRunner(workspace, worktree, {"my-runtime-var": "value"})
 
         env = hook_runner._build_env("ON_TEST")
@@ -136,9 +130,7 @@ class TestRunOnActivateHooks:
     ) -> None:
         hook_runner.run_on_activate_hooks()
 
-        assert (
-            mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_ACTIVATE"
-        )
+        assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_ACTIVATE"
 
 
 class TestRunOnAttachHooks:
@@ -170,9 +162,7 @@ class TestRunOnDeactivateHooks:
     ) -> None:
         hook_runner.run_on_deactivate_hooks()
 
-        assert (
-            mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_DEACTIVATE"
-        )
+        assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_DEACTIVATE"
 
 
 class TestRunOnRemoveHooks:

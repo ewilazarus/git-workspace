@@ -16,9 +16,7 @@ def mock_workspace_clone(mocker: MockerFixture) -> MagicMock:
 
 
 class TestClone:
-    def test_calls_workspace_clone_with_all_params(
-        self, mock_workspace_clone: MagicMock
-    ) -> None:
+    def test_calls_workspace_clone_with_all_params(self, mock_workspace_clone: MagicMock) -> None:
         clone(url=URL, workspace_dir=WORKSPACE_DIR, config_url=CONFIG_URL)
         mock_workspace_clone.assert_called_once_with(WORKSPACE_DIR, URL, CONFIG_URL)
 

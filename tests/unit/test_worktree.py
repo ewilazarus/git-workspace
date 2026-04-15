@@ -53,9 +53,7 @@ class TestList:
         self, workspace: MagicMock, mock_git_list_worktrees: MagicMock
     ) -> None:
         raw_directory = "/workspace/feat/GWS-001"
-        mock_git_list_worktrees.return_value = [
-            {"directory": raw_directory, "branch": BRANCH}
-        ]
+        mock_git_list_worktrees.return_value = [{"directory": raw_directory, "branch": BRANCH}]
 
         result = Worktree.list(workspace)
 
@@ -119,9 +117,7 @@ class TestResolveOrCreate:
         self, mocker: MockerFixture, workspace: MagicMock, worktree: Worktree
     ) -> None:
         mocker.patch.object(Worktree, "_try_resolve_existing", return_value=None)
-        mocker.patch.object(
-            Worktree, "_try_create_from_local_branch", return_value=worktree
-        )
+        mocker.patch.object(Worktree, "_try_create_from_local_branch", return_value=worktree)
 
         result = Worktree.resolve_or_create(workspace, BRANCH, BASE_BRANCH)
 
@@ -131,12 +127,8 @@ class TestResolveOrCreate:
         self, mocker: MockerFixture, workspace: MagicMock, worktree: Worktree
     ) -> None:
         mocker.patch.object(Worktree, "_try_resolve_existing", return_value=None)
-        mocker.patch.object(
-            Worktree, "_try_create_from_local_branch", return_value=None
-        )
-        mocker.patch.object(
-            Worktree, "_try_create_from_remote_branch", return_value=worktree
-        )
+        mocker.patch.object(Worktree, "_try_create_from_local_branch", return_value=None)
+        mocker.patch.object(Worktree, "_try_create_from_remote_branch", return_value=worktree)
 
         result = Worktree.resolve_or_create(workspace, BRANCH, BASE_BRANCH)
 
@@ -146,12 +138,8 @@ class TestResolveOrCreate:
         self, mocker: MockerFixture, workspace: MagicMock, worktree: Worktree
     ) -> None:
         mocker.patch.object(Worktree, "_try_resolve_existing", return_value=None)
-        mocker.patch.object(
-            Worktree, "_try_create_from_local_branch", return_value=None
-        )
-        mocker.patch.object(
-            Worktree, "_try_create_from_remote_branch", return_value=None
-        )
+        mocker.patch.object(Worktree, "_try_create_from_local_branch", return_value=None)
+        mocker.patch.object(Worktree, "_try_create_from_remote_branch", return_value=None)
         mocker.patch.object(Worktree, "_create_new", return_value=worktree)
 
         result = Worktree.resolve_or_create(workspace, BRANCH, BASE_BRANCH)

@@ -18,7 +18,6 @@ class UnableToResolveWorkspaceError(GitWorkspaceError):
     """Raised when the workspace root cannot be inferred from the current working directory."""
 
 
-
 class WorkspaceCreationError(GitWorkspaceError):
     """Raised when workspace creation fails during init or clone."""
 
@@ -33,7 +32,6 @@ class GitFetchError(GitWorkspaceError):
 
 class WorktreeCreationError(GitWorkspaceError):
     """Raised when a git worktree cannot be created."""
-
 
 
 class WorktreeRemovalError(GitWorkspaceError):

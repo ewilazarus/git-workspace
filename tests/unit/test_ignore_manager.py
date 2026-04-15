@@ -32,14 +32,10 @@ class TestComposeIgnoreBlock:
             f"{IgnoreManager.END_IGNORE_MARKER}"
         )
 
-    def test_returns_empty_block_when_no_entries(
-        self, ignore_manager: IgnoreManager
-    ) -> None:
+    def test_returns_empty_block_when_no_entries(self, ignore_manager: IgnoreManager) -> None:
         result = ignore_manager._compose_ignore_block([])
 
-        assert result == (
-            f"{IgnoreManager.BEGIN_IGNORE_MARKER}\n{IgnoreManager.END_IGNORE_MARKER}"
-        )
+        assert result == (f"{IgnoreManager.BEGIN_IGNORE_MARKER}\n{IgnoreManager.END_IGNORE_MARKER}")
 
 
 class TestSync:
@@ -52,9 +48,7 @@ class TestSync:
 
     def test_removes_existing_managed_block(self, ignore_manager: MagicMock) -> None:
         existing_block = (
-            f"{IgnoreManager.BEGIN_IGNORE_MARKER}\n"
-            "old_entry\n"
-            f"{IgnoreManager.END_IGNORE_MARKER}"
+            f"{IgnoreManager.BEGIN_IGNORE_MARKER}\nold_entry\n{IgnoreManager.END_IGNORE_MARKER}"
         )
         ignore_manager._workspace.paths.ignore_file.read_text.return_value = (
             f"existing content\n{existing_block}"
@@ -62,9 +56,7 @@ class TestSync:
 
         ignore_manager.sync([])
 
-        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[
-            0
-        ]
+        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[0]
         assert IgnoreManager.BEGIN_IGNORE_MARKER not in written.split("\n")[0]
         assert "old_entry" not in written
 
@@ -74,9 +66,7 @@ class TestSync:
 
         ignore_manager.sync([entry])
 
-        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[
-            0
-        ]
+        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[0]
         assert str(entry) in written
         assert IgnoreManager.BEGIN_IGNORE_MARKER in written
         assert IgnoreManager.END_IGNORE_MARKER in written
@@ -84,13 +74,9 @@ class TestSync:
     def test_preserves_existing_content_outside_managed_block(
         self, ignore_manager: MagicMock
     ) -> None:
-        ignore_manager._workspace.paths.ignore_file.read_text.return_value = (
-            "pre-existing line"
-        )
+        ignore_manager._workspace.paths.ignore_file.read_text.return_value = "pre-existing line"
 
         ignore_manager.sync([])
 
-        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[
-            0
-        ]
+        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[0]
         assert "pre-existing line" in written

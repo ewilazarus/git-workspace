@@ -33,9 +33,7 @@ class TestResolve:
     def mock_resolver_resolve(self, mocker: MockerFixture) -> MagicMock:
         return mocker.patch("git_workspace.workspace.WorkspaceResolver.resolve")
 
-    def test_delegates_to_workspace_resolver(
-        self, mock_resolver_resolve: MagicMock
-    ) -> None:
+    def test_delegates_to_workspace_resolver(self, mock_resolver_resolve: MagicMock) -> None:
         Workspace.resolve(WORKSPACE_DIR)
         mock_resolver_resolve.assert_called_once_with(WORKSPACE_DIR)
 
@@ -49,9 +47,7 @@ class TestInit:
     def mock_factory_create(self, mocker: MockerFixture) -> MagicMock:
         return mocker.patch("git_workspace.workspace.WorkspaceFactory.create")
 
-    def test_calls_factory_with_provided_directory(
-        self, mock_factory_create: MagicMock
-    ) -> None:
+    def test_calls_factory_with_provided_directory(self, mock_factory_create: MagicMock) -> None:
         Workspace.init(WORKSPACE_DIR, CONFIG_URL)
         mock_factory_create.assert_called_once_with(
             Path(WORKSPACE_DIR),
@@ -78,9 +74,7 @@ class TestClone:
     def mock_factory_create(self, mocker: MockerFixture) -> MagicMock:
         return mocker.patch("git_workspace.workspace.WorkspaceFactory.create")
 
-    def test_calls_factory_with_provided_directory(
-        self, mock_factory_create: MagicMock
-    ) -> None:
+    def test_calls_factory_with_provided_directory(self, mock_factory_create: MagicMock) -> None:
         Workspace.clone(WORKSPACE_DIR, URL, CONFIG_URL)
         mock_factory_create.assert_called_once_with(
             dir=Path(WORKSPACE_DIR),
@@ -91,9 +85,7 @@ class TestClone:
     def test_calls_factory_with_humanish_suffix_when_no_directory(
         self, mocker: MockerFixture, mock_factory_create: MagicMock
     ) -> None:
-        mock_extract = mocker.patch(
-            "git_workspace.workspace.utils.extract_humanish_suffix"
-        )
+        mock_extract = mocker.patch("git_workspace.workspace.utils.extract_humanish_suffix")
         mock_extract.return_value = "repo"
 
         Workspace.clone(None, URL, CONFIG_URL)
@@ -158,9 +150,7 @@ class TestResolveOrCreateWorktree:
         branch = "feat/GWS-001"
         base_branch = "main"
         workspace.resolve_or_create_worktree(branch, base_branch)
-        mock_worktree_resolve_or_create.assert_called_once_with(
-            workspace, branch, base_branch
-        )
+        mock_worktree_resolve_or_create.assert_called_once_with(workspace, branch, base_branch)
 
     def test_returns_worktree_resolve_or_create_result(
         self, workspace: Workspace, mock_worktree_resolve_or_create: MagicMock
