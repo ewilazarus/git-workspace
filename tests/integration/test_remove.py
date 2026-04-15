@@ -4,29 +4,29 @@ from git_workspace.workspace import Workspace
 
 
 def test_removes_worktree_directory(workspace: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace.directory))
-    remove(branch="main", workspace_dir=str(workspace.directory))
-    assert not (workspace.directory / "main").exists()
+    up(branch="main", workspace_dir=str(workspace.dir))
+    remove(branch="main", workspace_dir=str(workspace.dir))
+    assert not (workspace.dir / "main").exists()
 
 
 def test_removes_worktree_with_force(workspace: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace.directory))
-    remove(branch="main", workspace_dir=str(workspace.directory), force=True)
-    assert not (workspace.directory / "main").exists()
+    up(branch="main", workspace_dir=str(workspace.dir))
+    remove(branch="main", workspace_dir=str(workspace.dir), force=True)
+    assert not (workspace.dir / "main").exists()
 
 
 def test_cleans_up_empty_intermediary_directories(workspace: Workspace) -> None:
     up(
         branch="feature/cleanup",
         base_branch="main",
-        workspace_dir=str(workspace.directory),
+        workspace_dir=str(workspace.dir),
     )
-    remove(branch="feature/cleanup", workspace_dir=str(workspace.directory))
-    assert not (workspace.directory / "feature").exists()
+    remove(branch="feature/cleanup", workspace_dir=str(workspace.dir))
+    assert not (workspace.dir / "feature").exists()
 
 
 def test_worktree_can_be_recreated_after_remove(workspace: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace.directory))
-    remove(branch="main", workspace_dir=str(workspace.directory))
-    up(branch="main", workspace_dir=str(workspace.directory))
-    assert (workspace.directory / "main").is_dir()
+    up(branch="main", workspace_dir=str(workspace.dir))
+    remove(branch="main", workspace_dir=str(workspace.dir))
+    up(branch="main", workspace_dir=str(workspace.dir))
+    assert (workspace.dir / "main").is_dir()

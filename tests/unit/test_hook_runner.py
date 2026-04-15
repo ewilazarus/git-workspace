@@ -21,7 +21,7 @@ HOOKS_ON_REMOVE = ["remove.sh"]
 @pytest.fixture
 def workspace(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
-    mock.directory = WORKSPACE_DIR
+    mock.dir = WORKSPACE_DIR
     mock.paths.bin = BIN_DIR
     mock.manifest.vars = {}
     mock.manifest.hooks.on_setup = HOOKS_ON_SETUP
@@ -35,7 +35,7 @@ def workspace(mocker: MockerFixture) -> MagicMock:
 @pytest.fixture
 def worktree(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
-    mock.directory = WORKTREE_DIR
+    mock.dir = WORKTREE_DIR
     mock.branch = BRANCH
     return mock
 

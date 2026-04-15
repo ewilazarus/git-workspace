@@ -11,9 +11,9 @@ def test_prints_workspace_root_when_cwd_is_workspace(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.chdir(workspace.directory)
+    monkeypatch.chdir(workspace.dir)
     root()
-    assert capsys.readouterr().out.strip() == str(workspace.directory)
+    assert capsys.readouterr().out.strip() == str(workspace.dir)
 
 
 def test_prints_workspace_root_when_cwd_is_worktree(
@@ -21,17 +21,17 @@ def test_prints_workspace_root_when_cwd_is_worktree(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace.directory))
-    monkeypatch.chdir(workspace.directory / "main")
+    up(branch="main", workspace_dir=str(workspace.dir))
+    monkeypatch.chdir(workspace.dir / "main")
     root()
-    assert capsys.readouterr().out.strip() == str(workspace.directory)
+    assert capsys.readouterr().out.strip() == str(workspace.dir)
 
 
 def test_exits_with_1_when_not_in_workspace(
     tmp_path: pytest.TempPathFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.chdir(tmp_path)
+    monkeypatch.chdir(tmp_path)  # ty:ignore[invalid-argument-type]
     with pytest.raises(typer.Exit) as exc_info:
         root()
     assert exc_info.value.exit_code == 1

@@ -12,8 +12,8 @@ if TYPE_CHECKING:
     from git_workspace.workspace import Workspace
 
 
-def _directory_birthtime(directory: Path) -> datetime:
-    stat = directory.stat()
+def _directory_birthtime(dir: Path) -> datetime:
+    stat = dir.stat()
     ts = getattr(stat, "st_birthtime", None) or stat.st_ctime
     return datetime.fromtimestamp(ts)
 
@@ -33,7 +33,7 @@ class Worktree:
     """
 
     workspace: Workspace
-    directory: Path
+    dir: Path
     branch: str
     is_new: bool = False
     timestamp: datetime = field(default_factory=datetime.now)
@@ -52,11 +52,11 @@ class Worktree:
         :returns: List of ``Worktree`` instances, one per registered git worktree.
         :raises WorktreeListingError: If ``git worktree list`` fails.
         """
-        raw_worktrees = git.list_worktrees(cwd=workspace.directory)
+        raw_worktrees = git.list_worktrees(cwd=workspace.dir)
         return [
             Worktree(
                 workspace=workspace,
-                directory=(d := Path(raw_worktree["directory"]).resolve()),
+                dir=(d := Path(raw_worktree["directory"]).resolve()),
                 branch=raw_worktree["branch"],
                 is_new=False,
                 timestamp=_directory_birthtime(d),
@@ -83,14 +83,12 @@ class Worktree:
         if not git.local_branch_exists(branch, cwd=workspace.paths.root):
             return None
 
-        directory = workspace.paths.worktree(branch)
-        git.create_worktree_from_local_branch(
-            directory, branch, cwd=workspace.paths.root
-        )
+        dir = workspace.paths.worktree(branch)
+        git.create_worktree_from_local_branch(dir, branch, cwd=workspace.paths.root)
 
         return Worktree(
             workspace=workspace,
-            directory=directory,
+            dir=dir,
             branch=branch,
             is_new=True,
         )
@@ -106,19 +104,19 @@ class Worktree:
         except GitFetchError:
             return None
 
-        if not git.remote_branch_exists(branch, cwd=workspace.directory):
+        if not git.remote_branch_exists(branch, cwd=workspace.dir):
             return None
 
-        directory = workspace.paths.worktree(branch)
+        dir = workspace.paths.worktree(branch)
         git.create_worktree_from_remote_branch(
-            directory,
+            dir,
             branch,
-            cwd=workspace.directory,
+            cwd=workspace.dir,
         )
 
         return Worktree(
             workspace=workspace,
-            directory=directory,
+            dir=dir,
             branch=branch,
             is_new=True,
         )
@@ -132,9 +130,9 @@ class Worktree:
     ) -> Worktree:
         resolved_base_branch = base_branch or workspace.manifest.base_branch
 
-        directory = workspace.paths.worktree(branch)
+        dir = workspace.paths.worktree(branch)
         git.create_worktree_new(
-            directory,
+            dir,
             branch,
             resolved_base_branch,
             cwd=workspace.paths.root,
@@ -142,7 +140,7 @@ class Worktree:
 
         return Worktree(
             workspace=workspace,
-            directory=directory,
+            dir=dir,
             branch=branch,
             is_new=True,
         )
@@ -160,7 +158,7 @@ class Worktree:
 
         return Worktree(
             workspace=workspace,
-            directory=Path(worktree_dir).resolve(),
+            dir=Path(worktree_dir).resolve(),
             branch=branch,
             is_new=False,
         )
@@ -224,8 +222,8 @@ class Worktree:
             return cls._resolve_from_cwd(workspace)
 
     def _clean_intermediary_empty_paths(self) -> None:
-        parent = self.directory.parent
-        while parent != self.workspace.directory:
+        parent = self.dir.parent
+        while parent != self.workspace.dir:
             try:
                 parent.rmdir()
             except OSError:
@@ -243,5 +241,5 @@ class Worktree:
             uncommitted changes.
         :raises WorktreeRemovalError: If ``git worktree remove`` fails.
         """
-        git.remove_worktree(self.directory, force, cwd=self.workspace.directory)
+        git.remove_worktree(self.dir, force, cwd=self.workspace.dir)
         self._clean_intermediary_empty_paths()

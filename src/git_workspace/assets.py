@@ -4,7 +4,13 @@ from git_workspace.manifest import Link
 from git_workspace.errors import WorkspaceLinkError
 from pathlib import Path
 
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+)
 
 from git_workspace import git
 from git_workspace.ui import console, print_success
@@ -72,7 +78,7 @@ class Linker:
     def __init__(self, workspace: Workspace, worktree: Worktree) -> None:
         self._workspace = workspace
         self._links = workspace.manifest.links
-        self._worktree_dir = worktree.directory
+        self._worktree_dir = worktree.dir
         self._ignore_manager = IgnoreManager(workspace)
 
     def _apply_with_override(self, source: Path, target: Path) -> None:

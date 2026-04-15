@@ -15,7 +15,7 @@ WORKTREE_DIR = Path("/workspace/feat/GWS-001")
 @pytest.fixture
 def workspace(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
-    mock.directory = Path("/workspace")
+    mock.dir = Path("/workspace")
     mock.paths.root = Path("/workspace")
     mock.manifest.base_branch = BASE_BRANCH
     return mock
@@ -23,7 +23,7 @@ def workspace(mocker: MockerFixture) -> MagicMock:
 
 @pytest.fixture
 def worktree(workspace: MagicMock) -> Worktree:
-    return Worktree(workspace=workspace, directory=WORKTREE_DIR, branch=BRANCH)
+    return Worktree(workspace=workspace, dir=WORKTREE_DIR, branch=BRANCH)
 
 
 class TestList:
@@ -34,6 +34,7 @@ class TestList:
     @pytest.fixture(autouse=True)
     def mock_directory_birthtime(self, mocker: MockerFixture) -> MagicMock:
         from datetime import datetime
+
         return mocker.patch(
             "git_workspace.worktree._directory_birthtime",
             return_value=datetime(2025, 1, 1),
@@ -46,7 +47,7 @@ class TestList:
 
         Worktree.list(workspace)
 
-        mock_git_list_worktrees.assert_called_once_with(cwd=workspace.directory)
+        mock_git_list_worktrees.assert_called_once_with(cwd=workspace.dir)
 
     def test_constructs_worktree_for_each_raw_result(
         self, workspace: MagicMock, mock_git_list_worktrees: MagicMock
@@ -60,7 +61,7 @@ class TestList:
 
         assert len(result) == 1
         assert result[0].workspace is workspace
-        assert result[0].directory == Path(raw_directory).resolve()
+        assert result[0].dir == Path(raw_directory).resolve()
         assert result[0].branch == BRANCH
         assert result[0].is_new is False
 
@@ -192,7 +193,9 @@ class TestDelete:
     ) -> None:
         worktree.delete(force)
 
-        mock_git_remove_worktree.assert_called_once_with(WORKTREE_DIR, force, cwd=Path("/workspace"))
+        mock_git_remove_worktree.assert_called_once_with(
+            WORKTREE_DIR, force, cwd=Path("/workspace")
+        )
 
     def test_cleans_intermediary_empty_paths(
         self,

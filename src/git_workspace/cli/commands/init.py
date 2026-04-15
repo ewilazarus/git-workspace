@@ -43,7 +43,7 @@ def init(
 
     workspace = Workspace.init(workspace_dir, config_url)
 
-    print_success(f"Workspace ready at {styled_path(workspace.directory)}")
+    print_success(f"Workspace ready at {styled_path(workspace.dir)}")
 
     if output:
-        typer.echo(str(workspace.directory))
+        typer.echo(str(workspace.dir))

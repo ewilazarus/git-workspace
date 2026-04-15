@@ -97,7 +97,7 @@ def up(
     if not detached:
         hook_runner.run_on_attach_hooks()
 
-    print_success(f"Worktree ready at {styled_path(worktree.directory)}")
+    print_success(f"Worktree ready at {styled_path(worktree.dir)}")
 
     if output:
-        typer.echo(str(worktree.directory))
+        typer.echo(str(worktree.dir))

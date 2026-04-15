@@ -83,7 +83,7 @@ class TestClone:
     ) -> None:
         Workspace.clone(WORKSPACE_DIR, URL, CONFIG_URL)
         mock_factory_create.assert_called_once_with(
-            directory=Path(WORKSPACE_DIR),
+            dir=Path(WORKSPACE_DIR),
             url=URL,
             config_url=CONFIG_URL,
         )
@@ -100,7 +100,7 @@ class TestClone:
 
         mock_extract.assert_called_once_with(URL)
         mock_factory_create.assert_called_once_with(
-            directory=Path("repo"),
+            dir=Path("repo"),
             url=URL,
             config_url=CONFIG_URL,
         )

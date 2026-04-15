@@ -16,7 +16,7 @@ def root() -> None:
     """
     try:
         workspace = Workspace.resolve(None)
-    except (InvalidWorkspaceError, UnableToResolveWorkspaceError):
+    except InvalidWorkspaceError, UnableToResolveWorkspaceError:
         raise typer.Exit(code=1)
 
-    typer.echo(str(workspace.directory))
+    typer.echo(str(workspace.dir))

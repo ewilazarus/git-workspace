@@ -36,6 +36,6 @@ def list(
 
     for worktree in sorted(worktrees, key=lambda w: (w.age_days, w.branch)):
         age = f"{worktree.age_days}d"
-        table.add_row(worktree.branch, str(worktree.directory), age)
+        table.add_row(worktree.branch, str(worktree.dir), age)
 
     console.print(table)

@@ -214,7 +214,7 @@ class WorkspaceFactory:
     @classmethod
     def create(
         cls,
-        directory: Path,
+        dir: Path,
         url: str | None = None,
         config_url: str | None = None,
     ) -> Workspace:
@@ -234,8 +234,8 @@ class WorkspaceFactory:
         :returns: A ``Workspace`` instance rooted at ``directory``.
         :raises WorkspaceCreationError: If any git operation during setup fails.
         """
-        directory.mkdir(parents=True, exist_ok=True)
-        paths = WorkspacePaths(directory)
+        dir.mkdir(parents=True, exist_ok=True)
+        paths = WorkspacePaths(dir)
 
         if url:
             cls._create_from_remote(url, paths.git)
@@ -247,7 +247,7 @@ class WorkspaceFactory:
         else:
             cls._create_config_new(paths.config)
 
-        return Workspace(directory)
+        return Workspace(dir)
 
 
 class Workspace:
@@ -260,9 +260,9 @@ class Workspace:
     creation, and worktree management.
     """
 
-    def __init__(self, directory: Path) -> None:
-        self.directory = directory
-        self.paths = WorkspacePaths(directory)
+    def __init__(self, dir: Path) -> None:
+        self.dir = dir
+        self.paths = WorkspacePaths(dir)
         self.manifest = Manifest.load(self)
 
     @classmethod
@@ -320,7 +320,7 @@ class Workspace:
         :raises WorkspaceCreationError: If any git operation during setup fails.
         """
         return WorkspaceFactory.create(
-            directory=Path(workspace_dir or utils.extract_humanish_suffix(url)),
+            dir=Path(workspace_dir or utils.extract_humanish_suffix(url)),
             url=url,
             config_url=config_url,
         )

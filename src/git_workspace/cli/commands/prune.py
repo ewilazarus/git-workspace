@@ -87,9 +87,7 @@ def prune(
         table.add_column("Path", style="path")
         table.add_column("Age", style="dim", no_wrap=True)
         for worktree in candidates:
-            table.add_row(
-                worktree.branch, str(worktree.directory), f"{worktree.age_days}d"
-            )
+            table.add_row(worktree.branch, str(worktree.dir), f"{worktree.age_days}d")
         console.print(table)
     else:
         console.print(f"Pruning [bold]{len(candidates)}[/bold] worktree(s)...")
