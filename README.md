@@ -94,6 +94,9 @@ pip install git-workspace-cli
 
 Once installed, `git workspace` is available as a git subcommand.
 
+> [!WARNING]
+> Ensure your `uv`/`pip` install path is in `$PATH`, so Git can locate the `git-workspace` executable.
+
 ---
 
 ## Quick start
