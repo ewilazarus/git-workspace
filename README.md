@@ -5,6 +5,12 @@
 <h3 align="center">git-workspace</h1>
 <h6 align="center">One repo. Many branches. Zero context-switching friction.</h4>
 
+<p align="center">
+  <a href="https://github.com/ewilazarus/git-workspace/actions/workflows/ci.yml"><img src="https://github.com/ewilazarus/git-workspace/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  &nbsp;
+  <a href="https://github.com/ewilazarus/git-workspace/actions/workflows/pypi.yml"><img src="https://github.com/ewilazarus/git-workspace/actions/workflows/pypi.yml/badge.svg?branch=main" alt="PyPI"></a>
+</p>
+
 <hr/>
 
 `git-workspace` is an opinionated git plugin that wraps [git worktrees](https://git-scm.com/docs/git-worktree) with a lifecycle system — so switching between branches feels like switching between projects, not shuffling stashes.
