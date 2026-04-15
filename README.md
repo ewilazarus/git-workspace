@@ -1,18 +1,35 @@
-# git-workspace
+<p align="center">
+  <img src="banner.png" width="800" />
+</p>
 
-> One repo. Many branches. Zero context-switching friction.
+<h3 align="center">git-workspace</h1>
+<h6 align="center">One repo. Many branches. Zero context-switching friction.</h4>
 
-`git-workspace` is an opinionated CLI that wraps [git worktrees](https://git-scm.com/docs/git-worktree) with a lifecycle system — so switching between branches feels like switching between projects, not shuffling stashes.
+<hr/>
 
-<!-- DEMO VIDEO PLACEHOLDER -->
+`git-workspace` is an opinionated git plugin that wraps [git worktrees](https://git-scm.com/docs/git-worktree) with a lifecycle system — so switching between branches feels like switching between projects, not shuffling stashes.
 
----
-
-## The problem it solves
+#### The problem it solves
 
 `git stash`, `git switch`, re-run your dev server, restore your editor tabs. Repeat twenty times a day.
 
-With `git-workspace`, each branch lives in its own directory. You `up` into it, your environment is ready. You `down` out of it, your teardown scripts run. You come back tomorrow and everything is exactly where you left it.
+With `git-workspace`, each branch lives in its own directory. You `up` into it, your environment is ready — dependencies installed, config files in place, hooks executed. You `down` out of it, your teardown scripts run. You come back tomorrow and everything is exactly where you left it.
+
+#### Table of contents
+
+- [Features](#features)
+- [Demo](#demo)
+- [How it works](#how-it-works)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Commands](#commands)
+- [Workspace manifest](#workspace-manifest)
+- [Lifecycle hooks](#lifecycle-hooks)
+- [Assets: links and copies](#assets-links-and-copies)
+- [Pruning stale worktrees](#pruning-stale-worktrees)
+- [Detached mode](#detached-mode)
+- [Debugging](#debugging)
+- [Development](#development)
 
 ---
 
@@ -20,12 +37,21 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 
 - 🌳 **Worktree-per-branch** — every branch gets its own directory; no more dirty working trees
 - ⚡ **Lifecycle hooks** — run scripts on setup, activation, attachment, deactivation, and removal
-- 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree automatically
-- 🔒 **Override linking** — replace tracked files with symlinks without touching git history
+- 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree
+- 📋 **File copying** — copy mutable config files that each worktree can edit independently
+- 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
 - 📦 **Variables** — pass manifest-level and runtime variables into hooks as environment variables
-- 🧭 **CWD-aware** — omit `--root` and `[branch]` when you're already inside a workspace or worktree
+- 🧭 **CWD-aware** — detects when you're already inside a workspace or worktree
 - 🏗️ **Detached mode** — skip interactive hooks for headless, CI, or agent workflows
+- 🧹 **Stale worktree pruning** — clean up old worktrees by age with dry-run preview
+- 🎨 **Rich terminal UI** — styled output, progress bars, and sortable worktree tables
 - 🗂️ **Config as code** — workspace configuration lives in its own git repo, versioned and shareable
+
+---
+
+## Demo
+
+TODO: Demo video
 
 ---
 
@@ -38,7 +64,7 @@ my-project/
 ├── .git/           ← bare git clone of your repository
 ├── .workspace/     ← clone of your config repository
 │   ├── manifest.toml
-│   ├── assets/     ← files to be linked into worktrees
+│   ├── assets/     ← files to be linked or copied into worktrees
 │   └── bin/        ← lifecycle hook scripts
 ├── main/           ← worktree for the main branch
 ├── feature/
@@ -94,18 +120,23 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 
 ## Commands
 
+> [!TIP]
+> Use `git workspace --help` to explore all commands and flags in detail.
+
 | Command | Description |
 |---|---|
 | `git workspace init` | Initialize a new workspace in the current directory |
-| `git workspace clone <url>` | Clone an existing repository into workspace format |
-| `git workspace up [branch]` | Open a worktree, creating it if it doesn't exist |
-| `git workspace down [branch]` | Deactivate a worktree and run teardown hooks |
-| `git workspace reset [branch]` | Reapply links and re-run setup hooks |
-| `git workspace rm [branch]` | Remove a worktree (branch is preserved) |
-| `git workspace list` | List all active worktrees |
+| `git workspace clone` | Clone an existing repository into workspace format |
+| `git workspace up` | Open a worktree, creating it if it doesn't exist |
+| `git workspace down` | Deactivate a worktree and run teardown hooks |
+| `git workspace reset` | Reapply copies, links, and re-run setup hooks |
+| `git workspace rm` | Remove a worktree (branch is preserved) |
+| `git workspace ls` | List all active worktrees with branch, path, and age |
+| `git workspace prune` | Remove stale worktrees by age (dry-run by default) |
+| `git workspace root` | Print workspace root path; exits 0 if inside a workspace, 1 otherwise |
 | `git workspace edit` | Open the workspace config in your editor |
 
-`[branch]` and `--root` can always be omitted when your shell is already inside a workspace or worktree.
+`[branch]` and `--root` let you operate on a workspace from anywhere in the file system, without needing to be inside it.
 
 ### Path output for automation
 
@@ -136,7 +167,7 @@ base_branch = "main"
 # Variables injected into every hook as GIT_WORKSPACE_VAR_*
 [vars]
 node-version = "22"
-registry = "https://registry.npmjs.org"
+registry     = "https://registry.npmjs.org"
 
 # Lifecycle hooks (scripts in .workspace/bin/)
 [hooks]
@@ -148,13 +179,23 @@ on_remove     = ["clean_cache"]
 
 # Symlinks applied to every worktree
 [[link]]
-source = "dotfile"       # path inside .workspace/assets/
-target = ".nvmrc"        # path inside the worktree root
+source = "dotfile"
+target = ".nvmrc"
 
 [[link]]
 source = "vscode-settings.json"
 target = ".vscode/settings.json"
-override = true          # replaces an already-tracked file
+override = true
+
+# File copies — each worktree gets its own mutable version
+[[copy]]
+source = "config.local.yaml"
+target = "config.local.yaml"
+
+# Automatic cleanup rules
+[prune]
+older_than_days  = 30
+exclude_branches = ["main", "develop"]
 ```
 
 ---
@@ -168,8 +209,19 @@ Hooks are executable scripts stored in `.workspace/bin/`. They run with a rich s
 | `GIT_WORKSPACE_ROOT` | Absolute path to the workspace root |
 | `GIT_WORKSPACE_WORKTREE` | Absolute path to the current worktree |
 | `GIT_WORKSPACE_BRANCH` | Current branch name |
+| `GIT_WORKSPACE_BRANCH_NO_SLASH` | Branch name with `/` replaced by `_` |
 | `GIT_WORKSPACE_EVENT` | The lifecycle event that triggered the hook |
 | `GIT_WORKSPACE_VAR_*` | All manifest and runtime variables |
+
+### Hook execution order
+
+| Event | When it runs |
+|---|---|
+| `on_setup` | After a worktree is first created, or on `reset` |
+| `on_activate` | On every `up` (attached and detached) |
+| `on_attach` | On `up` in interactive mode only (skipped with `--detached`) |
+| `on_deactivate` | On `down`, `rm`, and `prune --apply` |
+| `on_remove` | On `rm` and `prune --apply`, after deactivation |
 
 **Example hook** (`.workspace/bin/install_deps`):
 
@@ -189,22 +241,61 @@ git workspace up feature/my-feature -v env=staging -v debug=true
 
 ---
 
-## Symlink linking
+## Assets: links and copies
 
-Links let you inject shared files — dotfiles, editor configs, secrets — into every worktree from your config repository.
+Assets let you inject shared files — dotfiles, editor configs, secrets — into every worktree from your config repository. They live in `.workspace/assets/` and are applied automatically on `up` and `reset`.
 
-- **Regular links** are added to `.git/info/exclude` so they stay invisible to git.
-- **Override links** (`override = true`) use `git update-index --skip-worktree` to silently replace a tracked file with your symlink.
+### Links
+
+Symbolic links from `.workspace/assets` into the worktree. The source asset is shared across all worktrees — editing the link edits the original.
 
 ```toml
 [[link]]
 source = "env.local"
 target = ".env.local"
+```
 
+### Copies
+
+File copies from `.workspace/assets` into the worktree. Each worktree gets its own independent file. Copies are idempotent — `reset` overwrites them with a fresh copy from the source.
+
+```toml
+[[copy]]
+source = "config.local.yaml"
+target = "config.local.yaml"
+```
+
+### Override mode
+
+By default, asset targets are added to `.git/info/exclude` so they stay invisible to git. Set `override = true` to replace a tracked file instead — the target is marked with `git update-index --skip-worktree` before the asset is applied.
+
+```toml
 [[link]]
 source = "vscode-settings.json"
 target = ".vscode/settings.json"
 override = true
+```
+
+---
+
+## Pruning stale worktrees
+
+Over time, worktrees accumulate. The `prune` command removes the ones you're no longer using:
+
+```bash
+# preview what would be removed (default)
+git workspace prune --older-than-days 14
+
+# actually remove them
+git workspace prune --older-than-days 14 --apply
+```
+
+Deactivation and removal hooks run for each pruned worktree. Configure defaults in the manifest so you can just run `git workspace prune`:
+
+```toml
+[prune]
+older_than_days  = 30
+exclude_branches = ["main", "develop"]
 ```
 
 ---
@@ -217,7 +308,23 @@ For CI pipelines, automation, or agent workflows where you don't want interactiv
 git workspace up main --detached
 ```
 
-This runs `on_setup` and `on_activate` but skips `on_attach`.
+This runs `on_setup` and `on_activate` but skips `on_attach`. Combine with `-o` for fully machine-readable output:
+
+```bash
+WORKTREE=$(git workspace up main --detached -o)
+```
+
+---
+
+## Debugging
+
+Set `GIT_WORKSPACE_LOG_LEVEL` to get diagnostic output on stderr:
+
+```bash
+GIT_WORKSPACE_LOG_LEVEL=DEBUG git workspace up main
+```
+
+Supported levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`. Logging is silent by default.
 
 ---
 
@@ -239,12 +346,20 @@ uv run pytest
 
 The test suite includes both unit tests and integration tests. Integration tests spin up real git repositories in temporary directories — no mocking.
 
+**Lint and type check:**
+
+```bash
+uv run ruff check src/ tests/
+uv run ruff format --check src/ tests/
+uv run ty check src/
+```
+
 **Project layout:**
 
 ```
 src/git_workspace/
 ├── cli/commands/   ← one file per command
-├── assets.py       ← symlink management
+├── assets.py       ← symlink and copy management
 ├── errors.py       ← exception hierarchy
 ├── git.py          ← subprocess wrappers for git
 ├── hooks.py        ← lifecycle hook runner
@@ -257,10 +372,13 @@ src/git_workspace/
 
 ## Disclaimer
 
-I built `git-workspace` because it fits *my* way of working. The worktree-per-branch model, the hook lifecycle, the symlink injection — these are the exact primitives I was missing.
+I built `git-workspace` because it fits *my* way of working. The worktree-per-branch model, the hook lifecycle, the asset injection — these are the exact primitives I was missing.
 
-If it turns out to be useful to you too, that's a bonus. Contributions and feedback are welcome, but this tool will always be shaped first by how I want to use it.
+If it turns out to be useful to you too, [consider supporting the project](https://buymeacoffee.com/simiosoft). Contributions and feedback are welcome!
+
+> [!NOTE]
+> Developed and verified on macOS. Linux support is expected but untested. Windows is not supported.
 
 ---
 
-*Built with [Typer](https://typer.tiangolo.com), and a deep appreciation for git worktrees.*
+*Built with [Typer](https://typer.tiangolo.com), [Rich](https://rich.readthedocs.io), and a deep appreciation for git worktrees.*
