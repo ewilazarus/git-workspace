@@ -72,11 +72,11 @@ class Worktree:
         cls, workspace: Workspace, branch: str
     ) -> Worktree | None:
         existing_worktrees = cls.list(workspace)
-        worktree = next(
-            (wt for wt in existing_worktrees if wt.branch == branch), None
-        )
+        worktree = next((wt for wt in existing_worktrees if wt.branch == branch), None)
         if worktree:
-            logger.debug("found existing worktree for branch %r at %s", branch, worktree.dir)
+            logger.debug(
+                "found existing worktree for branch %r at %s", branch, worktree.dir
+            )
         else:
             logger.debug("no existing worktree for branch %r", branch)
         return worktree
@@ -142,7 +142,11 @@ class Worktree:
     ) -> Worktree:
         resolved_base_branch = base_branch or workspace.manifest.base_branch
 
-        logger.info("creating new worktree for branch %r from base %r", branch, resolved_base_branch)
+        logger.info(
+            "creating new worktree for branch %r from base %r",
+            branch,
+            resolved_base_branch,
+        )
         dir = workspace.paths.worktree(branch)
         git.create_worktree_new(
             dir,
@@ -167,10 +171,11 @@ class Worktree:
         worktree_dir = git.try_get_worktree_dir()
         if worktree_dir is None:
             logger.warning("cwd is not inside a git worktree")
-            # TODO: Improve exception msg
             raise WorktreeResolutionError("can't resolve worktree from cwd")
         branch = git.get_worktree_branch(cwd=worktree_dir)
-        logger.debug("resolved worktree from cwd: branch=%r dir=%s", branch, worktree_dir)
+        logger.debug(
+            "resolved worktree from cwd: branch=%r dir=%s", branch, worktree_dir
+        )
 
         return Worktree(
             workspace=workspace,
@@ -197,7 +202,6 @@ class Worktree:
             worktree = cls._try_resolve_existing(workspace, branch)
             if not worktree:
                 logger.warning("no worktree found for branch %r", branch)
-                # TODO: Improve exception msg
                 raise WorktreeResolutionError("can't resolve worktree from cwd")
             return worktree
         else:
