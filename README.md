@@ -8,9 +8,9 @@
 <br/>
 
 <p align="center">
-  <a href="https://github.com/ewilazarus/git-workspace/actions/workflows/ci.yml"><img src="https://github.com/ewilazarus/git-workspace/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/ewilazarus/git-workspace/actions/workflows/ci.yml"><img src="https://github.com/ewilazarus/git-workspace/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   &nbsp;
-  <a href="https://github.com/ewilazarus/git-workspace/actions/workflows/pypi.yml"><img src="https://github.com/ewilazarus/git-workspace/actions/workflows/pypi.yml/badge.svg?branch=main" alt="PyPI"></a>
+  <a href="https://github.com/ewilazarus/git-workspace/actions/workflows/pypi.yml"><img src="https://github.com/ewilazarus/git-workspace/actions/workflows/pypi.yml/badge.svg" alt="PyPI"></a>
 </p>
 
 <hr/>
