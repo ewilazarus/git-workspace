@@ -120,7 +120,7 @@ def local_branch_exists(branch: str, cwd: Path) -> bool:
     :returns: True if the branch exists locally, False otherwise
     """
     cmd = ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"]
-    result = subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True)
     exists = result.returncode == 0
     logger.debug("local branch %r exists: %s", branch, exists)
     return exists
@@ -135,7 +135,7 @@ def remote_branch_exists(branch: str, cwd: Path) -> bool:
     :returns: True if the branch exists on origin, False otherwise
     """
     cmd = ["git", "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}"]
-    result = subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True)
     exists = result.returncode == 0
     logger.debug("remote branch %r exists: %s", branch, exists)
     return exists
@@ -290,4 +290,4 @@ def remove_worktree(worktree_dir: Path, force: bool = False, *, cwd: Path) -> No
     result = subprocess.run(cmd, cwd=cwd)
     if result.returncode != 0:
         logger.error("failed to remove worktree at %s", worktree_dir)
-        raise WorktreeRemovalError()
+        raise WorktreeRemovalError(f"failed to remove worktree at {worktree_dir}")

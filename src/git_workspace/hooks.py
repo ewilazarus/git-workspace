@@ -93,7 +93,7 @@ class HookRunner:
         if proc.returncode != 0:
             logger.error("hook %r exited with code %d", hook_name, proc.returncode)
             print_error(f"Hook [bold]{hook_name}[/] failed")
-            raise HookExecutionError()
+            raise HookExecutionError(f"hook {hook_name!r} exited with code {proc.returncode}")
 
         logger.debug("hook %r completed successfully", hook_name)
         print_success(f"  {hook_name}")

@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest_mock import MockerFixture
 
 from git_workspace.assets import IgnoreManager, Linker
@@ -173,3 +174,43 @@ class TestApply:
 
         applied_links = [call.args[0] for call in mock_apply.call_args_list]
         assert applied_links == linker._assets
+
+
+class TestApplyCreatesParentDirs:
+    ASSETS_DIR = Path("/workspace/.workspace/assets")
+    WORKTREE_DIR = Path("/workspace/feat/GWS-001")
+
+    @pytest.fixture(autouse=True)
+    def filesystem(self, fs: FakeFilesystem) -> None:
+        fs.create_file(str(self.ASSETS_DIR / "settings.json"))
+
+    @pytest.fixture(autouse=True)
+    def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.patch("git_workspace.assets.git.skip_worktree")
+
+    @pytest.fixture
+    def linker(self, mocker: MockerFixture) -> Linker:
+        workspace = mocker.MagicMock()
+        workspace.paths.assets = self.ASSETS_DIR
+        workspace.paths.ignore_file = mocker.MagicMock()
+        workspace.manifest.links = []
+        worktree = mocker.MagicMock()
+        worktree.dir = self.WORKTREE_DIR
+        ignore = mocker.MagicMock(spec=IgnoreManager)
+        return Linker(workspace, worktree, ignore)
+
+    def test_creates_parent_dir_before_linking(self, linker: Linker) -> None:
+        nested = Link(source="settings.json", target=".vscode/settings.json")
+        parent = self.WORKTREE_DIR / ".vscode"
+
+        assert not parent.exists()
+        linker._apply(nested)
+        assert parent.exists()
+
+    def test_creates_deeply_nested_parent_dirs(self, linker: Linker) -> None:
+        nested = Link(source="settings.json", target="a/b/c/settings.json")
+        parent = self.WORKTREE_DIR / "a" / "b" / "c"
+
+        assert not parent.exists()
+        linker._apply(nested)
+        assert parent.exists()

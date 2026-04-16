@@ -113,16 +113,16 @@ class AssetManager[T: Asset](ABC):
         self._assets = assets
 
     @abstractmethod
-    def _apply_with_override(self, source: Path, target: Path) -> None:
-        raise NotImplementedError
+    def _apply_with_override(self, source: Path, target: Path) -> None: ...
 
     @abstractmethod
-    def _apply_without_override(self, source: Path, target: Path) -> None:
-        raise NotImplementedError
+    def _apply_without_override(self, source: Path, target: Path) -> None: ...
 
     def _apply(self, asset: T) -> None:
         source = (self._workspace.paths.assets / asset.source).absolute()
         target = (self._worktree_dir / asset.target).absolute()
+
+        target.parent.mkdir(parents=True, exist_ok=True)
 
         if asset.override:
             git.skip_worktree(target)

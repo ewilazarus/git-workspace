@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest_mock import MockerFixture
 
 from git_workspace.assets import Copier, IgnoreManager
@@ -185,3 +186,43 @@ class TestApply:
 
         applied_copies = [call.args[0] for call in mock_apply.call_args_list]
         assert applied_copies == copier._assets
+
+
+class TestApplyCreatesParentDirs:
+    ASSETS_DIR = Path("/workspace/.workspace/assets")
+    WORKTREE_DIR = Path("/workspace/feat/GWS-001")
+
+    @pytest.fixture(autouse=True)
+    def filesystem(self, fs: FakeFilesystem) -> None:
+        fs.create_file(str(self.ASSETS_DIR / "config.yaml"))
+
+    @pytest.fixture(autouse=True)
+    def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.patch("git_workspace.assets.git.skip_worktree")
+
+    @pytest.fixture
+    def copier(self, mocker: MockerFixture) -> Copier:
+        workspace = mocker.MagicMock()
+        workspace.paths.assets = self.ASSETS_DIR
+        workspace.paths.ignore_file = mocker.MagicMock()
+        workspace.manifest.copies = []
+        worktree = mocker.MagicMock()
+        worktree.dir = self.WORKTREE_DIR
+        ignore = mocker.MagicMock(spec=IgnoreManager)
+        return Copier(workspace, worktree, ignore)
+
+    def test_creates_parent_dir_before_copying(self, copier: Copier) -> None:
+        nested = Copy(source="config.yaml", target="config/local/config.yaml")
+        parent = self.WORKTREE_DIR / "config" / "local"
+
+        assert not parent.exists()
+        copier._apply(nested)
+        assert parent.exists()
+
+    def test_creates_deeply_nested_parent_dirs(self, copier: Copier) -> None:
+        nested = Copy(source="config.yaml", target="a/b/c/config.yaml")
+        parent = self.WORKTREE_DIR / "a" / "b" / "c"
+
+        assert not parent.exists()
+        copier._apply(nested)
+        assert parent.exists()
