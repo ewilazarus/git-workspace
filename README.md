@@ -59,8 +59,6 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 
 ## Demo
 
-TODO: Demo video
-
 ---
 
 ## How it works

@@ -129,7 +129,7 @@ class AssetManager[T: Asset](ABC):
             self._apply_with_override(source, target)
         else:
             self._apply_without_override(source, target)
-            self._ignore.collect(target)
+            self._ignore.collect(Path(asset.target))
 
     def apply(self) -> None:
         """

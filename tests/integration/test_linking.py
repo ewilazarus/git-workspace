@@ -35,8 +35,7 @@ def test_non_override_link_is_added_to_exclude_file(
 ) -> None:
     up(branch="main", workspace_dir=str(workspace_with_links.dir))
     exclude_content = workspace_with_links.paths.ignore_file.read_text()
-    expected_path = str((workspace_with_links.dir / "main" / ".dotfile").absolute())
-    assert expected_path in exclude_content
+    assert ".dotfile" in exclude_content
 
 
 def test_override_link_is_not_added_to_exclude_file(

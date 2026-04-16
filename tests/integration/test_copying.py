@@ -36,8 +36,7 @@ def test_non_override_copy_is_added_to_exclude_file(
 ) -> None:
     up(branch="main", workspace_dir=str(workspace_with_copies.dir))
     exclude_content = workspace_with_copies.paths.ignore_file.read_text()
-    expected_path = str((workspace_with_copies.dir / "main" / ".dotfile").absolute())
-    assert expected_path in exclude_content
+    assert ".dotfile" in exclude_content
 
 
 def test_override_copy_is_not_added_to_exclude_file(
