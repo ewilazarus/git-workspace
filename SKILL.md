@@ -18,16 +18,17 @@ Standard git operations (commit, push, pull, rebase, merge) always use plain `gi
 ## Typical workflow
 
 ```
-1. git workspace root                        # exit 0 → workspace, exit 1 → use plain git (checkout, switch, worktree)
-2. git workspace up <branch> --detached -o   # activate branch
-3. git pull / commit / push                  # standard git inside $WORKTREE
-4. git workspace reset <branch>              # after pull/merge, reapply environment
+1. git workspace root                              # exit 0 → workspace, exit 1 → use plain git (checkout, switch, worktree)
+2. cd $(git workspace up <branch> --detached -o)   # activate branch and cd into it
+3. git pull / commit / push                        # standard git inside $WORKTREE
+4. git workspace reset <branch>                    # after pull/merge, reapply environment
 ```
 
 ## Activating a branch
 
 ```bash
 WORKTREE=$(git workspace up <branch> --detached -o)
+cd $WORKTREE
 ```
 
 - `--detached` skips interactive hooks not meant for agents
