@@ -11,11 +11,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 - Rich terminal UI: live-streaming hook output, progress bar for link application, styled branch/path colours
-- `gw ls` renders a Rich table with Branch, Path, and Age columns, sorted by age then alphabetically
-- `gw root` command — prints workspace root path and exits 0/1, intended for agent/scripting use
-- `gw prune` command — removes stale worktrees by age, with `--dry-run` (default) and `--apply` modes
-- `-o`/`--output` flag on `gw up`, `gw init`, and `gw clone` for machine-readable path output
-- `--detached` flag on `gw up` to skip `on_attach` hooks for headless/agent workflows
+- `git workspace ls` renders a Rich table with Branch, Path, and Age columns, sorted by age then alphabetically
+- `git workspace root` command — prints workspace root path and exits 0/1, intended for agent/scripting use
+- `git workspace prune` command — removes stale worktrees by age, with `--dry-run` (default) and `--apply` modes
+- `-o`/`--output` flag on `git workspace up`, `git workspace init`, and `git workspace clone` for machine-readable path output
+- `--detached` flag on `git workspace up` to skip `on_attach` hooks for headless/agent workflows
 - `GIT_WORKSPACE_LOG_LEVEL` environment variable to enable debug/info/warning logging to stderr
 - GitHub Actions: CI workflow (lint, type check, unit + integration tests) and PyPI publish on semver tag push
 - Ruff (lint + format) and ty (type check) configured with pre-commit hooks
