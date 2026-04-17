@@ -133,8 +133,8 @@ class Manifest:
         ]
 
     @classmethod
-    def _parse_vars(cls, data: dict[str, Any]) -> dict[str, Any]:
-        return data.get("vars", {})
+    def _parse_vars(cls, data: dict[str, Any]) -> dict[str, str]:
+        return {k: str(v) for k, v in data.get("vars", {}).items()}
 
     @classmethod
     def _parse_hooks(cls, data: dict[str, Any]) -> Hooks:
