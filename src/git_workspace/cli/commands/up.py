@@ -68,13 +68,9 @@ def up(
     """
     Spawns a worktree, setting it up first if needed.
 
-    Ensures that a worktree exists for the target branch and then performs
-    lightweight actions to enter or resume working in that workspace.
+    Ensures that a worktree exists for the target branch and then performs lightweight actions to enter or resume working in that workspace.
 
-    If the worktree does not exist, copies and links from the manifest are
-    applied first, followed by on_setup hooks. On every invocation,
-    on_activate hooks run. Unless --detached is passed, on_attach hooks
-    also run — use --detached for headless or automated workflows.
+    If the worktree does not exist, copies and links from the manifest are applied first, followed by on_setup hooks. On every invocation, on_activate hooks run. Unless --detached is passed, on_attach hooks also run — use --detached for headless or automated workflows.
     """
     workspace = Workspace.resolve(workspace_dir)
     worktree = workspace.resolve_or_create_worktree(branch, base_branch)
