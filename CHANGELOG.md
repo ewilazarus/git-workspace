@@ -9,6 +9,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 - Increased `prune` unit test coverage
+- Base branch is pulled from origin (best-effort) before creating a new worktree
 
 ### Fixed
 - Removed line breaks from `prune`, `reset`, `root` and `up` commands' help messages

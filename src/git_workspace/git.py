@@ -111,6 +111,20 @@ def fetch_origin(cwd: Path) -> None:
         raise GitFetchError(f"Failed to fetch from origin: {result.stderr.strip()}")
 
 
+def pull_branch(branch: str, cwd: Path) -> None:
+    """
+    Fast-forwards a local branch to match origin without checking it out.
+
+    Best-effort: failures are logged as warnings and silently ignored so that
+    offline or no-remote scenarios don't block worktree creation.
+    """
+    logger.debug("pulling branch %r in %s", branch, cwd)
+    cmd = ["git", "fetch", "origin", f"{branch}:{branch}"]
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.warning("failed to pull branch %r in %s: %s", branch, cwd, result.stderr.strip())
+
+
 def local_branch_exists(branch: str, cwd: Path) -> bool:
     """
     Returns whether a local branch exists

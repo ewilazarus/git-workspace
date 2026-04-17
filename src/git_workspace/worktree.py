@@ -142,6 +142,7 @@ class Worktree:
             branch,
             resolved_base_branch,
         )
+        git.pull_branch(resolved_base_branch, cwd=workspace.dir)
         dir = workspace.paths.worktree(branch)
         git.create_worktree_new(
             dir,
