@@ -11,8 +11,7 @@ def root() -> None:
     """
     Print the workspace root path if inside a workspace, exit 1 otherwise.
 
-    Useful for agents and scripts to detect whether git workspace commands are
-    available in the current directory before deciding to use them.
+    Useful for agents and scripts to detect whether git workspace commands are available in the current directory before deciding to use them.
     """
     try:
         workspace = Workspace.resolve(None)

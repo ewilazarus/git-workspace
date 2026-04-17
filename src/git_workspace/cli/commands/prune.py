@@ -48,10 +48,7 @@ def prune(
     """
     Remove stale workspace worktrees.
 
-    Identifies and removes worktrees older than a specified threshold. The age
-    threshold is taken from --older-than-days if provided, otherwise from the
-    [prune] section in the manifest. Branches listed in exclude_branches are
-    never removed regardless of age.
+    Identifies and removes worktrees older than a specified threshold. The age threshold is taken from --older-than-days if provided, otherwise from the [prune] section in the manifest. Branches listed in exclude_branches are never removed regardless of age.
 
     Runs in dry-run mode by default. Pass --apply to actually remove worktrees.
     """

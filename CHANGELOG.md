@@ -7,6 +7,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+- Remove line breaks from `prune`, `reset`, `root` and `up` commands' help messages
+
 ## [0.2.0] - 2026-04-16
 
 ### Added
