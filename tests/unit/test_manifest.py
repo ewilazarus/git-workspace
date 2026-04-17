@@ -104,6 +104,17 @@ BAZ = "qux"
 
         assert result.vars == {}
 
+    def test_parses_non_string_vars_as_strings(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[vars]
+PORT = 8080
+DEBUG = true
+"""
+
+        result = Manifest.load(workspace)
+
+        assert result.vars == {"PORT": "8080", "DEBUG": "True"}
+
     def test_parses_hooks_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = """
 [hooks]
