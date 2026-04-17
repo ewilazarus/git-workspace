@@ -7,6 +7,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-16
+
 ### Changed
 - Increased `prune` unit test coverage
 - Base branch is pulled from origin (best-effort) before creating a new worktree
