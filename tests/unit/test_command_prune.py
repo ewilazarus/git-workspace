@@ -48,9 +48,7 @@ class TestPrune:
         with pytest.raises(typer.BadParameter):
             prune()
 
-    def test_uses_older_than_days_arg_as_threshold(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
+    def test_uses_older_than_days_arg_as_threshold(self, mock_workspace_resolve: MagicMock) -> None:
         within_threshold = make_worktree(age_days=5)
         beyond_threshold = make_worktree(age_days=60)
         mock_workspace_resolve.return_value.list_worktrees.return_value = [
@@ -106,15 +104,11 @@ class TestPrune:
 
         protected_wt.delete.assert_not_called()
 
-    def test_does_not_run_hooks_when_no_candidates(
-        self, mock_hook_runner: MagicMock
-    ) -> None:
+    def test_does_not_run_hooks_when_no_candidates(self, mock_hook_runner: MagicMock) -> None:
         prune(older_than_days=30)
         mock_hook_runner.assert_not_called()
 
-    def test_dry_run_does_not_delete_worktrees(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
+    def test_dry_run_does_not_delete_worktrees(self, mock_workspace_resolve: MagicMock) -> None:
         old_wt = make_worktree(age_days=60)
         mock_workspace_resolve.return_value.list_worktrees.return_value = [old_wt]
 
@@ -154,9 +148,7 @@ class TestPrune:
 
         assert mock_hook_runner.return_value.run_on_remove_hooks.call_count == 2
 
-    def test_apply_deletes_each_candidate(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
+    def test_apply_deletes_each_candidate(self, mock_workspace_resolve: MagicMock) -> None:
         wt1 = make_worktree(branch="feature/a", age_days=60)
         wt2 = make_worktree(branch="feature/b", age_days=60)
         mock_workspace_resolve.return_value.list_worktrees.return_value = [wt1, wt2]
