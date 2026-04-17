@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 - Removed line breaks from `prune`, `reset`, `root` and `up` commands' help messages
+- Exception when attempting to parse non-string variables from the manifest
 
 ## [0.2.0] - 2026-04-16
 
