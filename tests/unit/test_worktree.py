@@ -167,6 +167,35 @@ class TestResolveOrCreate:
         assert result is worktree
 
 
+class TestCreateNew:
+    @pytest.fixture
+    def mock_git(self, mocker: MockerFixture) -> MagicMock:
+        mocker.patch("git_workspace.worktree.git.pull_branch")
+        mocker.patch("git_workspace.worktree.git.create_worktree_new")
+        return mocker.MagicMock()
+
+    def test_pulls_base_branch_before_creating_worktree(
+        self, mocker: MockerFixture, workspace: MagicMock, mock_git: MagicMock
+    ) -> None:
+        mock_pull = mocker.patch("git_workspace.worktree.git.pull_branch")
+        mocker.patch("git_workspace.worktree.git.create_worktree_new")
+
+        Worktree._create_new(workspace, BRANCH, BASE_BRANCH)
+
+        mock_pull.assert_called_once_with(BASE_BRANCH, cwd=workspace.dir)
+
+    def test_uses_manifest_base_branch_when_none_provided(
+        self, mocker: MockerFixture, workspace: MagicMock, mock_git: MagicMock
+    ) -> None:
+        mock_pull = mocker.patch("git_workspace.worktree.git.pull_branch")
+        mocker.patch("git_workspace.worktree.git.create_worktree_new")
+        workspace.manifest.base_branch = BASE_BRANCH
+
+        Worktree._create_new(workspace, BRANCH, None)
+
+        mock_pull.assert_called_once_with(BASE_BRANCH, cwd=workspace.dir)
+
+
 class TestDelete:
     @pytest.fixture
     def mock_git_remove_worktree(self, mocker: MockerFixture) -> MagicMock:
