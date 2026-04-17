@@ -40,13 +40,9 @@ def reset(
     """
     Reapply configuration and setup for a workspace worktree.
 
-    Re-applies copies and links from the manifest, updates the managed
-    ignore rules, and reruns setup hooks.
+    Re-applies copies and links from the manifest, updates the managed ignore rules, and reruns setup hooks.
 
-    Intended for repairing or refreshing an existing workspace when its
-    state has drifted (e.g. missing dependencies, removed files, or
-    updated configuration). Does not modify Git history, switch branches,
-    or discard uncommitted changes.
+    Intended for repairing or refreshing an existing workspace when its state has drifted (e.g. missing dependencies, removed files, or updated configuration). Does not modify Git history, switch branches, or discard uncommitted changes.
     """
     workspace = Workspace.resolve(workspace_dir)
     worktree = workspace.resolve_worktree(branch)
