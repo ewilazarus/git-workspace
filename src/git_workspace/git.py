@@ -122,9 +122,7 @@ def pull_branch(branch: str, cwd: Path) -> None:
     cmd = ["git", "fetch", "origin", f"{branch}:{branch}"]
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
-        logger.warning(
-            "failed to pull branch %r in %s: %s", branch, cwd, result.stderr.strip()
-        )
+        logger.warning("failed to pull branch %r in %s: %s", branch, cwd, result.stderr.strip())
 
 
 def local_branch_exists(branch: str, cwd: Path) -> bool:
