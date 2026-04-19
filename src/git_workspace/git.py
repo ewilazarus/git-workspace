@@ -119,7 +119,7 @@ def pull_branch(branch: str, cwd: Path) -> None:
     offline or no-remote scenarios don't block worktree creation.
     """
     logger.debug("pulling branch %r in %s", branch, cwd)
-    cmd = ["git", "fetch", "origin", f"{branch}:{branch}"]
+    cmd = ["git", "fetch", "origin", "--update-head-ok", f"{branch}:{branch}"]
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
         logger.warning("failed to pull branch %r in %s: %s", branch, cwd, result.stderr.strip())

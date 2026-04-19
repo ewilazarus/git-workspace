@@ -137,6 +137,7 @@ class TestPullBranch:
             "git",
             "fetch",
             "origin",
+            "--update-head-ok",
             f"{BASE_BRANCH}:{BASE_BRANCH}",
         ]
         assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
