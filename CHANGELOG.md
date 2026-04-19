@@ -7,10 +7,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+- CI workflow no longer runs twice on PRs; `push` trigger is now restricted to `main`
+
 ## [0.3.0] - 2026-04-16
 
-### Changed
+### Added
 - Increased `prune` unit test coverage
+
+### Changed
 - Base branch is pulled from origin (best-effort) before creating a new worktree
 
 ### Fixed
