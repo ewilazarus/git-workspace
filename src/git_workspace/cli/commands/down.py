@@ -47,10 +47,11 @@ def down(
 
     console.print(f"Deactivating {styled_branch(worktree.branch)}")
 
-    HookRunner(
+    with HookRunner(
         workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-    ).run_on_deactivate_hooks()
+    ) as runner:
+        runner.run_on_deactivate_hooks()
 
     print_success("Done")

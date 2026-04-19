@@ -53,10 +53,11 @@ def reset(
         Copier(workspace, worktree, ignore).apply()
         Linker(workspace, worktree, ignore).apply()
 
-    HookRunner(
+    with HookRunner(
         workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-    ).run_on_setup_hooks()
+    ) as runner:
+        runner.run_on_setup_hooks()
 
     print_success("Done")

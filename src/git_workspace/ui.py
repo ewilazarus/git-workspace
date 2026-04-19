@@ -7,6 +7,7 @@ _theme = Theme(
     {
         "branch": "bold cyan",
         "path": "bold yellow",
+        "name": "bold magenta",
         "success": "bold green",
         "error": "bold red",
         "hook": "dim",
