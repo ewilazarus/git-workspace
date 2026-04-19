@@ -7,6 +7,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-19
+
+### Added
+- `overwrite` property on `[[copy]]` directives (default `true`). Setting `overwrite = false` seeds the file on first worktree creation and preserves local edits across `git workspace reset`.
+
 ### Changed
 - Improved stderr output: structured sections with spinner-to-checkmark transitions, per-type hook progress bars, and distinct colours for asset and hook names
 - Exception messages now include contextual details (paths, branch names, stderr output) and consistently start with a capital letter
