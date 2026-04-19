@@ -61,11 +61,20 @@ base_branch = "main"
 # Use copies when you need each worktree to have its own mutable version of a
 # file (e.g. a local config that gets edited per-branch).
 #
+# Set `overwrite = false` to seed the file once (on first `up`) and preserve
+# any local edits across subsequent `reset` calls. The file is still created
+# if it does not exist. Defaults to `true`.
+#
 # Examples:
 
 # [[copy]]
 # source = "config.local.yaml"
 # target = "config.local.yaml"
+#
+# [[copy]]
+# source    = "config.local.yaml"
+# target    = "config.local.yaml"
+# overwrite = false
 #
 # [[copy]]
 # source   = ".env.template"
