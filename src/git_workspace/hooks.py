@@ -189,7 +189,7 @@ class HookRunner:
 
             if proc.returncode != 0:
                 logger.error("hook %r exited with code %d", hook_name, proc.returncode)
-                raise HookExecutionError(f"hook {hook_name!r} exited with code {proc.returncode}")
+                raise HookExecutionError(f"Hook {hook_name!r} exited with code {proc.returncode}")
 
             logger.debug("hook %r completed successfully", hook_name)
             self._current_type_progress.advance(task_id)

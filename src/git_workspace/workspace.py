@@ -171,7 +171,9 @@ class WorkspaceFactory:
         try:
             git.clone(url, target=git_path, bare=True)
         except GitCloneError as e:
-            raise WorkspaceCreationError("Failed to clone bare repository") from e
+            raise WorkspaceCreationError(
+                f"Failed to clone bare repository from {url!r} to {git_path}"
+            ) from e
 
     @classmethod
     def _create_new(cls, git_path: Path) -> None:
@@ -179,7 +181,9 @@ class WorkspaceFactory:
         try:
             git.init(git_path, bare=True)
         except GitInitError as e:
-            raise WorkspaceCreationError("Failed to initialize bare repository") from e
+            raise WorkspaceCreationError(
+                f"Failed to initialize bare repository at {git_path}"
+            ) from e
 
     @classmethod
     def _create_config_from_remote(cls, config_url: str, config_path: Path) -> None:
@@ -187,7 +191,9 @@ class WorkspaceFactory:
         try:
             git.clone(config_url, target=config_path)
         except GitCloneError as e:
-            raise WorkspaceCreationError("Failed to clone config repository") from e
+            raise WorkspaceCreationError(
+                f"Failed to clone config repository from {config_url!r} to {config_path}"
+            ) from e
 
     @classmethod
     def _create_config_new(cls, config_path: Path) -> None:
@@ -199,7 +205,9 @@ class WorkspaceFactory:
                 branch=cls.DEFAULT_CONFIG_BRANCH,
             )
         except GitCloneError as e:
-            raise WorkspaceCreationError("Failed to clone example config repository") from e
+            raise WorkspaceCreationError(
+                f"Failed to clone example config repository from {cls.DEFAULT_CONFIG_URL!r} to {config_path}"
+            ) from e
 
         config_git_path = config_path / ".git"
         shutil.rmtree(config_git_path, ignore_errors=True)
@@ -207,7 +215,9 @@ class WorkspaceFactory:
         try:
             git.init(config_path, bare=False)
         except GitInitError as e:
-            raise WorkspaceCreationError("Failed to re-initialize example config repository") from e
+            raise WorkspaceCreationError(
+                f"Failed to re-initialize example config repository at {config_path}"
+            ) from e
 
     @classmethod
     def create(
