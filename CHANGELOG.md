@@ -7,6 +7,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- `overwrite` property on `[[copy]]` directives (default `true`). Setting `overwrite = false` seeds the file on first worktree creation and preserves local edits across `git workspace reset`.
+
 ### Fixed
 - CI workflow no longer runs twice on PRs; `push` trigger is now restricted to `main`
 

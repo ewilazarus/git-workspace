@@ -90,6 +90,66 @@ def test_reset_overwrites_modified_copy(
     assert target.read_text() == source.read_text()
 
 
+def test_non_overwrite_copy_creates_file_on_up(
+    workspace_with_non_overwrite_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    target = workspace_with_non_overwrite_copies.dir / "main" / ".dotfile"
+    assert target.exists()
+    assert not target.is_symlink()
+
+
+def test_non_overwrite_copy_has_correct_initial_content(
+    workspace_with_non_overwrite_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    target = workspace_with_non_overwrite_copies.dir / "main" / ".dotfile"
+    source = workspace_with_non_overwrite_copies.paths.assets / "dotfile"
+    assert target.read_text() == source.read_text()
+
+
+def test_reset_preserves_user_modified_copy_when_overwrite_false(
+    workspace_with_non_overwrite_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    target = workspace_with_non_overwrite_copies.dir / "main" / ".dotfile"
+    target.write_text("modified by user")
+    reset(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    assert target.read_text() == "modified by user"
+
+
+def test_reset_recreates_non_overwrite_copy_when_deleted(
+    workspace_with_non_overwrite_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    target = workspace_with_non_overwrite_copies.dir / "main" / ".dotfile"
+    source = workspace_with_non_overwrite_copies.paths.assets / "dotfile"
+    target.unlink()
+    assert not target.exists()
+    reset(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    assert target.exists()
+    assert target.read_text() == source.read_text()
+
+
+def test_non_overwrite_override_copy_creates_file_on_up(
+    workspace_with_non_overwrite_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    target = workspace_with_non_overwrite_copies.dir / "main" / "settings.json"
+    assert target.exists()
+    assert not target.is_symlink()
+
+
+def test_reset_preserves_user_modified_override_copy_when_overwrite_false(
+    workspace_with_non_overwrite_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    target = workspace_with_non_overwrite_copies.dir / "main" / "settings.json"
+    target.write_text("modified by user")
+    reset(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    assert target.read_text() == "modified by user"
+
+
 def test_copy_is_independent_of_source(workspace_with_copies: Workspace) -> None:
     """Modifying the copied file does not affect the source asset."""
     up(branch="main", workspace_dir=str(workspace_with_copies.dir))

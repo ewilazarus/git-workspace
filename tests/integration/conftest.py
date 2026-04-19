@@ -117,6 +117,16 @@ def workspace_with_vars(setup: Setup, tmp_path: Path) -> Workspace:
 
 
 @pytest.fixture
+def workspace_with_non_overwrite_copies(setup: Setup, tmp_path: Path) -> Workspace:
+    setup(config="with-non-overwrite-copies")
+    return Workspace.clone(
+        workspace_dir=str(tmp_path / "workspace"),
+        url=str(tmp_path / "repo"),
+        config_url=str(tmp_path / "configs" / "with-non-overwrite-copies"),
+    )
+
+
+@pytest.fixture
 def workspace_with_prune(setup: Setup, tmp_path: Path) -> Workspace:
     setup(config="with-prune")
     return Workspace.clone(

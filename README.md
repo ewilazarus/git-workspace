@@ -285,6 +285,15 @@ source = "config.local.yaml"
 target = "config.local.yaml"
 ```
 
+Set `overwrite = false` to seed the file once and preserve local edits across resets. The file is still created on the first `up`, but subsequent `reset` calls leave it untouched.
+
+```toml
+[[copy]]
+source = "config.local.yaml"
+target = "config.local.yaml"
+overwrite = false
+```
+
 ### Override mode
 
 By default, asset targets are added to `.git/info/exclude` so they stay invisible to git. Set `override = true` to replace a tracked file instead — the target is marked with `git update-index --skip-worktree` before the asset is applied.
