@@ -58,14 +58,13 @@ def remove(
 
     console.print(f"Removing {styled_branch(worktree.branch)}")
 
-    hook_runner = HookRunner(
+    with HookRunner(
         workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-    )
-
-    hook_runner.run_on_deactivate_hooks()
-    hook_runner.run_on_remove_hooks()
+    ) as runner:
+        runner.run_on_deactivate_hooks()
+        runner.run_on_remove_hooks()
 
     worktree.delete(force)
 

@@ -77,23 +77,23 @@ def up(
 
     console.print(f"Activating {styled_branch(worktree.branch)}")
 
-    hook_runner = HookRunner(
-        workspace,
-        worktree,
-        runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-    )
-
     if worktree.is_new:
         with IgnoreManager(workspace) as ignore:
             Copier(workspace, worktree, ignore).apply()
             Linker(workspace, worktree, ignore).apply()
 
-        hook_runner.run_on_setup_hooks()
+    with HookRunner(
+        workspace,
+        worktree,
+        runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
+    ) as hook_runner:
+        if worktree.is_new:
+            hook_runner.run_on_setup_hooks()
 
-    hook_runner.run_on_activate_hooks()
+        hook_runner.run_on_activate_hooks()
 
-    if not detached:
-        hook_runner.run_on_attach_hooks()
+        if not detached:
+            hook_runner.run_on_attach_hooks()
 
     print_success(f"Worktree ready at {styled_path(worktree.dir)}")
 

@@ -5,18 +5,15 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from types import TracebackType
 
-from rich.progress import (
-    BarColumn,
-    Progress,
-    SpinnerColumn,
-    TaskProgressColumn,
-    TextColumn,
-)
+from rich.console import Group
+from rich.live import Live
+from rich.spinner import Spinner
+from rich.text import Text
 
 from git_workspace import git
 from git_workspace.errors import WorkspaceCopyError, WorkspaceLinkError
 from git_workspace.manifest import Asset, Copy, Link
-from git_workspace.ui import console, print_success
+from git_workspace.ui import console
 from git_workspace.workspace import Workspace
 from git_workspace.worktree import Worktree
 
@@ -136,23 +133,27 @@ class AssetManager[T: Asset](ABC):
         Applies all assets, registering non-override targets with the
         shared :class:`IgnoreManager`.
         """
-        if self._assets:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console,
-                transient=True,
-            ) as progress:
-                task = progress.add_task(
-                    f"  Applying {self.asset_name_plural}", total=len(self._assets)
+        if not self._assets:
+            return
+
+        spinner = Spinner("dots", text=f" Applying {self.asset_name_plural}")
+        applied: list[tuple[str, str]] = []
+
+        with Live(spinner, console=console, refresh_per_second=15, transient=False) as live:
+            for asset in self._assets:
+                self._apply(asset)
+                applied.append((asset.source, asset.target))
+            live.update(
+                Group(
+                    Text.assemble(("✓", "bold green"), f"  Applying {self.asset_name_plural}"),
+                    *[
+                        Text.assemble(
+                            ("✓", "bold green"), "    ", (src, "name"), " → ", (dst, "name")
+                        )
+                        for src, dst in applied
+                    ],
                 )
-                for asset in self._assets:
-                    progress.update(task, description=f"  [path]{asset.target}[/path]")
-                    self._apply(asset)
-                    progress.advance(task)
-            print_success(f"  {len(self._assets)} {self.asset_name}(s) applied")
+            )
 
 
 class Linker(AssetManager[Link]):

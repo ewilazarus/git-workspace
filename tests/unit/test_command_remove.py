@@ -17,7 +17,9 @@ def mock_workspace_resolve(mocker: MockerFixture) -> MagicMock:
 
 @pytest.fixture(autouse=True)
 def mock_hook_runner(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.cli.commands.remove.HookRunner")
+    mock = mocker.patch("git_workspace.cli.commands.remove.HookRunner")
+    mock.return_value.__enter__.return_value = mock.return_value
+    return mock
 
 
 class TestRemove:
