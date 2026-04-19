@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 - CI workflow no longer runs twice on PRs; `push` trigger is now restricted to `main`
+- `pull_branch` now passes `--update-head-ok` to `git fetch` so it succeeds when the base branch is currently checked out
 
 ## [0.3.0] - 2026-04-16
 
