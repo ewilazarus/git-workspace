@@ -178,11 +178,13 @@ class Linker(AssetManager[Link]):
                 logger.debug("symlink already correct, skipping: %s", target)
                 return
             logger.warning("target %s is a symlink pointing elsewhere, cannot link", target)
-            raise WorkspaceLinkError("can't link to link")
+            raise WorkspaceLinkError(
+                f"Cannot link {source!r} -> {target!r}: target is a symlink pointing elsewhere"
+            )
 
         if target.exists():
             logger.warning("target %s already exists, cannot link without override", target)
-            raise WorkspaceLinkError("can't link to existing file")
+            raise WorkspaceLinkError(f"Cannot link {source!r} -> {target!r}: target already exists")
 
         logger.debug("symlinking %s -> %s", target, source)
         target.symlink_to(source)
@@ -239,7 +241,7 @@ class Copier(AssetManager[Copy]):
     def _apply_without_override(self, source: Path, target: Path) -> None:
         if target.is_symlink():
             logger.warning("target %s is a symlink, cannot copy over it", target)
-            raise WorkspaceCopyError("can't copy to symlink")
+            raise WorkspaceCopyError(f"Cannot copy {source!r} to {target!r}: target is a symlink")
 
         logger.debug("copying %s -> %s", source, target)
         if source.is_dir():

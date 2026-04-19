@@ -166,8 +166,11 @@ class Worktree:
         logger.debug("resolving worktree from cwd")
         worktree_dir = git.try_get_worktree_dir()
         if worktree_dir is None:
+            cwd = Path.cwd()
             logger.warning("cwd is not inside a git worktree")
-            raise WorktreeResolutionError("can't resolve worktree from cwd")
+            raise WorktreeResolutionError(
+                f"Cannot resolve worktree from cwd: {cwd!r} is not inside a git worktree"
+            )
         branch = git.get_worktree_branch(cwd=worktree_dir)
         logger.debug("resolved worktree from cwd: branch=%r dir=%s", branch, worktree_dir)
 
@@ -196,7 +199,7 @@ class Worktree:
             worktree = cls._try_resolve_existing(workspace, branch)
             if not worktree:
                 logger.warning("no worktree found for branch %r", branch)
-                raise WorktreeResolutionError("can't resolve worktree from cwd")
+                raise WorktreeResolutionError(f"No worktree found for branch {branch!r}")
             return worktree
         else:
             return cls._resolve_from_cwd(workspace)

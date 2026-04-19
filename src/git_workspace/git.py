@@ -77,7 +77,7 @@ def init(target: Path, bare: bool) -> None:
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         logger.error("git init failed at %s: %s", target, result.stderr.strip())
-        raise GitInitError("Failed to init repository")
+        raise GitInitError(f"Failed to init repository at {target!r}: {result.stderr.strip()}")
 
 
 def list_worktrees(cwd: Path) -> list[dict[str, str]]:
@@ -86,7 +86,7 @@ def list_worktrees(cwd: Path) -> list[dict[str, str]]:
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     if result.returncode != 0:
         logger.error("git worktree list failed in %s: %s", cwd, result.stderr.strip())
-        raise WorktreeListingError("failed to list worktrees")
+        raise WorktreeListingError(f"Failed to list worktrees in {cwd!r}: {result.stderr.strip()}")
 
     worktrees = []
     for block in result.stdout.split("\n\n"):
@@ -189,7 +189,9 @@ def create_worktree_from_local_branch(worktree_dir: Path, branch: str, cwd: Path
         logger.error(
             "failed to create worktree for local branch %r: %s", branch, result.stderr.strip()
         )
-        raise WorktreeCreationError(result.stderr.strip())
+        raise WorktreeCreationError(
+            f"Failed to create worktree for local branch {branch!r} at {worktree_dir}: {result.stderr.strip()}"
+        )
 
 
 def create_worktree_from_remote_branch(worktree_dir: Path, branch: str, cwd: Path) -> None:
@@ -217,7 +219,9 @@ def create_worktree_from_remote_branch(worktree_dir: Path, branch: str, cwd: Pat
         logger.error(
             "failed to create worktree for remote branch %r: %s", branch, result.stderr.strip()
         )
-        raise WorktreeCreationError(result.stderr.strip())
+        raise WorktreeCreationError(
+            f"Failed to create worktree for remote branch {branch!r} at {worktree_dir}: {result.stderr.strip()}"
+        )
 
 
 def create_worktree_new(
@@ -256,7 +260,9 @@ def create_worktree_new(
                 branch,
                 orphan_result.stderr.strip(),
             )
-            raise WorktreeCreationError(result.stderr.strip())
+            raise WorktreeCreationError(
+                f"Failed to create orphan worktree for branch {branch!r} at {worktree_dir}: {orphan_result.stderr.strip()}"
+            )
 
 
 def try_get_worktree_dir() -> str | None:
@@ -301,7 +307,9 @@ def remove_worktree(worktree_dir: Path, force: bool = False, *, cwd: Path) -> No
 
     cmd.append(worktree_dir)
 
-    result = subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
-        logger.error("failed to remove worktree at %s", worktree_dir)
-        raise WorktreeRemovalError(f"failed to remove worktree at {worktree_dir}")
+        logger.error("failed to remove worktree at %s: %s", worktree_dir, result.stderr.strip())
+        raise WorktreeRemovalError(
+            f"Failed to remove worktree at {worktree_dir!r}: {result.stderr.strip()}"
+        )
