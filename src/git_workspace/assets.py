@@ -208,6 +208,25 @@ class Copier(AssetManager[Copy]):
     def __init__(self, workspace: Workspace, worktree: Worktree, ignore: IgnoreManager) -> None:
         super().__init__(workspace, worktree, ignore, workspace.manifest.copies)
 
+    def _skip_existing(self, asset: Copy) -> bool:
+        target = (self._worktree_dir / asset.target).absolute()
+
+        if asset.overwrite or not target.exists():
+            return False
+
+        logger.debug("skipping copy (overwrite=false, target exists): %s", target)
+
+        if asset.override:
+            git.skip_worktree(target)
+        else:
+            self._ignore.collect(Path(asset.target))
+        return True
+
+    def _apply(self, asset: Copy) -> None:
+        if self._skip_existing(asset):
+            return
+        super()._apply(asset)
+
     def _apply_with_override(self, source: Path, target: Path) -> None:
         if target.exists() or target.is_symlink():
             logger.debug("removing existing target before override: %s", target)

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,6 +15,8 @@ WORKTREE_DIR = Path("/workspace/feat/GWS-001")
 
 COPY_WITH_OVERRIDE = Copy(source="env", target=".env", override=True)
 COPY_WITHOUT_OVERRIDE = Copy(source="config", target=".config", override=False)
+COPY_NO_OVERWRITE = Copy(source="config", target=".config", overwrite=False)
+COPY_NO_OVERWRITE_WITH_OVERRIDE = Copy(source="env", target=".env", override=True, overwrite=False)
 
 
 @pytest.fixture
@@ -226,3 +229,177 @@ class TestApplyCreatesParentDirs:
         assert not parent.exists()
         copier._apply(nested)
         assert parent.exists()
+
+
+class TestSkipExisting:
+    @pytest.fixture(autouse=True)
+    def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.patch("git_workspace.assets.git.skip_worktree")
+
+    @pytest.fixture
+    def target_mock(self, copier: Copier) -> MagicMock:
+        return cast(MagicMock, copier._worktree_dir).__truediv__.return_value.absolute.return_value
+
+    def test_returns_false_when_overwrite_true(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        assert copier._skip_existing(COPY_WITH_OVERRIDE) is False
+
+    def test_returns_false_when_target_absent(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = False
+
+        assert copier._skip_existing(COPY_NO_OVERWRITE) is False
+
+    def test_returns_true_when_overwrite_false_and_target_exists(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        assert copier._skip_existing(COPY_NO_OVERWRITE) is True
+
+    def test_calls_skip_worktree_for_override_copy_with_existing_target(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        mock_git_skip_worktree: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        copier._skip_existing(COPY_NO_OVERWRITE_WITH_OVERRIDE)
+
+        mock_git_skip_worktree.assert_called_once()
+
+    def test_does_not_call_skip_worktree_for_non_override_copy(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        mock_git_skip_worktree: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        copier._skip_existing(COPY_NO_OVERWRITE)
+
+        mock_git_skip_worktree.assert_not_called()
+
+    def test_collects_ignore_for_non_override_copy_with_existing_target(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        ignore: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        copier._skip_existing(COPY_NO_OVERWRITE)
+
+        ignore.collect.assert_called_once()
+
+    def test_does_not_collect_ignore_for_override_copy(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        ignore: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        copier._skip_existing(COPY_NO_OVERWRITE_WITH_OVERRIDE)
+
+        ignore.collect.assert_not_called()
+
+
+class TestApplyWithOverwriteFalse:
+    @pytest.fixture(autouse=True)
+    def mock_shutil_copy2(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.patch("git_workspace.assets.shutil.copy2")
+
+    @pytest.fixture(autouse=True)
+    def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.patch("git_workspace.assets.git.skip_worktree")
+
+    @pytest.fixture
+    def target_mock(self, copier: Copier) -> MagicMock:
+        # Resolve the same MagicMock chain that Copier._apply will compute for target
+        return cast(MagicMock, copier._worktree_dir).__truediv__.return_value.absolute.return_value
+
+    def test_skips_non_override_copy_when_target_exists(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        mock_shutil_copy2: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        copier._apply(COPY_NO_OVERWRITE)
+
+        mock_shutil_copy2.assert_not_called()
+
+    def test_copies_non_override_when_target_absent(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        mock_shutil_copy2: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = False
+        target_mock.is_symlink.return_value = False
+
+        copier._apply(COPY_NO_OVERWRITE)
+
+        mock_shutil_copy2.assert_called_once()
+
+    def test_still_collects_ignore_when_target_exists(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        ignore: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        copier._apply(COPY_NO_OVERWRITE)
+
+        ignore.collect.assert_called_once()
+
+    def test_skips_override_copy_when_target_exists(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        mock_shutil_copy2: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        copier._apply(COPY_NO_OVERWRITE_WITH_OVERRIDE)
+
+        mock_shutil_copy2.assert_not_called()
+
+    def test_calls_skip_worktree_even_when_skipping_override(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        mock_git_skip_worktree: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = True
+
+        copier._apply(COPY_NO_OVERWRITE_WITH_OVERRIDE)
+
+        mock_git_skip_worktree.assert_called_once()
+
+    def test_copies_override_when_target_absent(
+        self,
+        copier: Copier,
+        target_mock: MagicMock,
+        mock_shutil_copy2: MagicMock,
+    ) -> None:
+        target_mock.exists.return_value = False
+        target_mock.is_symlink.return_value = False
+
+        copier._apply(COPY_NO_OVERWRITE_WITH_OVERRIDE)
+
+        mock_shutil_copy2.assert_called_once()

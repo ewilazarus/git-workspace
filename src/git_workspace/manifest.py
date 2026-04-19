@@ -1,6 +1,5 @@
 import logging
 import tomllib
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -36,7 +35,7 @@ class Link(Asset):
 class Copy(Asset):
     """An asset applied as a file copy."""
 
-    ...
+    overwrite: bool = True
 
 
 @dataclass
@@ -120,16 +119,26 @@ class Manifest:
         return data.get("base_branch", cls.DEFAULT_BRANCH)
 
     @classmethod
-    def _parse_assets[T](
-        cls, label: str, factory: Callable[[str, str, bool], T], data: dict[str, Any]
-    ) -> list[T]:
+    def _parse_copies(cls, data: dict[str, Any]) -> list[Copy]:
         return [
-            factory(
-                asset_data["source"],
-                asset_data["target"],
-                asset_data.get("override", False),
+            Copy(
+                source=asset_data["source"],
+                target=asset_data["target"],
+                override=asset_data.get("override", False),
+                overwrite=asset_data.get("overwrite", True),
             )
-            for asset_data in data.get(label, [])
+            for asset_data in data.get("copy", [])
+        ]
+
+    @classmethod
+    def _parse_links(cls, data: dict[str, Any]) -> list[Link]:
+        return [
+            Link(
+                source=asset_data["source"],
+                target=asset_data["target"],
+                override=asset_data.get("override", False),
+            )
+            for asset_data in data.get("link", [])
         ]
 
     @classmethod
@@ -186,8 +195,8 @@ class Manifest:
 
         version = cls._parse_version(data)
         base_branch = cls._parse_base_branch(data)
-        copies = cls._parse_assets("copy", Copy, data)
-        links = cls._parse_assets("link", Link, data)
+        copies = cls._parse_copies(data)
+        links = cls._parse_links(data)
         vars = cls._parse_vars(data)
         hooks = cls._parse_hooks(data)
         prune = cls._parse_prune(data)
