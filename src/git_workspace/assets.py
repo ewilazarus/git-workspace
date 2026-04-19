@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from types import TracebackType
 
-from rich.console import Group
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.text import Text
@@ -139,20 +138,15 @@ class AssetManager[T: Asset](ABC):
         spinner = Spinner("dots", text=f" Applying {self.asset_name_plural}")
         applied: list[tuple[str, str]] = []
 
-        with Live(spinner, console=console, refresh_per_second=15, transient=False) as live:
+        with Live(spinner, console=console, refresh_per_second=15, transient=True):
             for asset in self._assets:
                 self._apply(asset)
                 applied.append((asset.source, asset.target))
-            live.update(
-                Group(
-                    Text.assemble(("✓", "bold green"), f"  Applying {self.asset_name_plural}"),
-                    *[
-                        Text.assemble(
-                            ("✓", "bold green"), "    ", (src, "name"), " → ", (dst, "name")
-                        )
-                        for src, dst in applied
-                    ],
-                )
+
+        console.print(Text.assemble(("✓", "bold green"), f"  Applying {self.asset_name_plural}"))
+        for src, dst in applied:
+            console.print(
+                Text.assemble(("✓", "bold green"), "    ", (src, "name"), " → ", (dst, "name"))
             )
 
 

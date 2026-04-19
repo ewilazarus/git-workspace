@@ -57,20 +57,16 @@ class HookRunner:
         exc_tb: TracebackType | None,
     ) -> None:
         if self._live is not None:
-            if exc_type is None:
-                self._live.update(self._make_renderable(all_done=True))
-            else:
-                self._live.update(self._make_error_renderable())
             self._live.stop()
             self._live = None
+            if exc_type is None:
+                self._print_success()
+            else:
+                self._print_error()
 
-    def _make_renderable(self, all_done: bool = False) -> Group:
+    def _make_renderable(self) -> Group:
         rows: list = []
-
-        if all_done:
-            rows.append(Text.assemble(("✓", "bold green"), "  Running hooks"))
-        else:
-            rows.append(self._section_spinner)
+        rows.append(self._section_spinner)
 
         for type_label, hook_names in self._completed_types:
             row = Text.assemble(("✓", "bold green"), f"    {type_label}: ")
@@ -86,19 +82,24 @@ class HookRunner:
 
         return Group(*rows)
 
-    def _make_error_renderable(self) -> Group:
-        rows: list = []
-        rows.append(Text.assemble(("✗", "bold red"), "  Running hooks"))
+    def _print_type_rows(self) -> None:
         for type_label, hook_names in self._completed_types:
             row = Text.assemble(("✓", "bold green"), f"    {type_label}: ")
             for i, name in enumerate(hook_names):
                 if i > 0:
                     row.append(", ")
                 row.append(name, style="name")
-            rows.append(row)
+            console.print(row)
+
+    def _print_success(self) -> None:
+        console.print(Text.assemble(("✓", "bold green"), "  Running hooks"))
+        self._print_type_rows()
+
+    def _print_error(self) -> None:
+        console.print(Text.assemble(("✗", "bold red"), "  Running hooks"))
+        self._print_type_rows()
         if self._current_type_label is not None:
-            rows.append(Text.assemble(("✗", "bold red"), f"    {self._current_type_label}"))
-        return Group(*rows)
+            console.print(Text.assemble(("✗", "bold red"), f"    {self._current_type_label}"))
 
     def _ensure_live_started(self) -> None:
         if self._live is None:
@@ -106,7 +107,7 @@ class HookRunner:
                 self._make_renderable(),
                 console=console,
                 refresh_per_second=15,
-                transient=False,
+                transient=True,
             )
             self._live.start()
 
