@@ -174,6 +174,7 @@ class WorkspaceFactory:
             raise WorkspaceCreationError(
                 f"Failed to clone bare repository from {url!r} to {git_path}"
             ) from e
+        git.configure_remote_fetch_refspec(cwd=git_path.parent)
 
     @classmethod
     def _create_new(cls, git_path: Path) -> None:

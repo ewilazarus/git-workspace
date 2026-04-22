@@ -7,6 +7,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+- `git workspace up <remote-branch>` now checks out the remote branch instead of silently creating a new one from `main` (bare clones omit the fetch refspec, so remote branches were never tracked)
+- `git workspace up <new-branch>` now forks from the latest remote base branch instead of a potentially stale local copy (forking from `origin/<base>` directly avoids the ref-lock when the base is already checked out in a worktree)
+
 ## [0.4.0] - 2026-04-19
 
 ### Added

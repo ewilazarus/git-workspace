@@ -109,24 +109,23 @@ class Worktree:
             logger.debug("fetch failed, skipping remote branch lookup for %r", branch)
             return None
 
-        if not git.remote_branch_exists(branch, cwd=workspace.dir):
-            logger.debug("remote branch %r not found, skipping", branch)
-            return None
-
-        logger.info("creating worktree from remote branch %r", branch)
         dir = workspace.paths.worktree(branch)
-        git.create_worktree_from_remote_branch(
-            dir,
-            branch,
-            cwd=workspace.dir,
-        )
 
-        return Worktree(
-            workspace=workspace,
-            dir=dir,
-            branch=branch,
-            is_new=True,
-        )
+        if git.remote_branch_exists(branch, cwd=workspace.paths.root):
+            logger.info("creating worktree from remote branch %r", branch)
+            git.create_worktree_from_remote_branch(dir, branch, cwd=workspace.paths.root)
+            return Worktree(workspace=workspace, dir=dir, branch=branch, is_new=True)
+
+        # Fallback for workspaces whose legacy bare-clone refspec was just migrated:
+        # _try_create_from_local_branch ran before this fetch and returned None, so any
+        # local branch that exists now was created by the fetch above.
+        if git.local_branch_exists(branch, cwd=workspace.paths.root):
+            logger.info("creating worktree from locally fetched branch %r", branch)
+            git.create_worktree_from_local_branch(dir, branch, cwd=workspace.paths.root)
+            return Worktree(workspace=workspace, dir=dir, branch=branch, is_new=True)
+
+        logger.debug("branch %r not found after fetch, skipping", branch)
+        return None
 
     @classmethod
     def _create_new(
@@ -142,12 +141,25 @@ class Worktree:
             branch,
             resolved_base_branch,
         )
-        git.pull_branch(resolved_base_branch, cwd=workspace.dir)
+
+        try:
+            git.fetch_origin(cwd=workspace.paths.root)
+        except GitFetchError:
+            pass  # offline – proceed with whatever local refs exist
+
+        # Prefer origin/<base> so we always fork from the latest remote commit,
+        # not a local ref that may be stale or locked by an active worktree.
+        base_ref = (
+            f"origin/{resolved_base_branch}"
+            if git.remote_branch_exists(resolved_base_branch, cwd=workspace.paths.root)
+            else resolved_base_branch
+        )
+
         dir = workspace.paths.worktree(branch)
         git.create_worktree_new(
             dir,
             branch,
-            resolved_base_branch,
+            base_ref,
             cwd=workspace.paths.root,
         )
 

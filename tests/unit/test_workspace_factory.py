@@ -29,6 +29,11 @@ def mock_rmtree(mocker: MockerFixture) -> None:
     mocker.patch("git_workspace.workspace.shutil.rmtree")
 
 
+@pytest.fixture(autouse=True)
+def mock_configure_remote_fetch_refspec(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.workspace.git.configure_remote_fetch_refspec")
+
+
 @pytest.fixture
 def mock_git_clone(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("git_workspace.workspace.git.clone")
@@ -47,6 +52,15 @@ def test_clones_bare_repo_and_config_when_both_urls_provided(
     mock_git_clone.assert_any_call(URL, target=GIT_PATH, bare=True)
     mock_git_clone.assert_any_call(CONFIG_URL, target=CONFIG_PATH)
     mock_git_init.assert_not_called()
+
+
+def test_configures_remote_fetch_refspec_after_bare_clone(
+    mock_git_clone: MagicMock,
+    mock_configure_remote_fetch_refspec: MagicMock,
+) -> None:
+    WorkspaceFactory.create(DIRECTORY, url=URL, config_url=CONFIG_URL)
+
+    mock_configure_remote_fetch_refspec.assert_called_once_with(cwd=DIRECTORY)
 
 
 def test_clones_bare_repo_and_inits_example_config_when_only_url_provided(

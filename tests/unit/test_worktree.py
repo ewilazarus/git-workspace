@@ -167,33 +167,123 @@ class TestResolveOrCreate:
         assert result is worktree
 
 
-class TestCreateNew:
-    @pytest.fixture
-    def mock_git(self, mocker: MockerFixture) -> MagicMock:
-        mocker.patch("git_workspace.worktree.git.pull_branch")
-        mocker.patch("git_workspace.worktree.git.create_worktree_new")
-        return mocker.MagicMock()
+class TestTryCreateFromRemoteBranch:
+    @pytest.fixture(autouse=True)
+    def mock_git(self, mocker: MockerFixture) -> None:
+        mocker.patch("git_workspace.worktree.git.fetch_origin")
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=False)
+        mocker.patch("git_workspace.worktree.git.local_branch_exists", return_value=False)
+        mocker.patch("git_workspace.worktree.git.create_worktree_from_remote_branch")
+        mocker.patch("git_workspace.worktree.git.create_worktree_from_local_branch")
 
-    def test_pulls_base_branch_before_creating_worktree(
-        self, mocker: MockerFixture, workspace: MagicMock, mock_git: MagicMock
+    def test_creates_from_remote_when_remote_branch_exists(
+        self, mocker: MockerFixture, workspace: MagicMock
     ) -> None:
-        mock_pull = mocker.patch("git_workspace.worktree.git.pull_branch")
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=True)
+        mock_create = mocker.patch("git_workspace.worktree.git.create_worktree_from_remote_branch")
+
+        result = Worktree._try_create_from_remote_branch(workspace, BRANCH)
+
+        assert result is not None
+        mock_create.assert_called_once()
+
+    def test_falls_back_to_local_when_only_local_branch_exists_after_fetch(
+        self, mocker: MockerFixture, workspace: MagicMock
+    ) -> None:
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=False)
+        mocker.patch("git_workspace.worktree.git.local_branch_exists", return_value=True)
+        mock_create = mocker.patch("git_workspace.worktree.git.create_worktree_from_local_branch")
+
+        result = Worktree._try_create_from_remote_branch(workspace, BRANCH)
+
+        assert result is not None
+        mock_create.assert_called_once()
+
+    def test_returns_none_when_branch_not_found_after_fetch(self, workspace: MagicMock) -> None:
+        result = Worktree._try_create_from_remote_branch(workspace, BRANCH)
+
+        assert result is None
+
+
+class TestCreateNew:
+    @pytest.fixture(autouse=True)
+    def mock_git(self, mocker: MockerFixture) -> None:
+        mocker.patch("git_workspace.worktree.git.fetch_origin")
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=True)
+        mocker.patch("git_workspace.worktree.git.create_worktree_new")
+
+    def test_fetches_before_creating_worktree(
+        self, mocker: MockerFixture, workspace: MagicMock
+    ) -> None:
+        mock_fetch = mocker.patch("git_workspace.worktree.git.fetch_origin")
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=True)
         mocker.patch("git_workspace.worktree.git.create_worktree_new")
 
         Worktree._create_new(workspace, BRANCH, BASE_BRANCH)
 
-        mock_pull.assert_called_once_with(BASE_BRANCH, cwd=workspace.dir)
+        mock_fetch.assert_called_once_with(cwd=workspace.paths.root)
+
+    def test_uses_origin_base_when_remote_branch_exists(
+        self, mocker: MockerFixture, workspace: MagicMock
+    ) -> None:
+        mocker.patch("git_workspace.worktree.git.fetch_origin")
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=True)
+        mock_create = mocker.patch("git_workspace.worktree.git.create_worktree_new")
+
+        Worktree._create_new(workspace, BRANCH, BASE_BRANCH)
+
+        mock_create.assert_called_once_with(
+            workspace.paths.worktree(BRANCH),
+            BRANCH,
+            f"origin/{BASE_BRANCH}",
+            cwd=workspace.paths.root,
+        )
+
+    def test_falls_back_to_local_base_when_remote_branch_not_found(
+        self, mocker: MockerFixture, workspace: MagicMock
+    ) -> None:
+        mocker.patch("git_workspace.worktree.git.fetch_origin")
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=False)
+        mock_create = mocker.patch("git_workspace.worktree.git.create_worktree_new")
+
+        Worktree._create_new(workspace, BRANCH, BASE_BRANCH)
+
+        mock_create.assert_called_once_with(
+            workspace.paths.worktree(BRANCH),
+            BRANCH,
+            BASE_BRANCH,
+            cwd=workspace.paths.root,
+        )
 
     def test_uses_manifest_base_branch_when_none_provided(
-        self, mocker: MockerFixture, workspace: MagicMock, mock_git: MagicMock
+        self, mocker: MockerFixture, workspace: MagicMock
     ) -> None:
-        mock_pull = mocker.patch("git_workspace.worktree.git.pull_branch")
-        mocker.patch("git_workspace.worktree.git.create_worktree_new")
+        mocker.patch("git_workspace.worktree.git.fetch_origin")
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=True)
+        mock_create = mocker.patch("git_workspace.worktree.git.create_worktree_new")
         workspace.manifest.base_branch = BASE_BRANCH
 
         Worktree._create_new(workspace, BRANCH, None)
 
-        mock_pull.assert_called_once_with(BASE_BRANCH, cwd=workspace.dir)
+        mock_create.assert_called_once_with(
+            workspace.paths.worktree(BRANCH),
+            BRANCH,
+            f"origin/{BASE_BRANCH}",
+            cwd=workspace.paths.root,
+        )
+
+    def test_proceeds_when_fetch_fails(self, mocker: MockerFixture, workspace: MagicMock) -> None:
+        from git_workspace.errors import GitFetchError
+
+        mocker.patch(
+            "git_workspace.worktree.git.fetch_origin", side_effect=GitFetchError("offline")
+        )
+        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=False)
+        mock_create = mocker.patch("git_workspace.worktree.git.create_worktree_new")
+
+        Worktree._create_new(workspace, BRANCH, BASE_BRANCH)
+
+        mock_create.assert_called_once()
 
 
 class TestDelete:
