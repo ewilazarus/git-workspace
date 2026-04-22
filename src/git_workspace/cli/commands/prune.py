@@ -3,8 +3,6 @@ from typing import Annotated
 import typer
 from rich.table import Table
 
-from git_workspace.cli.parsers import parse_vars
-from git_workspace.hooks import HookRunner
 from git_workspace.ui import console, print_success, styled_branch
 from git_workspace.workspace import Workspace
 
@@ -35,15 +33,6 @@ def prune(
             help="Show what would be removed without removing anything (enabled by default)",
         ),
     ] = True,
-    runtime_vars: Annotated[
-        list[str] | None,
-        typer.Option(
-            "-v",
-            "--var",
-            help="A variable that will be forwarded to the workspace's hook scripts. May be specified multiple times",
-            callback=parse_vars,
-        ),
-    ] = None,
 ) -> None:
     """
     Remove stale workspace worktrees.
@@ -88,11 +77,7 @@ def prune(
         console.print(table)
     else:
         console.print(f"Pruning [bold]{len(candidates)}[/bold] worktree(s)...")
-        vars_dict = dict(runtime_vars or [])  # ty:ignore[no-matching-overload]
         for worktree in candidates:
             console.print(f"  Removing {styled_branch(worktree.branch)}")
-            hook_runner = HookRunner(workspace, worktree, runtime_vars=vars_dict)
-            hook_runner.run_on_deactivate_hooks()
-            hook_runner.run_on_remove_hooks()
             worktree.delete(force=True)
         print_success("Done")

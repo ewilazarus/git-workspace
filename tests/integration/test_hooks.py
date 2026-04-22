@@ -69,13 +69,8 @@ def test_on_remove_hook_runs_on_remove(workspace_with_hooks: Workspace) -> None:
     assert (workspace_with_hooks.dir / ".hook-on-remove").exists()
 
 
-def test_on_deactivate_hook_runs_on_prune(workspace_with_hooks: Workspace) -> None:
+def test_hooks_do_not_run_on_prune(workspace_with_hooks: Workspace) -> None:
     up(branch="feat", workspace_dir=str(workspace_with_hooks.dir))
     prune(root=str(workspace_with_hooks.dir), older_than_days=-1, dry_run=False)
-    assert (workspace_with_hooks.dir / ".hook-on-deactivate").exists()
-
-
-def test_on_remove_hook_runs_on_prune(workspace_with_hooks: Workspace) -> None:
-    up(branch="feat", workspace_dir=str(workspace_with_hooks.dir))
-    prune(root=str(workspace_with_hooks.dir), older_than_days=-1, dry_run=False)
-    assert (workspace_with_hooks.dir / ".hook-on-remove").exists()
+    assert not (workspace_with_hooks.dir / ".hook-on-deactivate").exists()
+    assert not (workspace_with_hooks.dir / ".hook-on-remove").exists()
