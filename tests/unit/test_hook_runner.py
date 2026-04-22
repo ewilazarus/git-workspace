@@ -11,6 +11,7 @@ WORKSPACE_DIR = Path("/workspace")
 WORKSPACE_NAME = "workspace"
 WORKTREE_DIR = Path("/workspace/feat/GWS-001")
 BIN_DIR = Path("/workspace/.workspace/bin")
+ASSETS_DIR = Path("/workspace/.workspace/assets")
 
 HOOKS_ON_SETUP = ["setup.sh"]
 HOOKS_ON_ACTIVATE = ["activate.sh"]
@@ -24,6 +25,7 @@ def workspace(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
     mock.dir = WORKSPACE_DIR
     mock.paths.bin = BIN_DIR
+    mock.paths.assets = ASSETS_DIR
     mock.manifest.vars = {}
     mock.manifest.hooks.on_setup = HOOKS_ON_SETUP
     mock.manifest.hooks.on_activate = HOOKS_ON_ACTIVATE
@@ -78,6 +80,16 @@ class TestBuildEnv:
         env = hook_runner._build_env("ON_TEST")
 
         assert env["GIT_WORKSPACE_NAME"] == WORKSPACE_NAME
+
+    def test_sets_bin(self, hook_runner: HookRunner) -> None:
+        env = hook_runner._build_env("ON_TEST")
+
+        assert env["GIT_WORKSPACE_BIN"] == str(BIN_DIR)
+
+    def test_sets_assets(self, hook_runner: HookRunner) -> None:
+        env = hook_runner._build_env("ON_TEST")
+
+        assert env["GIT_WORKSPACE_ASSETS"] == str(ASSETS_DIR)
 
     def test_sets_worktree(self, hook_runner: HookRunner) -> None:
         env = hook_runner._build_env("ON_TEST")
