@@ -115,6 +115,19 @@ class TestListWorktrees:
             git.list_worktrees(CWD)
 
 
+class TestConfigureRemoteFetchRefspec:
+    def test_sets_correct_refspec(self, mock_subprocess_run: MagicMock) -> None:
+        git.configure_remote_fetch_refspec(CWD)
+
+        assert mock_subprocess_run.call_args.args[0] == [
+            "git",
+            "config",
+            "remote.origin.fetch",
+            "+refs/heads/*:refs/remotes/origin/*",
+        ]
+        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
+
+
 class TestFetchOrigin:
     def test_builds_fetch_command_with_cwd(self, mock_subprocess_run: MagicMock) -> None:
         git.fetch_origin(CWD)
@@ -127,25 +140,6 @@ class TestFetchOrigin:
 
         with pytest.raises(GitFetchError):
             git.fetch_origin(CWD)
-
-
-class TestPullBranch:
-    def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.pull_branch(BASE_BRANCH, CWD)
-
-        assert mock_subprocess_run.call_args.args[0] == [
-            "git",
-            "fetch",
-            "origin",
-            "--update-head-ok",
-            f"{BASE_BRANCH}:{BASE_BRANCH}",
-        ]
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
-
-    def test_does_not_raise_on_failure(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
-
-        git.pull_branch(BASE_BRANCH, CWD)  # should not raise
 
 
 class TestLocalBranchExists:

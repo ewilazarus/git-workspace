@@ -97,9 +97,25 @@ def list_worktrees(cwd: Path) -> list[dict[str, str]]:
     return worktrees
 
 
+def configure_remote_fetch_refspec(cwd: Path) -> None:
+    """
+    Sets the remote.origin.fetch refspec to use remote-tracking refs.
+
+    A bare clone does not set a fetch refspec, so fetched branches never land in
+    refs/remotes/origin/* and remote-branch lookups always fail. This sets it to
+    '+refs/heads/*:refs/remotes/origin/*' (identical to a normal clone).
+    """
+    subprocess.run(
+        ["git", "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+
+
 def fetch_origin(cwd: Path) -> None:
     """
-    Fetches from origin and prunes stale remote-tracking branches
+    Fetches from origin and prunes stale remote-tracking branches.
 
     :raises GitFetchError: If the fetch fails
     """
@@ -109,20 +125,6 @@ def fetch_origin(cwd: Path) -> None:
     if result.returncode != 0:
         logger.warning("git fetch failed in %s: %s", cwd, result.stderr.strip())
         raise GitFetchError(f"Failed to fetch from origin: {result.stderr.strip()}")
-
-
-def pull_branch(branch: str, cwd: Path) -> None:
-    """
-    Fast-forwards a local branch to match origin without checking it out.
-
-    Best-effort: failures are logged as warnings and silently ignored so that
-    offline or no-remote scenarios don't block worktree creation.
-    """
-    logger.debug("pulling branch %r in %s", branch, cwd)
-    cmd = ["git", "fetch", "origin", "--update-head-ok", f"{branch}:{branch}"]
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.warning("failed to pull branch %r in %s: %s", branch, cwd, result.stderr.strip())
 
 
 def local_branch_exists(branch: str, cwd: Path) -> bool:

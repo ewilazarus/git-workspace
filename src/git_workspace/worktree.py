@@ -109,7 +109,7 @@ class Worktree:
             logger.debug("fetch failed, skipping remote branch lookup for %r", branch)
             return None
 
-        if not git.remote_branch_exists(branch, cwd=workspace.dir):
+        if not git.remote_branch_exists(branch, cwd=workspace.paths.root):
             logger.debug("remote branch %r not found, skipping", branch)
             return None
 
@@ -118,7 +118,7 @@ class Worktree:
         git.create_worktree_from_remote_branch(
             dir,
             branch,
-            cwd=workspace.dir,
+            cwd=workspace.paths.root,
         )
 
         return Worktree(
@@ -142,12 +142,25 @@ class Worktree:
             branch,
             resolved_base_branch,
         )
-        git.pull_branch(resolved_base_branch, cwd=workspace.dir)
+
+        try:
+            git.fetch_origin(cwd=workspace.paths.root)
+        except GitFetchError:
+            pass  # offline – proceed with whatever local refs exist
+
+        # Prefer origin/<base> so we always fork from the latest remote commit,
+        # not a local ref that may be stale or locked by an active worktree.
+        base_ref = (
+            f"origin/{resolved_base_branch}"
+            if git.remote_branch_exists(resolved_base_branch, cwd=workspace.paths.root)
+            else resolved_base_branch
+        )
+
         dir = workspace.paths.worktree(branch)
         git.create_worktree_new(
             dir,
             branch,
-            resolved_base_branch,
+            base_ref,
             cwd=workspace.paths.root,
         )
 
