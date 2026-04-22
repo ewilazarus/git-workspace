@@ -121,6 +121,8 @@ class HookRunner:
             "GIT_WORKSPACE_BRANCH_NO_SLASH": self._worktree.branch.replace("/", "_"),
             "GIT_WORKSPACE_ROOT": str(self._workspace.dir),
             "GIT_WORKSPACE_NAME": self._workspace.dir.name,
+            "GIT_WORKSPACE_BIN": str(self._workspace.paths.bin),
+            "GIT_WORKSPACE_ASSETS": str(self._workspace.paths.assets),
             "GIT_WORKSPACE_WORKTREE": self._worktree_dir,
             "GIT_WORKSPACE_EVENT": event,
         }
