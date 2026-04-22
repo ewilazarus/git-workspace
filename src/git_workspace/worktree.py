@@ -115,8 +115,18 @@ class Worktree:
 
         logger.info("creating worktree from remote branch %r", branch)
         dir = workspace.paths.worktree(branch)
-        git.create_worktree_from_remote_branch(dir, branch, cwd=workspace.paths.root)
-        return Worktree(workspace=workspace, dir=dir, branch=branch, is_new=True)
+        git.create_worktree_from_remote_branch(
+            dir,
+            branch,
+            cwd=workspace.paths.root,
+        )
+
+        return Worktree(
+            workspace=workspace,
+            dir=dir,
+            branch=branch,
+            is_new=True,
+        )
 
     @classmethod
     def _create_new(

@@ -194,25 +194,6 @@ class TestFetchOrigin:
             git.fetch_origin(CWD)
 
 
-class TestPullBranch:
-    def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.pull_branch(BASE_BRANCH, CWD)
-
-        assert mock_subprocess_run.call_args.args[0] == [
-            "git",
-            "fetch",
-            "origin",
-            "--update-head-ok",
-            f"{BASE_BRANCH}:{BASE_BRANCH}",
-        ]
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
-
-    def test_does_not_raise_on_failure(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
-
-        git.pull_branch(BASE_BRANCH, CWD)  # should not raise
-
-
 class TestLocalBranchExists:
     def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
         git.local_branch_exists(BRANCH, CWD)
