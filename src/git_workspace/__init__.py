@@ -4,7 +4,7 @@ import sys
 
 from git_workspace import cli
 from git_workspace.errors import GitWorkspaceError
-from git_workspace.ui import print_error
+from git_workspace.ui import console
 
 _level_name = os.environ.get("GIT_WORKSPACE_LOG_LEVEL", "").upper()
 _level = getattr(logging, _level_name, logging.CRITICAL)
@@ -21,5 +21,5 @@ def main() -> None:
     try:
         cli.app()
     except GitWorkspaceError as e:
-        print_error(str(e))
+        console.error(str(e))
         logger.exception("Failed to run command")

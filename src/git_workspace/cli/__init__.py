@@ -1,3 +1,5 @@
+from typing import Annotated
+
 import typer
 
 from git_workspace.cli.commands.clone import app as clone_command
@@ -10,6 +12,7 @@ from git_workspace.cli.commands.remove import app as remove_command
 from git_workspace.cli.commands.reset import app as reset_command
 from git_workspace.cli.commands.root import app as root_command
 from git_workspace.cli.commands.up import app as up_command
+from git_workspace.ui import console
 
 HELP = """
 Manage isolated git worktrees for a repository.
@@ -22,6 +25,17 @@ The primary command is `up`, which spawns a git worktree, setting it up first if
 """
 
 app = typer.Typer(help=HELP, no_args_is_help=True)
+
+
+@app.callback()
+def _callback(
+    plain: Annotated[
+        bool,
+        typer.Option("--plain", help="Disable Rich output and print plain text instead"),
+    ] = False,
+) -> None:
+    console.configure(plain)
+
 
 app.add_typer(clone_command)
 app.add_typer(down_command)

@@ -5,7 +5,7 @@ import typer
 from git_workspace.assets import Copier, IgnoreManager, Linker
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.hooks import HookRunner
-from git_workspace.ui import console, print_success, styled_branch
+from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
 
 app = typer.Typer()
@@ -60,4 +60,4 @@ def reset(
     ) as runner:
         runner.run_on_setup_hooks()
 
-    print_success("Done")
+    console.success("Done")
