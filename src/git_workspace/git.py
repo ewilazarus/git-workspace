@@ -104,20 +104,9 @@ def configure_remote_fetch_refspec(cwd: Path) -> None:
     A bare clone does not set a fetch refspec, so fetched branches never land in
     refs/remotes/origin/* and remote-branch lookups always fail. This sets it to
     '+refs/heads/*:refs/remotes/origin/*' (identical to a normal clone).
-
-    Idempotent: no-ops when the refspec is already correct.
     """
-    CORRECT_REFSPEC = "+refs/heads/*:refs/remotes/origin/*"
-    result = subprocess.run(
-        ["git", "config", "--get", "remote.origin.fetch"],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-    )
-    if result.stdout.strip() == CORRECT_REFSPEC:
-        return
     subprocess.run(
-        ["git", "config", "remote.origin.fetch", CORRECT_REFSPEC],
+        ["git", "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"],
         cwd=cwd,
         capture_output=True,
         text=True,

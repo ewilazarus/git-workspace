@@ -116,66 +116,14 @@ class TestListWorktrees:
 
 
 class TestConfigureRemoteFetchRefspec:
-    LEGACY_REFSPEC = "+refs/heads/*:refs/heads/*"
-    CORRECT_REFSPEC = "+refs/heads/*:refs/remotes/origin/*"
-
-    def test_does_nothing_when_refspec_already_correct(
-        self, mock_subprocess_run: MagicMock
-    ) -> None:
-        mock_subprocess_run.return_value.stdout = self.CORRECT_REFSPEC + "\n"
-
+    def test_sets_correct_refspec(self, mock_subprocess_run: MagicMock) -> None:
         git.configure_remote_fetch_refspec(CWD)
 
-        # Only the --get call should have been made; no config write
-        assert mock_subprocess_run.call_count == 1
-        assert mock_subprocess_run.call_args.args[0] == [
-            "git",
-            "config",
-            "--get",
-            "remote.origin.fetch",
-        ]
-
-    def test_sets_refspec_when_key_is_absent(self, mock_subprocess_run: MagicMock) -> None:
-        # git config --get returns non-zero when the key doesn't exist (bare clone default)
-        get_result = MagicMock()
-        get_result.returncode = 1
-        get_result.stdout = ""
-
-        set_result = MagicMock()
-        set_result.returncode = 0
-
-        mock_subprocess_run.side_effect = [get_result, set_result]
-
-        git.configure_remote_fetch_refspec(CWD)
-
-        assert mock_subprocess_run.call_count == 2
         assert mock_subprocess_run.call_args.args[0] == [
             "git",
             "config",
             "remote.origin.fetch",
-            self.CORRECT_REFSPEC,
-        ]
-
-    def test_updates_refspec_when_legacy_bare_clone_value_found(
-        self, mock_subprocess_run: MagicMock
-    ) -> None:
-        get_result = MagicMock()
-        get_result.returncode = 0
-        get_result.stdout = self.LEGACY_REFSPEC + "\n"
-
-        set_result = MagicMock()
-        set_result.returncode = 0
-
-        mock_subprocess_run.side_effect = [get_result, set_result]
-
-        git.configure_remote_fetch_refspec(CWD)
-
-        assert mock_subprocess_run.call_count == 2
-        assert mock_subprocess_run.call_args.args[0] == [
-            "git",
-            "config",
-            "remote.origin.fetch",
-            self.CORRECT_REFSPEC,
+            "+refs/heads/*:refs/remotes/origin/*",
         ]
         assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
 
