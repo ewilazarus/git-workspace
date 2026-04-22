@@ -193,19 +193,6 @@ class TestFetchOrigin:
         with pytest.raises(GitFetchError):
             git.fetch_origin(CWD)
 
-    def test_calls_configure_remote_fetch_refspec_before_fetching(
-        self, mocker: MockerFixture
-    ) -> None:
-        mock_configure = mocker.patch("git_workspace.git.configure_remote_fetch_refspec")
-        mocker.patch(
-            "git_workspace.git.subprocess.run",
-            return_value=MagicMock(returncode=0),
-        )
-
-        git.fetch_origin(CWD)
-
-        mock_configure.assert_called_once_with(CWD)
-
 
 class TestPullBranch:
     def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:

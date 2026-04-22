@@ -99,14 +99,13 @@ def list_worktrees(cwd: Path) -> list[dict[str, str]]:
 
 def configure_remote_fetch_refspec(cwd: Path) -> None:
     """
-    Ensures the remote.origin.fetch refspec uses remote-tracking refs.
+    Sets the remote.origin.fetch refspec to use remote-tracking refs.
 
-    A bare clone defaults to '+refs/heads/*:refs/heads/*', which never populates
-    refs/remotes/origin/* and breaks remote-branch lookups. This upgrades that
-    refspec to '+refs/heads/*:refs/remotes/origin/*' (identical to a normal clone)
-    so that fetch_origin populates refs/remotes/origin/* as expected.
+    A bare clone does not set a fetch refspec, so fetched branches never land in
+    refs/remotes/origin/* and remote-branch lookups always fail. This sets it to
+    '+refs/heads/*:refs/remotes/origin/*' (identical to a normal clone).
 
-    Idempotent: no-ops when the refspec is already correct or origin isn't configured.
+    Idempotent: no-ops when the refspec is already correct.
     """
     CORRECT_REFSPEC = "+refs/heads/*:refs/remotes/origin/*"
     result = subprocess.run(
@@ -117,7 +116,6 @@ def configure_remote_fetch_refspec(cwd: Path) -> None:
     )
     if result.stdout.strip() == CORRECT_REFSPEC:
         return
-    logger.debug("migrating remote.origin.fetch refspec in %s", cwd)
     subprocess.run(
         ["git", "config", "remote.origin.fetch", CORRECT_REFSPEC],
         cwd=cwd,
@@ -130,13 +128,8 @@ def fetch_origin(cwd: Path) -> None:
     """
     Fetches from origin and prunes stale remote-tracking branches.
 
-    Automatically migrates a legacy bare-clone fetch refspec
-    ('+refs/heads/*:refs/heads/*') to use remote-tracking refs
-    ('+refs/heads/*:refs/remotes/origin/*') before fetching.
-
     :raises GitFetchError: If the fetch fails
     """
-    configure_remote_fetch_refspec(cwd)
     logger.debug("fetching origin in %s", cwd)
     cmd = ["git", "fetch", "origin", "--prune"]
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)

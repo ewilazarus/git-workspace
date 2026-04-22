@@ -172,9 +172,7 @@ class TestTryCreateFromRemoteBranch:
     def mock_git(self, mocker: MockerFixture) -> None:
         mocker.patch("git_workspace.worktree.git.fetch_origin")
         mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=False)
-        mocker.patch("git_workspace.worktree.git.local_branch_exists", return_value=False)
         mocker.patch("git_workspace.worktree.git.create_worktree_from_remote_branch")
-        mocker.patch("git_workspace.worktree.git.create_worktree_from_local_branch")
 
     def test_creates_from_remote_when_remote_branch_exists(
         self, mocker: MockerFixture, workspace: MagicMock
@@ -187,19 +185,7 @@ class TestTryCreateFromRemoteBranch:
         assert result is not None
         mock_create.assert_called_once()
 
-    def test_falls_back_to_local_when_only_local_branch_exists_after_fetch(
-        self, mocker: MockerFixture, workspace: MagicMock
-    ) -> None:
-        mocker.patch("git_workspace.worktree.git.remote_branch_exists", return_value=False)
-        mocker.patch("git_workspace.worktree.git.local_branch_exists", return_value=True)
-        mock_create = mocker.patch("git_workspace.worktree.git.create_worktree_from_local_branch")
-
-        result = Worktree._try_create_from_remote_branch(workspace, BRANCH)
-
-        assert result is not None
-        mock_create.assert_called_once()
-
-    def test_returns_none_when_branch_not_found_after_fetch(self, workspace: MagicMock) -> None:
+    def test_returns_none_when_remote_branch_not_found(self, workspace: MagicMock) -> None:
         result = Worktree._try_create_from_remote_branch(workspace, BRANCH)
 
         assert result is None

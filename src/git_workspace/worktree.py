@@ -109,23 +109,14 @@ class Worktree:
             logger.debug("fetch failed, skipping remote branch lookup for %r", branch)
             return None
 
+        if not git.remote_branch_exists(branch, cwd=workspace.paths.root):
+            logger.debug("remote branch %r not found, skipping", branch)
+            return None
+
+        logger.info("creating worktree from remote branch %r", branch)
         dir = workspace.paths.worktree(branch)
-
-        if git.remote_branch_exists(branch, cwd=workspace.paths.root):
-            logger.info("creating worktree from remote branch %r", branch)
-            git.create_worktree_from_remote_branch(dir, branch, cwd=workspace.paths.root)
-            return Worktree(workspace=workspace, dir=dir, branch=branch, is_new=True)
-
-        # Fallback for workspaces whose legacy bare-clone refspec was just migrated:
-        # _try_create_from_local_branch ran before this fetch and returned None, so any
-        # local branch that exists now was created by the fetch above.
-        if git.local_branch_exists(branch, cwd=workspace.paths.root):
-            logger.info("creating worktree from locally fetched branch %r", branch)
-            git.create_worktree_from_local_branch(dir, branch, cwd=workspace.paths.root)
-            return Worktree(workspace=workspace, dir=dir, branch=branch, is_new=True)
-
-        logger.debug("branch %r not found after fetch, skipping", branch)
-        return None
+        git.create_worktree_from_remote_branch(dir, branch, cwd=workspace.paths.root)
+        return Worktree(workspace=workspace, dir=dir, branch=branch, is_new=True)
 
     @classmethod
     def _create_new(
