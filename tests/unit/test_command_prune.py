@@ -8,7 +8,6 @@ from git_workspace.cli.commands.prune import prune
 from git_workspace.errors import UnableToResolveWorkspaceError
 
 WORKSPACE_DIR = "/workspace"
-RUNTIME_VARS: list[tuple[str, str]] = [("MY_VAR", "my_value")]
 
 
 @pytest.fixture(autouse=True)
@@ -17,11 +16,6 @@ def mock_workspace_resolve(mocker: MockerFixture) -> MagicMock:
     mock.return_value.manifest.prune = None
     mock.return_value.list_worktrees.return_value = []
     return mock
-
-
-@pytest.fixture(autouse=True)
-def mock_hook_runner(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.cli.commands.prune.HookRunner")
 
 
 def make_worktree(branch: str = "feature/old", age_days: int = 60) -> MagicMock:
@@ -104,10 +98,6 @@ class TestPrune:
 
         protected_wt.delete.assert_not_called()
 
-    def test_does_not_run_hooks_when_no_candidates(self, mock_hook_runner: MagicMock) -> None:
-        prune(older_than_days=30)
-        mock_hook_runner.assert_not_called()
-
     def test_dry_run_does_not_delete_worktrees(self, mock_workspace_resolve: MagicMock) -> None:
         old_wt = make_worktree(age_days=60)
         mock_workspace_resolve.return_value.list_worktrees.return_value = [old_wt]
@@ -115,38 +105,6 @@ class TestPrune:
         prune(older_than_days=30, dry_run=True)
 
         old_wt.delete.assert_not_called()
-
-    def test_dry_run_does_not_run_hooks(
-        self, mock_workspace_resolve: MagicMock, mock_hook_runner: MagicMock
-    ) -> None:
-        old_wt = make_worktree(age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [old_wt]
-
-        prune(older_than_days=30, dry_run=True)
-
-        mock_hook_runner.assert_not_called()
-
-    def test_apply_runs_deactivate_hooks_for_each_candidate(
-        self, mock_workspace_resolve: MagicMock, mock_hook_runner: MagicMock
-    ) -> None:
-        wt1 = make_worktree(branch="feature/a", age_days=60)
-        wt2 = make_worktree(branch="feature/b", age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [wt1, wt2]
-
-        prune(older_than_days=30, dry_run=False)
-
-        assert mock_hook_runner.return_value.run_on_deactivate_hooks.call_count == 2
-
-    def test_apply_runs_remove_hooks_for_each_candidate(
-        self, mock_workspace_resolve: MagicMock, mock_hook_runner: MagicMock
-    ) -> None:
-        wt1 = make_worktree(branch="feature/a", age_days=60)
-        wt2 = make_worktree(branch="feature/b", age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [wt1, wt2]
-
-        prune(older_than_days=30, dry_run=False)
-
-        assert mock_hook_runner.return_value.run_on_remove_hooks.call_count == 2
 
     def test_apply_deletes_each_candidate(self, mock_workspace_resolve: MagicMock) -> None:
         wt1 = make_worktree(branch="feature/a", age_days=60)
@@ -157,25 +115,3 @@ class TestPrune:
 
         wt1.delete.assert_called_once_with(force=True)
         wt2.delete.assert_called_once_with(force=True)
-
-    def test_apply_creates_hook_runner_with_runtime_vars(
-        self, mock_workspace_resolve: MagicMock, mock_hook_runner: MagicMock
-    ) -> None:
-        wt = make_worktree(age_days=60)
-        workspace = mock_workspace_resolve.return_value
-        workspace.list_worktrees.return_value = [wt]
-
-        prune(older_than_days=30, dry_run=False, runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
-
-        mock_hook_runner.assert_called_once_with(workspace, wt, runtime_vars={"MY_VAR": "my_value"})
-
-    def test_apply_creates_hook_runner_with_empty_runtime_vars_when_none(
-        self, mock_workspace_resolve: MagicMock, mock_hook_runner: MagicMock
-    ) -> None:
-        wt = make_worktree(age_days=60)
-        workspace = mock_workspace_resolve.return_value
-        workspace.list_worktrees.return_value = [wt]
-
-        prune(older_than_days=30, dry_run=False)
-
-        mock_hook_runner.assert_called_once_with(workspace, wt, runtime_vars={})
