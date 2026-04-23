@@ -1,3 +1,4 @@
+from importlib.metadata import version
 from typing import Annotated
 
 import typer
@@ -27,11 +28,26 @@ The primary command is `up`, which spawns a git worktree, setting it up first if
 app = typer.Typer(help=HELP, no_args_is_help=True)
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(version("git-workspace-cli"))
+        raise typer.Exit()
+
+
 @app.callback()
 def _callback(
     plain: Annotated[
         bool,
         typer.Option("--plain", help="Disable Rich output and print plain text instead"),
+    ] = False,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="Show the version and exit",
+        ),
     ] = False,
 ) -> None:
     console.configure(plain)
