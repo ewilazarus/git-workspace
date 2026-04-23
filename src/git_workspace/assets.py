@@ -8,7 +8,7 @@ from types import TracebackType
 from git_workspace import git
 from git_workspace.errors import WorkspaceCopyError, WorkspaceLinkError
 from git_workspace.manifest import Asset, Copy, Link
-from git_workspace.ui import console, styled_asset
+from git_workspace.ui import console
 from git_workspace.workspace import Workspace
 from git_workspace.worktree import Worktree
 
@@ -131,16 +131,10 @@ class AssetManager[T: Asset](ABC):
         if not self._assets:
             return
 
-        applied: list[tuple[str, str]] = []
-
-        with console.spinner(f"Applying {self.asset_name_plural}"):
+        with console.asset_display(self.asset_name_plural) as progress:
             for asset in self._assets:
                 self._apply(asset)
-                applied.append((asset.source, asset.target))
-
-        console.success(f"Applying {self.asset_name_plural}")
-        for src, dst in applied:
-            console.step(f"  {styled_asset(src)} → {styled_asset(dst)}")
+                progress.on_asset_applied(asset.source, asset.target)
 
 
 class Linker(AssetManager[Link]):
