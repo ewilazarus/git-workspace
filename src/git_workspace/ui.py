@@ -18,6 +18,7 @@ _theme = Theme(
         "name": "bold magenta",
         "success": "bold green",
         "error": "bold red",
+        "warning": "bold yellow",
         "hook": "dim",
     }
 )
@@ -41,6 +42,7 @@ class UI(Protocol):
     def step(self, msg: str) -> None: ...
     def success(self, msg: str) -> None: ...
     def error(self, msg: str) -> None: ...
+    def warning(self, msg: str) -> None: ...
     def spinner(self, label: str) -> AbstractContextManager[None]: ...
     def hook_display(self) -> AbstractContextManager[HookProgress]: ...
     def asset_display(self, label: str) -> AbstractContextManager[AssetProgress]: ...
@@ -184,6 +186,9 @@ class RichUI:
     def error(self, msg: str) -> None:
         _console.print(f"[error]✗[/error]  {msg}")
 
+    def warning(self, msg: str) -> None:
+        _console.print(f"[warning]⚠[/warning]  {msg}")
+
     @contextmanager
     def spinner(self, label: str) -> Iterator[None]:
         spinner = Spinner("dots", text=f" {label}")
@@ -281,6 +286,9 @@ class PlainUI:
     def error(self, msg: str) -> None:
         _console.print(f"[error]✗[/error]  {msg}")
 
+    def warning(self, msg: str) -> None:
+        _console.print(f"[warning]⚠[/warning]  {msg}")
+
     @contextmanager
     def spinner(self, label: str) -> Iterator[None]:
         _console.print(f"  {label}...")
@@ -335,6 +343,9 @@ class _UIProxy:
 
     def error(self, msg: str) -> None:
         self._impl.error(msg)
+
+    def warning(self, msg: str) -> None:
+        self._impl.warning(msg)
 
     def spinner(self, label: str) -> AbstractContextManager[None]:
         return self._impl.spinner(label)

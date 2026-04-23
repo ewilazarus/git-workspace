@@ -4,6 +4,7 @@ from typing import Annotated
 import typer
 
 from git_workspace.cli.commands.clone import app as clone_command
+from git_workspace.cli.commands.doctor import app as doctor_command
 from git_workspace.cli.commands.down import app as down_command
 from git_workspace.cli.commands.edit import app as edit_command
 from git_workspace.cli.commands.init import app as init_command
@@ -54,6 +55,7 @@ def _callback(
 
 
 app.add_typer(clone_command)
+app.add_typer(doctor_command)
 app.add_typer(down_command)
 app.add_typer(edit_command)
 app.add_typer(init_command)
