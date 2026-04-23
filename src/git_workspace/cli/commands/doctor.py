@@ -14,8 +14,7 @@ def doctor(
     """
     Inspect a workspace for inconsistencies.
 
-    Checks the manifest, assets, hooks, and live worktree state and reports
-    any errors or warnings. Exits 1 if any errors are found.
+    Checks the manifest, assets, hooks, and live worktree state and reports any errors or warnings. Exits 1 if any errors are found.
     """
     workspace = Workspace.resolve(workspace_dir)
 
