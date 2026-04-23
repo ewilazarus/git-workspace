@@ -14,6 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 - `git workspace prune` no longer runs `on_deactivate` or `on_remove` hooks — worktrees are force-removed directly
+- Inline shell commands in hooks now run via the user's shell (`$SHELL`, defaulting to `sh`) instead of the system `sh`
 
 ## [0.5.0] - 2026-04-22
 

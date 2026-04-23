@@ -45,7 +45,7 @@ class Hooks:
 
     Each hook is a list of entries executed in order. An entry that matches a
     file in ``.workspace/bin`` is run as a script; otherwise it is executed as
-    an inline shell command via ``sh -c``.
+    an inline shell command via the user's shell (``$SHELL``, defaulting to ``sh``).
 
     Available hooks:
 

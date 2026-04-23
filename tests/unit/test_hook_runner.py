@@ -129,22 +129,45 @@ class TestResolveCommand:
         self,
         hook_runner: HookRunner,
         mock_popen: MagicMock,
+        mocker: MockerFixture,
     ) -> None:
+        mocker.patch.dict("os.environ", {"SHELL": "/usr/bin/zsh"})
+
         hook_runner.run_on_setup_hooks()
 
-        assert mock_popen.call_args.args[0] == [str(BIN_DIR / "setup.sh")]
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "setup.sh")
+        assert mock_popen.call_args.kwargs["shell"] is True
+        assert mock_popen.call_args.kwargs["executable"] == "/usr/bin/zsh"
 
-    def test_runs_shell_command_when_no_bin_script(
+    def test_runs_inline_command_when_no_bin_script(
         self,
         hook_runner: HookRunner,
         mock_bin_is_file: MagicMock,
         mock_popen: MagicMock,
+        mocker: MockerFixture,
     ) -> None:
         mock_bin_is_file.return_value = False
+        mocker.patch.dict("os.environ", {"SHELL": "/usr/bin/zsh"})
 
         hook_runner.run_on_setup_hooks()
 
-        assert mock_popen.call_args.args[0] == ["sh", "-c", "setup.sh"]
+        assert mock_popen.call_args.args[0] == "setup.sh"
+        assert mock_popen.call_args.kwargs["shell"] is True
+        assert mock_popen.call_args.kwargs["executable"] == "/usr/bin/zsh"
+
+    def test_falls_back_to_sh_when_shell_not_set(
+        self,
+        hook_runner: HookRunner,
+        mock_bin_is_file: MagicMock,
+        mock_popen: MagicMock,
+        mocker: MockerFixture,
+    ) -> None:
+        mock_bin_is_file.return_value = False
+        mocker.patch.dict("os.environ", {}, clear=True)
+
+        hook_runner.run_on_setup_hooks()
+
+        assert mock_popen.call_args.kwargs["executable"] == "sh"
 
 
 class TestRunOnSetupHooks:
@@ -153,7 +176,7 @@ class TestRunOnSetupHooks:
     ) -> None:
         hook_runner.run_on_setup_hooks()
 
-        assert mock_popen.call_args.args[0] == [str(BIN_DIR / "setup.sh")]
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "setup.sh")
 
     def test_sets_correct_event_in_env(
         self, hook_runner: HookRunner, mock_popen: MagicMock
@@ -169,7 +192,7 @@ class TestRunOnActivateHooks:
     ) -> None:
         hook_runner.run_on_activate_hooks()
 
-        assert mock_popen.call_args.args[0] == [str(BIN_DIR / "activate.sh")]
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "activate.sh")
 
     def test_sets_correct_event_in_env(
         self, hook_runner: HookRunner, mock_popen: MagicMock
@@ -185,7 +208,7 @@ class TestRunOnAttachHooks:
     ) -> None:
         hook_runner.run_on_attach_hooks()
 
-        assert mock_popen.call_args.args[0] == [str(BIN_DIR / "attach.sh")]
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "attach.sh")
 
     def test_sets_correct_event_in_env(
         self, hook_runner: HookRunner, mock_popen: MagicMock
@@ -201,7 +224,7 @@ class TestRunOnDeactivateHooks:
     ) -> None:
         hook_runner.run_on_deactivate_hooks()
 
-        assert mock_popen.call_args.args[0] == [str(BIN_DIR / "deactivate.sh")]
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "deactivate.sh")
 
     def test_sets_correct_event_in_env(
         self, hook_runner: HookRunner, mock_popen: MagicMock
@@ -217,7 +240,7 @@ class TestRunOnRemoveHooks:
     ) -> None:
         hook_runner.run_on_remove_hooks()
 
-        assert mock_popen.call_args.args[0] == [str(BIN_DIR / "remove.sh")]
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "remove.sh")
 
     def test_sets_correct_event_in_env(
         self, hook_runner: HookRunner, mock_popen: MagicMock
