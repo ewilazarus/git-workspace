@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="banner.png" width="800" />
+  <img src=".github/banner.png" width="800" />
 </p>
 
 <h3 align="center"><code>git-workspace</code></h3>
