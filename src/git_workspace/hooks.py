@@ -85,13 +85,13 @@ class HookRunner:
 
         return env
 
-    def _resolve_command(self, hook_name: str) -> list[str]:
+    def _resolve_command(self, hook_name: str) -> str:
         bin_path = self._workspace.paths.bin / hook_name
         if bin_path.is_file():
             logger.debug("resolved hook %r to bin script: %s", hook_name, bin_path)
-            return [str(bin_path)]
-        logger.debug("no bin script for %r, falling back to shell: sh -c %r", hook_name, hook_name)
-        return ["sh", "-c", hook_name]
+            return str(bin_path)
+        logger.debug("no bin script for %r, running as inline shell command", hook_name)
+        return hook_name
 
     def _run_hooks(self, event: str, hook_names: list[str]) -> None:
         if not hook_names:
@@ -100,18 +100,21 @@ class HookRunner:
         type_label = event.removeprefix("ON_").capitalize()
         env = self._build_env(event)
         progress = self._ensure_display()
+        shell = os.environ.get("SHELL", "sh")
 
         progress.begin_section(type_label, len(hook_names))
 
         for hook_name in hook_names:
             progress.on_hook_start(hook_name)
             cmd = self._resolve_command(hook_name)
-            logger.debug("running hook %r as %s in %s", hook_name, cmd, self._worktree_dir)
+            logger.debug("running hook %r as %r in %s", hook_name, cmd, self._worktree_dir)
 
             with subprocess.Popen(
                 cmd,
                 cwd=self._worktree_dir,
                 env=env,
+                shell=True,
+                executable=shell,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
