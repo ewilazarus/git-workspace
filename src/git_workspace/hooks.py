@@ -1,10 +1,10 @@
 import logging
 import os
-import re
 import subprocess
 from contextlib import AbstractContextManager
 from types import TracebackType
 
+from git_workspace.env import build_env
 from git_workspace.errors import HookExecutionError
 from git_workspace.ui import HookProgress, console
 from git_workspace.workspace import Workspace
@@ -59,32 +59,6 @@ class HookRunner:
         if self._hook_display_cm is not None:
             self._hook_display_cm.__exit__(exc_type, exc_val, exc_tb)
 
-    def _normalize_variable_key(self, value: str) -> str:
-        return re.sub(r"[^A-Z0-9]", "_", value.upper())
-
-    def _build_env(self, event: str) -> dict[str, str]:
-        env = {
-            **os.environ,
-            "GIT_WORKSPACE_BRANCH": self._worktree.branch,
-            "GIT_WORKSPACE_BRANCH_NO_SLASH": self._worktree.branch.replace("/", "_"),
-            "GIT_WORKSPACE_ROOT": str(self._workspace.dir),
-            "GIT_WORKSPACE_NAME": self._workspace.dir.name,
-            "GIT_WORKSPACE_BIN": str(self._workspace.paths.bin),
-            "GIT_WORKSPACE_ASSETS": str(self._workspace.paths.assets),
-            "GIT_WORKSPACE_WORKTREE": self._worktree_dir,
-            "GIT_WORKSPACE_EVENT": event,
-        }
-
-        for key, value in (self._workspace.manifest.vars or {}).items():
-            normalized = self._normalize_variable_key(key)
-            env[f"GIT_WORKSPACE_VAR_{normalized}"] = value
-
-        for key, value in (self._runtime_vars or {}).items():
-            normalized = self._normalize_variable_key(key)
-            env[f"GIT_WORKSPACE_VAR_{normalized}"] = value
-
-        return env
-
     def _resolve_command(self, hook_name: str) -> str:
         bin_path = self._workspace.paths.bin / hook_name
         if bin_path.is_file():
@@ -98,7 +72,12 @@ class HookRunner:
             return
 
         type_label = event.removeprefix("ON_").capitalize()
-        env = self._build_env(event)
+        env = build_env(
+            self._workspace,
+            self._worktree,
+            event=event,
+            extra_vars={**(self._workspace.manifest.vars or {}), **self._runtime_vars},
+        )
         progress = self._ensure_display()
         shell = os.environ.get("SHELL", "sh")
 
