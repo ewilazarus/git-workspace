@@ -5,7 +5,7 @@ import typer
 from git_workspace.assets import Copier, IgnoreManager, Linker
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.hooks import HookRunner
-from git_workspace.ui import console, print_success, styled_branch, styled_path
+from git_workspace.ui import console, styled_branch, styled_path
 from git_workspace.workspace import Workspace
 
 app = typer.Typer()
@@ -95,7 +95,7 @@ def up(
         if not detached:
             hook_runner.run_on_attach_hooks()
 
-    print_success(f"Worktree ready at {styled_path(worktree.dir)}")
+    console.success(f"Worktree ready at {styled_path(worktree.dir)}")
 
     if output:
         typer.echo(str(worktree.dir))

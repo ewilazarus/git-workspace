@@ -5,10 +5,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from types import TracebackType
 
-from rich.live import Live
-from rich.spinner import Spinner
-from rich.text import Text
-
 from git_workspace import git
 from git_workspace.errors import WorkspaceCopyError, WorkspaceLinkError
 from git_workspace.manifest import Asset, Copy, Link
@@ -135,19 +131,10 @@ class AssetManager[T: Asset](ABC):
         if not self._assets:
             return
 
-        spinner = Spinner("dots", text=f" Applying {self.asset_name_plural}")
-        applied: list[tuple[str, str]] = []
-
-        with Live(spinner, console=console, refresh_per_second=15, transient=True):
+        with console.asset_display(self.asset_name_plural) as progress:
             for asset in self._assets:
                 self._apply(asset)
-                applied.append((asset.source, asset.target))
-
-        console.print(Text.assemble(("✓", "bold green"), f"  Applying {self.asset_name_plural}"))
-        for src, dst in applied:
-            console.print(
-                Text.assemble(("✓", "bold green"), "    ", (src, "name"), " → ", (dst, "name"))
-            )
+                progress.on_asset_applied(asset.source, asset.target)
 
 
 class Linker(AssetManager[Link]):

@@ -2,16 +2,11 @@ import logging
 import os
 import re
 import subprocess
+from contextlib import AbstractContextManager
 from types import TracebackType
 
-from rich.console import Group
-from rich.live import Live
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
-from rich.spinner import Spinner
-from rich.text import Text
-
 from git_workspace.errors import HookExecutionError
-from git_workspace.ui import console
+from git_workspace.ui import HookProgress, console
 from git_workspace.workspace import Workspace
 from git_workspace.worktree import Worktree
 
@@ -33,21 +28,26 @@ class HookRunner:
     """
 
     def __init__(
-        self, workspace: Workspace, worktree: Worktree, runtime_vars: dict[str, str]
+        self,
+        workspace: Workspace,
+        worktree: Worktree,
+        runtime_vars: dict[str, str],
     ) -> None:
         self._workspace = workspace
         self._worktree = worktree
         self._worktree_dir = str(worktree.dir)
         self._runtime_vars = runtime_vars
+        self._hook_display_cm: AbstractContextManager[HookProgress] | None = None
+        self._hook_progress: HookProgress | None = None
 
-        self._live: Live | None = None
-        self._section_spinner = Spinner("dots", text=" Running hooks")
-        self._completed_types: list[tuple[str, list[str]]] = []
-        self._current_type_label: str | None = None
-        self._current_type_progress: Progress | None = None
-        self._output_lines: list[Text] = []
+    def _ensure_display(self) -> HookProgress:
+        if self._hook_progress is None:
+            self._hook_display_cm = console.hook_display()
+            self._hook_progress = self._hook_display_cm.__enter__()
+        return self._hook_progress
 
     def __enter__(self) -> HookRunner:
+        self._ensure_display()
         return self
 
     def __exit__(
@@ -56,60 +56,8 @@ class HookRunner:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self._live is not None:
-            self._live.stop()
-            self._live = None
-            if exc_type is None:
-                self._print_success()
-            else:
-                self._print_error()
-
-    def _make_renderable(self) -> Group:
-        rows: list = []
-        rows.append(self._section_spinner)
-
-        for type_label, hook_names in self._completed_types:
-            row = Text.assemble(("✓", "bold green"), f"    {type_label}: ")
-            for i, name in enumerate(hook_names):
-                if i > 0:
-                    row.append(", ")
-                row.append(name, style="name")
-            rows.append(row)
-
-        if self._current_type_progress is not None:
-            rows.append(self._current_type_progress)
-            rows.extend(self._output_lines[-6:])
-
-        return Group(*rows)
-
-    def _print_type_rows(self) -> None:
-        for type_label, hook_names in self._completed_types:
-            row = Text.assemble(("✓", "bold green"), f"    {type_label}: ")
-            for i, name in enumerate(hook_names):
-                if i > 0:
-                    row.append(", ")
-                row.append(name, style="name")
-            console.print(row)
-
-    def _print_success(self) -> None:
-        console.print(Text.assemble(("✓", "bold green"), "  Running hooks"))
-        self._print_type_rows()
-
-    def _print_error(self) -> None:
-        console.print(Text.assemble(("✗", "bold red"), "  Running hooks"))
-        self._print_type_rows()
-        if self._current_type_label is not None:
-            console.print(Text.assemble(("✗", "bold red"), f"    {self._current_type_label}"))
-
-    def _ensure_live_started(self) -> None:
-        if self._live is None:
-            self._live = Live(
-                self._make_renderable(),
-                console=console,
-                refresh_per_second=15,
-                transient=True,
-            )
-            self._live.start()
+        if self._hook_display_cm is not None:
+            self._hook_display_cm.__exit__(exc_type, exc_val, exc_tb)
 
     def _normalize_variable_key(self, value: str) -> str:
         return re.sub(r"[^A-Z0-9]", "_", value.upper())
@@ -151,27 +99,12 @@ class HookRunner:
 
         type_label = event.removeprefix("ON_").capitalize()
         env = self._build_env(event)
-        self._ensure_live_started()
+        progress = self._ensure_display()
 
-        self._current_type_progress = Progress(
-            SpinnerColumn(),
-            TextColumn("{task.description}"),
-            BarColumn(),
-            MofNCompleteColumn(),
-            TextColumn("[name]{task.fields[hook]}[/name]"),
-            console=console,
-        )
-        task_id = self._current_type_progress.add_task(
-            f"   {type_label}", total=len(hook_names), hook=""
-        )
-        self._current_type_label = type_label
-        self._output_lines = []
-        assert self._live is not None
-        self._live.update(self._make_renderable())
+        progress.begin_section(type_label, len(hook_names))
 
         for hook_name in hook_names:
-            self._output_lines = []
-            self._current_type_progress.update(task_id, hook=hook_name)
+            progress.on_hook_start(hook_name)
             cmd = self._resolve_command(hook_name)
             logger.debug("running hook %r as %s in %s", hook_name, cmd, self._worktree_dir)
 
@@ -186,22 +119,16 @@ class HookRunner:
             ) as proc:
                 assert proc.stdout is not None
                 for raw in proc.stdout:
-                    self._output_lines.append(Text(raw.rstrip(), style="hook"))
-                    self._live.update(self._make_renderable())
+                    progress.on_output_line(raw.rstrip())
 
             if proc.returncode != 0:
                 logger.error("hook %r exited with code %d", hook_name, proc.returncode)
                 raise HookExecutionError(f"Hook {hook_name!r} exited with code {proc.returncode}")
 
             logger.debug("hook %r completed successfully", hook_name)
-            self._current_type_progress.advance(task_id)
-            self._output_lines = []
-            self._live.update(self._make_renderable())
+            progress.on_hook_done()
 
-        self._completed_types.append((type_label, hook_names))
-        self._current_type_label = None
-        self._current_type_progress = None
-        self._live.update(self._make_renderable())
+        progress.on_section_done(type_label, hook_names)
 
     def run_on_setup_hooks(self) -> None:
         """

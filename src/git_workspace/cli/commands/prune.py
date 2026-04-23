@@ -3,7 +3,7 @@ from typing import Annotated
 import typer
 from rich.table import Table
 
-from git_workspace.ui import console, print_success, styled_branch
+from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
 
 app = typer.Typer()
@@ -63,7 +63,7 @@ def prune(
     ]
 
     if not candidates:
-        print_success("Nothing to prune")
+        console.success("Nothing to prune")
         return
 
     if dry_run:
@@ -80,4 +80,4 @@ def prune(
         for worktree in candidates:
             console.print(f"  Removing {styled_branch(worktree.branch)}")
             worktree.delete(force=True)
-        print_success("Done")
+        console.success("Done")

@@ -9,6 +9,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 - `GIT_WORKSPACE_BIN` and `GIT_WORKSPACE_ASSETS` environment variables injected into hook execution environments
+- `--plain` global flag and automatic TTY detection to fall back to plain text output in non-interactive terminals
 
 ### Changed
 - `git workspace prune` no longer runs `on_deactivate` or `on_remove` hooks — worktrees are force-removed directly

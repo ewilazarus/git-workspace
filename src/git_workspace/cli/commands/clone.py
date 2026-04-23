@@ -2,7 +2,7 @@ from typing import Annotated
 
 import typer
 
-from git_workspace.ui import console, print_success, styled_path
+from git_workspace.ui import console, styled_path
 from git_workspace.workspace import Workspace
 
 app = typer.Typer()
@@ -49,7 +49,7 @@ def clone(
 
     workspace = Workspace.clone(workspace_dir, url, config_url)
 
-    print_success(f"Workspace ready at {styled_path(workspace.dir)}")
+    console.success(f"Workspace ready at {styled_path(workspace.dir)}")
 
     if output:
         typer.echo(str(workspace.dir))
