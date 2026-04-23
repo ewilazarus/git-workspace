@@ -36,6 +36,7 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - [Assets: links and copies](#assets-links-and-copies)
 - [Pruning stale worktrees](#pruning-stale-worktrees)
 - [Detached mode](#detached-mode)
+- [Diagnosing a workspace](#diagnosing-a-workspace)
 - [Debugging](#debugging)
 - [Development](#development)
 
@@ -52,6 +53,7 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - 🧭 **CWD-aware** — detects when you're already inside a workspace or worktree
 - 🏗️ **Detached mode** — skip interactive hooks for headless, CI, or agent workflows
 - 🧹 **Stale worktree pruning** — clean up old worktrees by age with dry-run preview
+- 🩺 **Workspace diagnostics** — detect manifest errors, missing assets, broken hook references, and more
 - 🎨 **Rich terminal UI** — styled output, progress bars, and sortable worktree tables
 - 🗂️ **Config as code** — workspace configuration lives in its own git repo, versioned and shareable
 
@@ -145,6 +147,7 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 | `git workspace ls` | List all active worktrees with branch, path, and age |
 | `git workspace prune` | Remove stale worktrees by age (dry-run by default) |
 | `git workspace root` | Print workspace root path; exits 0 if inside a workspace, 1 otherwise |
+| `git workspace doctor` | Inspect the workspace for inconsistencies |
 | `git workspace edit` | Open the workspace config in your editor |
 
 `[branch]` and `--root` let you operate on a workspace from anywhere in the file system, without needing to be inside it.
@@ -231,8 +234,8 @@ Each hook entry can be a script in `.workspace/bin/` or an inline shell command.
 | `on_setup` | After a worktree is first created, or on `reset` |
 | `on_activate` | On every `up` (attached and detached) |
 | `on_attach` | On `up` in interactive mode only (skipped with `--detached`) |
-| `on_deactivate` | On `down`, `rm`, and `prune --apply` |
-| `on_remove` | On `rm` and `prune --apply`, after deactivation |
+| `on_deactivate` | On `down` and `rm` |
+| `on_remove` | On `rm`, after deactivation |
 
 **Example hook** (`.workspace/bin/install_deps`):
 
@@ -319,7 +322,7 @@ git workspace prune --older-than-days 14
 git workspace prune --older-than-days 14 --apply
 ```
 
-Deactivation and removal hooks run for each pruned worktree. Configure defaults in the manifest so you can just run `git workspace prune`:
+Pruning force-removes worktrees directly and does **not** run lifecycle hooks. Configure defaults in the manifest so you can just run `git workspace prune`:
 
 ```toml
 [prune]
@@ -342,6 +345,60 @@ This runs `on_setup` and `on_activate` but skips `on_attach`. Combine with `-o` 
 ```bash
 WORKTREE=$(git workspace up main --detached -o)
 ```
+
+---
+
+## Diagnosing a workspace
+
+`git workspace doctor` inspects the workspace configuration and reports anything that would cause commands to fail or behave unexpectedly.
+
+```bash
+git workspace doctor
+```
+
+If everything is in order:
+
+```
+✓  Workspace is healthy.
+```
+
+Otherwise it lists findings by severity:
+
+```
+✗  Link source 'dotfile' does not exist in assets/
+⚠  Script 'bin/old_script.sh' is not referenced by any hook
+⚠  base_branch 'develop' does not resolve to any local or remote ref
+```
+
+**Errors** (✗) indicate problems that will break `up`, `reset`, or hooks. **Warnings** (⚠) indicate configuration that is suspicious but may be intentional — for example, a hook entry that looks like a bin script name but has no matching file (it may be an ad-hoc inline command).
+
+The command exits 1 if any errors are found, 0 if the workspace is clean or has warnings only.
+
+### What it checks
+
+**Errors:**
+
+| Check | Description |
+|---|---|
+| Manifest not readable / invalid TOML | The manifest file cannot be opened or parsed |
+| Unsupported manifest version | `version` is higher than this tool supports |
+| Missing asset source | A `[[link]]` or `[[copy]]` source file does not exist in `assets/` |
+| Clashing asset targets | Two entries share the same `target` path |
+| Escaping asset target | A `target` path traverses outside the worktree root (e.g. `../../`) |
+| Variable name collision | Two `[vars]` keys normalize to the same `GIT_WORKSPACE_VAR_*` name |
+
+**Warnings:**
+
+| Check | Description |
+|---|---|
+| Missing bin script | A whitespace-free hook entry has no matching file in `bin/` |
+| Non-executable bin script | A matching `bin/` file exists but is not executable |
+| Empty hook entry | A hook list contains an empty or whitespace-only string |
+| Duplicate hook entry | The same entry appears more than once in the same hook event |
+| Orphaned bin script | A file in `bin/` is not referenced by any hook |
+| Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` |
+| Unknown base branch | `base_branch` does not resolve to any local or remote ref |
+| Stale worktree | A git-registered worktree's directory no longer exists on disk |
 
 ---
 
@@ -389,6 +446,7 @@ uv run ty check src/
 src/git_workspace/
 ├── cli/commands/   ← one file per command
 ├── assets.py       ← symlink and copy management
+├── doctor.py       ← workspace diagnostic checks
 ├── errors.py       ← exception hierarchy
 ├── git.py          ← subprocess wrappers for git
 ├── hooks.py        ← lifecycle hook runner
