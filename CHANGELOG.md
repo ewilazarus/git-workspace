@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- PyPI publish workflow now triggers on PEP 440 pre-release tags (`a`, `b`, `rc`)
 - `GIT_WORKSPACE_BIN` and `GIT_WORKSPACE_ASSETS` environment variables injected into hook execution environments
 - `--plain` global flag and automatic TTY detection to fall back to plain text output in non-interactive terminals
 
