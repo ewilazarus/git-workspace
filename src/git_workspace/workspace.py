@@ -26,12 +26,12 @@ class WorkspacePaths:
     """
 
     def __init__(self, root: Path) -> None:
-        self.root = root
+        self._root = root
 
     # <ROOT>/.workspace
     @property
     def config(self) -> Path:
-        return self.root / ".workspace"
+        return self._root / ".workspace"
 
     # <ROOT>/.workspace/assets
     @property
@@ -51,7 +51,7 @@ class WorkspacePaths:
     # <ROOT>/.git
     @property
     def git(self) -> Path:
-        return self.root / ".git"
+        return self._root / ".git"
 
     # <ROOT>/.git/info/exclude
     @property
@@ -65,7 +65,7 @@ class WorkspacePaths:
         :param branch: The branch name; may contain slashes for namespaced branches.
         :returns: ``<ROOT>/<branch>``
         """
-        return self.root / branch
+        return self._root / branch
 
 
 class WorkspaceValidator:

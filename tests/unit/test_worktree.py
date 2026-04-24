@@ -16,7 +16,6 @@ WORKTREE_DIR = Path("/workspace/feat/GWS-001")
 def workspace(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
     mock.dir = Path("/workspace")
-    mock.paths.root = Path("/workspace")
     mock.manifest.base_branch = BASE_BRANCH
     return mock
 
@@ -207,7 +206,7 @@ class TestCreateNew:
 
         Worktree._create_new(workspace, BRANCH, BASE_BRANCH)
 
-        mock_fetch.assert_called_once_with(cwd=workspace.paths.root)
+        mock_fetch.assert_called_once_with(cwd=workspace.dir)
 
     def test_uses_origin_base_when_remote_branch_exists(
         self, mocker: MockerFixture, workspace: MagicMock
@@ -222,7 +221,7 @@ class TestCreateNew:
             workspace.paths.worktree(BRANCH),
             BRANCH,
             f"origin/{BASE_BRANCH}",
-            cwd=workspace.paths.root,
+            cwd=workspace.dir,
         )
 
     def test_falls_back_to_local_base_when_remote_branch_not_found(
@@ -238,7 +237,7 @@ class TestCreateNew:
             workspace.paths.worktree(BRANCH),
             BRANCH,
             BASE_BRANCH,
-            cwd=workspace.paths.root,
+            cwd=workspace.dir,
         )
 
     def test_uses_manifest_base_branch_when_none_provided(
@@ -255,7 +254,7 @@ class TestCreateNew:
             workspace.paths.worktree(BRANCH),
             BRANCH,
             f"origin/{BASE_BRANCH}",
-            cwd=workspace.paths.root,
+            cwd=workspace.dir,
         )
 
     def test_proceeds_when_fetch_fails(self, mocker: MockerFixture, workspace: MagicMock) -> None:

@@ -27,6 +27,7 @@ def edit(
     The editor is resolved using standard environment variables (e.g. VISUAL or EDITOR). The command does not modify any files—it only launches the editor.
     """
     workspace = Workspace.resolve(workspace_dir)
+
     click.edit(
         filename=str(workspace.paths.config),
     )

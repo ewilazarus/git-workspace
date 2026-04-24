@@ -77,13 +77,13 @@ class Worktree:
         workspace: Workspace,
         branch: str,
     ) -> Worktree | None:
-        if not git.local_branch_exists(branch, cwd=workspace.paths.root):
+        if not git.local_branch_exists(branch, cwd=workspace.dir):
             logger.debug("local branch %r not found, skipping", branch)
             return None
 
         logger.info("creating worktree from local branch %r", branch)
         dir = workspace.paths.worktree(branch)
-        git.create_worktree_from_local_branch(dir, branch, cwd=workspace.paths.root)
+        git.create_worktree_from_local_branch(dir, branch, cwd=workspace.dir)
 
         return Worktree(
             workspace=workspace,
@@ -99,12 +99,12 @@ class Worktree:
         branch: str,
     ) -> Worktree | None:
         try:
-            git.fetch_origin(cwd=workspace.paths.root)
+            git.fetch_origin(cwd=workspace.dir)
         except GitFetchError:
             logger.debug("fetch failed, skipping remote branch lookup for %r", branch)
             return None
 
-        if not git.remote_branch_exists(branch, cwd=workspace.paths.root):
+        if not git.remote_branch_exists(branch, cwd=workspace.dir):
             logger.debug("remote branch %r not found, skipping", branch)
             return None
 
@@ -113,7 +113,7 @@ class Worktree:
         git.create_worktree_from_remote_branch(
             dir,
             branch,
-            cwd=workspace.paths.root,
+            cwd=workspace.dir,
         )
 
         return Worktree(
@@ -139,7 +139,7 @@ class Worktree:
         )
 
         try:
-            git.fetch_origin(cwd=workspace.paths.root)
+            git.fetch_origin(cwd=workspace.dir)
         except GitFetchError:
             pass  # offline – proceed with whatever local refs exist
 
@@ -147,7 +147,7 @@ class Worktree:
         # not a local ref that may be stale or locked by an active worktree.
         base_ref = (
             f"origin/{resolved_base_branch}"
-            if git.remote_branch_exists(resolved_base_branch, cwd=workspace.paths.root)
+            if git.remote_branch_exists(resolved_base_branch, cwd=workspace.dir)
             else resolved_base_branch
         )
 
@@ -156,7 +156,7 @@ class Worktree:
             dir,
             branch,
             base_ref,
-            cwd=workspace.paths.root,
+            cwd=workspace.dir,
         )
 
         return Worktree(

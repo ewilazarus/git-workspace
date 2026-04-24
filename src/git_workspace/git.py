@@ -132,7 +132,7 @@ def local_branch_exists(branch: str, cwd: Path) -> bool:
     Returns whether a local branch exists
 
     :param branch: The branch name to check
-    :param cwd: The git repository directory. If None, uses the current directory.
+    :param cwd: The git repository directory.
     :returns: True if the branch exists locally, False otherwise
     """
     cmd = ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"]
@@ -147,7 +147,7 @@ def remote_branch_exists(branch: str, cwd: Path) -> bool:
     Returns whether a branch exists on origin
 
     :param branch: The branch name to check
-    :param cwd: The git repository directory. If None, uses the current directory.
+    :param cwd: The git repository directory.
     :returns: True if the branch exists on origin, False otherwise
     """
     cmd = ["git", "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}"]
@@ -164,8 +164,7 @@ def skip_worktree(path: Path) -> None:
     Runs as a best-effort operation; failures are silently ignored since the file
     may not be tracked.
 
-    :param path: The file path relative to the worktree root
-    :param cwd: The worktree root directory
+    :param path: The file path to mark
     """
     logger.debug("marking %s as skip-worktree", path)
     subprocess.run(
@@ -179,9 +178,9 @@ def create_worktree_from_local_branch(worktree_dir: Path, branch: str, cwd: Path
     """
     Creates a worktree for an existing local branch
 
-    :param path: The path at which to create the worktree
+    :param worktree_dir: The path at which to create the worktree
     :param branch: The existing local branch to check out
-    :param cwd: The git repository directory. If None, uses the current directory.
+    :param cwd: The git repository directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     logger.debug("creating worktree for local branch %r at %s", branch, worktree_dir)
@@ -200,9 +199,9 @@ def create_worktree_from_remote_branch(worktree_dir: Path, branch: str, cwd: Pat
     """
     Creates a worktree with a new local branch tracking origin/<branch>
 
-    :param path: The path at which to create the worktree
+    :param worktree_dir: The path at which to create the worktree
     :param branch: The remote branch name to track
-    :param cwd: The git repository directory. If None, uses the current directory.
+    :param cwd: The git repository directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     logger.debug("creating worktree tracking remote branch %r at %s", branch, worktree_dir)
@@ -238,10 +237,10 @@ def create_worktree_new(
     If the repository has no commits yet (empty repo), an orphan branch is
     created instead, since no valid base ref exists.
 
-    :param path: The path at which to create the worktree
+    :param worktree_dir: The path at which to create the worktree
     :param branch: The new branch name to create
-    :param base: The base branch to create from
-    :param cwd: The git repository directory. If None, uses the current directory.
+    :param base_branch: The base branch to create from
+    :param cwd: The git repository directory.
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     logger.debug(

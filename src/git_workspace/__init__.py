@@ -6,10 +6,12 @@ from git_workspace import cli
 from git_workspace.errors import GitWorkspaceError
 from git_workspace.ui import console
 
-_level_name = os.environ.get("GIT_WORKSPACE_LOG_LEVEL", "").upper()
-_level = getattr(logging, _level_name, logging.CRITICAL)
+LOG_LEVEL = getattr(
+    logging, os.environ.get("GIT_WORKSPACE_LOG_LEVEL", "").upper(), logging.CRITICAL
+)
+
 logging.basicConfig(
-    level=_level,
+    level=LOG_LEVEL,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     stream=sys.stderr,
 )

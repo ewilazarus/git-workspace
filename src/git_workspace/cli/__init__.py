@@ -1,59 +1,34 @@
-from importlib.metadata import version
-from typing import Annotated
-
 import typer
 
-from git_workspace.cli.commands.clone import app as clone_command
-from git_workspace.cli.commands.doctor import app as doctor_command
-from git_workspace.cli.commands.down import app as down_command
-from git_workspace.cli.commands.edit import app as edit_command
-from git_workspace.cli.commands.exec import app as exec_command
-from git_workspace.cli.commands.init import app as init_command
-from git_workspace.cli.commands.list import app as list_command
-from git_workspace.cli.commands.prune import app as prune_command
-from git_workspace.cli.commands.remove import app as remove_command
-from git_workspace.cli.commands.reset import app as reset_command
-from git_workspace.cli.commands.root import app as root_command
-from git_workspace.cli.commands.up import app as up_command
-from git_workspace.ui import console
+from git_workspace.cli.callbacks import callback
+from git_workspace.cli.commands import (
+    clone_command,
+    doctor_command,
+    down_command,
+    edit_command,
+    exec_command,
+    init_command,
+    list_command,
+    prune_command,
+    remove_command,
+    reset_command,
+    root_command,
+    up_command,
+)
 
-HELP = """
-Manage isolated git worktrees for a repository.
+app = typer.Typer(
+    no_args_is_help=True,
+    callback=callback,
+    help="""
+    Manage isolated git worktrees for a repository.
 
-A workspace consists of a shared bare repository and a set of per-branch worktrees, each with its own local environment and configuration.
+    A workspace consists of a shared bare repository and a set of per-branch worktrees, each with its own local environment and configuration.
 
-The primary command is `up`, which spawns a git worktree, setting it up first if needed.
+    The primary command is `up`, which spawns a git worktree, setting it up first if needed.
 
-⧉  https://github.com/ewilazarus/git-workspace
-"""
-
-app = typer.Typer(help=HELP, no_args_is_help=True)
-
-
-def _version_callback(value: bool) -> None:
-    if value:
-        typer.echo(version("git-workspace-cli"))
-        raise typer.Exit()
-
-
-@app.callback()
-def _callback(
-    plain: Annotated[
-        bool,
-        typer.Option("--plain", help="Disable Rich output and print plain text instead"),
-    ] = False,
-    version: Annotated[
-        bool,
-        typer.Option(
-            "--version",
-            callback=_version_callback,
-            is_eager=True,
-            help="Show the version and exit",
-        ),
-    ] = False,
-) -> None:
-    console.configure(plain)
-
+    ⧉  https://github.com/ewilazarus/git-workspace
+    """,
+)
 
 app.add_typer(clone_command)
 app.add_typer(doctor_command)

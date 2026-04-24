@@ -12,12 +12,6 @@ def workspace_paths() -> WorkspacePaths:
     return WorkspacePaths(ROOT)
 
 
-def test_root_path_is_maintained(workspace_paths) -> None:
-    expected = ROOT
-    actual = workspace_paths.root
-    assert actual == expected
-
-
 def test_composes_correct_config_path(workspace_paths: WorkspacePaths) -> None:
     expected = ROOT / ".workspace"
     actual = workspace_paths.config

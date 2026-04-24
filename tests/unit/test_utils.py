@@ -5,7 +5,27 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.utils import directory_birthtime
+from git_workspace.utils import directory_birthtime, normalize_variable_name
+
+
+class TestNormalizeVariableName:
+    def test_converts_to_uppercase(self) -> None:
+        assert normalize_variable_name("hotfix") == "HOTFIX"
+
+    def test_replaces_slashes_with_underscores(self) -> None:
+        assert normalize_variable_name("fix/my-feature") == "FIX_MY_FEATURE"
+
+    def test_replaces_dots_with_underscores(self) -> None:
+        assert normalize_variable_name("release/1.2.3") == "RELEASE_1_2_3"
+
+    def test_preserves_digits(self) -> None:
+        assert normalize_variable_name("branch42") == "BRANCH42"
+
+    def test_already_normalized_is_unchanged(self) -> None:
+        assert normalize_variable_name("FIX_MY_FEATURE") == "FIX_MY_FEATURE"
+
+    def test_mixed_separators(self) -> None:
+        assert normalize_variable_name("feat/some-thing.else") == "FEAT_SOME_THING_ELSE"
 
 
 @pytest.fixture
