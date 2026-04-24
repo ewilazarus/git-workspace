@@ -16,17 +16,19 @@ from git_workspace.cli.commands import (
     up_command,
 )
 
-HELP = """
-Manage isolated git worktrees for a repository.
+app = typer.Typer(
+    no_args_is_help=True,
+    callback=callback,
+    help="""
+    Manage isolated git worktrees for a repository.
 
-A workspace consists of a shared bare repository and a set of per-branch worktrees, each with its own local environment and configuration.
+    A workspace consists of a shared bare repository and a set of per-branch worktrees, each with its own local environment and configuration.
 
-The primary command is `up`, which spawns a git worktree, setting it up first if needed.
+    The primary command is `up`, which spawns a git worktree, setting it up first if needed.
 
-⧉  https://github.com/ewilazarus/git-workspace
-"""
-
-app = typer.Typer(help=HELP, no_args_is_help=True, callback=callback)
+    ⧉  https://github.com/ewilazarus/git-workspace
+    """,
+)
 
 app.add_typer(clone_command)
 app.add_typer(doctor_command)
