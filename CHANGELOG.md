@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `--plain` global flag and automatic TTY detection to fall back to plain text output in non-interactive terminals
 
 ### Changed
+- Worktree lifecycle logic extracted into a dedicated `operations` module; CLI commands now delegate to named operations instead of inlining asset and hook orchestration
 - `git workspace prune` no longer runs `on_deactivate` or `on_remove` hooks — worktrees are force-removed directly
 - Inline shell commands in hooks now run via the user's shell (`$SHELL`, defaulting to `sh`) instead of the system `sh`
 
