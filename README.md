@@ -457,6 +457,7 @@ Supported levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`. Logging is silent by defa
 git clone https://github.com/ewilazarus/git-workspace.git
 cd git-workspace
 uv sync
+uv run pre-commit install
 ```
 
 **Run the tests:**
@@ -485,10 +486,13 @@ src/git_workspace/
 ├── env.py          ← GIT_WORKSPACE_* environment variable construction
 ├── errors.py       ← exception hierarchy
 ├── git.py          ← subprocess wrappers for git
-├── hooks.py        ← lifecycle hook runner
+├── hooks.py        ← hook logic and execution
 ├── manifest.py     ← manifest parsing
-├── worktree.py     ← worktree model
-└── workspace.py    ← top-level workspace model
+├── operations.py   ← lifecycle orchestration
+├── ui.py           ← ui-related logic
+├── utils.py        ← general logic that doesn't fit elsewhere
+├── workspace.py    ← top-level workspace model
+└── worktree.py     ← worktree model
 ```
 
 ---
