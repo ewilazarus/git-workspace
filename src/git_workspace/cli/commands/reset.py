@@ -2,9 +2,8 @@ from typing import Annotated
 
 import typer
 
-from git_workspace.assets import Copier, IgnoreManager, Linker
+from git_workspace import operations
 from git_workspace.cli.parsers import parse_vars
-from git_workspace.hooks import HookRunner
 from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
 
@@ -49,15 +48,10 @@ def reset(
 
     console.print(f"Resetting {styled_branch(worktree.branch)}")
 
-    with IgnoreManager(workspace) as ignore:
-        Copier(workspace, worktree, ignore).apply()
-        Linker(workspace, worktree, ignore).apply()
-
-    with HookRunner(
+    operations.reset_worktree(
         workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-    ) as runner:
-        runner.run_on_setup_hooks()
+    )
 
     console.success("Done")

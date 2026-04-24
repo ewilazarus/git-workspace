@@ -2,8 +2,8 @@ from typing import Annotated
 
 import typer
 
+from git_workspace import operations
 from git_workspace.cli.parsers import parse_vars
-from git_workspace.hooks import HookRunner
 from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
 
@@ -47,11 +47,10 @@ def down(
 
     console.print(f"Deactivating {styled_branch(worktree.branch)}")
 
-    with HookRunner(
+    operations.deactivate_worktree(
         workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
-    ) as runner:
-        runner.run_on_deactivate_hooks()
+    )
 
     console.success("Done")

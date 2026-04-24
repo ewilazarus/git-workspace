@@ -24,6 +24,11 @@ def mock_subprocess_run(mocker: MockerFixture) -> MagicMock:
     return mock
 
 
+@pytest.fixture(autouse=True)
+def mock_activate_worktree(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.cli.commands.exec.operations.activate_worktree")
+
+
 @pytest.fixture
 def mock_ctx() -> MagicMock:
     ctx = MagicMock(spec=typer.Context)
@@ -97,7 +102,6 @@ class TestExec:
         mock_confirm = mocker.patch(
             "git_workspace.cli.commands.exec.typer.confirm", return_value=True
         )
-        mock_workspace_resolve.return_value.resolve_or_create_worktree.return_value.is_new = False
 
         exec_cmd(branch=BRANCH, ctx=mock_ctx)
 
@@ -127,12 +131,31 @@ class TestExec:
             "not found"
         )
         mocker.patch("git_workspace.cli.commands.exec.typer.confirm", return_value=True)
-        mock_workspace_resolve.return_value.resolve_or_create_worktree.return_value.is_new = False
 
         exec_cmd(branch=BRANCH, ctx=mock_ctx)
 
         mock_workspace_resolve.return_value.resolve_or_create_worktree.assert_called_once_with(
             BRANCH, None
+        )
+
+    def test_activates_worktree_detached_when_created(
+        self,
+        mocker: MockerFixture,
+        mock_workspace_resolve: MagicMock,
+        mock_activate_worktree: MagicMock,
+        mock_ctx: MagicMock,
+    ) -> None:
+        mock_workspace_resolve.return_value.resolve_worktree.side_effect = WorktreeResolutionError(
+            "not found"
+        )
+        mocker.patch("git_workspace.cli.commands.exec.typer.confirm", return_value=True)
+        worktree = mock_workspace_resolve.return_value.resolve_or_create_worktree.return_value
+        workspace = mock_workspace_resolve.return_value
+
+        exec_cmd(branch=BRANCH, ctx=mock_ctx)
+
+        mock_activate_worktree.assert_called_once_with(
+            workspace, worktree, runtime_vars={}, detached=True
         )
 
     def test_skips_prompt_when_force(
@@ -145,7 +168,6 @@ class TestExec:
             "not found"
         )
         mock_confirm = mocker.patch("git_workspace.cli.commands.exec.typer.confirm")
-        mock_workspace_resolve.return_value.resolve_or_create_worktree.return_value.is_new = False
 
         exec_cmd(branch=BRANCH, ctx=mock_ctx, force=True)
 

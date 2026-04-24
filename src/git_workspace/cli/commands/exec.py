@@ -3,10 +3,9 @@ from typing import Annotated
 
 import typer
 
-from git_workspace.assets import Copier, IgnoreManager, Linker
+from git_workspace import operations
 from git_workspace.env import build_env
 from git_workspace.errors import InvalidInputError, WorktreeResolutionError
-from git_workspace.hooks import HookRunner
 from git_workspace.workspace import Workspace
 
 app = typer.Typer()
@@ -68,16 +67,7 @@ def exec_cmd(
                 raise e
 
         worktree = workspace.resolve_or_create_worktree(branch, None)
-
-        if worktree.is_new:
-            with IgnoreManager(workspace) as ignore:
-                Copier(workspace, worktree, ignore).apply()
-                Linker(workspace, worktree, ignore).apply()
-
-        with HookRunner(workspace, worktree, runtime_vars={}) as hook_runner:
-            if worktree.is_new:
-                hook_runner.run_on_setup_hooks()
-            hook_runner.run_on_activate_hooks()
+        operations.activate_worktree(workspace, worktree, runtime_vars={}, detached=True)
 
     result = subprocess.run(command, cwd=worktree.dir, env=build_env(workspace, worktree))
     if result.returncode != 0:
