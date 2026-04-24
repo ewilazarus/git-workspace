@@ -16,6 +16,13 @@ if TYPE_CHECKING:
 
 @dataclass
 class Finding:
+    """
+    A diagnostic finding produced by a workspace health check.
+
+    :param level: Severity of the finding; either ``"error"`` or ``"warning"``.
+    :param message: Human-readable description of the issue.
+    """
+
     level: Literal["error", "warning"]
     message: str
 
@@ -32,46 +39,42 @@ def _iter_hook_entries(workspace: Workspace):
             yield event, entry
 
 
-def check_manifest_parseable(workspace: Workspace) -> list[Finding]:
+def _check_manifest_parseable(workspace: Workspace, findings: list[Finding]) -> None:
     try:
         tomllib.loads(workspace.paths.manifest.read_text())
-        return []
     except OSError as e:
-        return [Finding("error", f"Cannot read manifest: {e}")]
+        findings.append(Finding("error", f"Cannot read manifest: {e}"))
     except tomllib.TOMLDecodeError as e:
-        return [Finding("error", f"Manifest is not valid TOML: {e}")]
+        findings.append(Finding("error", f"Manifest is not valid TOML: {e}"))
 
 
-def check_manifest_version(manifest: Manifest) -> list[Finding]:
+def _check_manifest_version(manifest: Manifest, findings: list[Finding]) -> None:
     if manifest.version > Manifest.DEFAULT_VERSION:
-        return [
+        findings.append(
             Finding(
                 "error",
                 f"Manifest version {manifest.version} is not supported"
                 f" (max: {Manifest.DEFAULT_VERSION})",
             )
-        ]
-    return []
+        )
 
 
-def check_asset_sources_exist(workspace: Workspace) -> list[Finding]:
-    findings = []
+def _check_asset_sources_exist(workspace: Workspace, findings: list[Finding]) -> None:
     assets_dir = workspace.paths.assets
     for link in workspace.manifest.links:
         if not (assets_dir / link.source).exists():
             findings.append(
                 Finding("error", f"Link source '{link.source}' does not exist in assets/")
             )
+
     for copy in workspace.manifest.copies:
         if not (assets_dir / copy.source).exists():
             findings.append(
                 Finding("error", f"Copy source '{copy.source}' does not exist in assets/")
             )
-    return findings
 
 
-def check_asset_target_clashes(workspace: Workspace) -> list[Finding]:
-    findings = []
+def _check_asset_target_clashes(workspace: Workspace, findings: list[Finding]) -> None:
     seen: dict[str, str] = {}
     for link in workspace.manifest.links:
         if link.target in seen:
@@ -84,6 +87,7 @@ def check_asset_target_clashes(workspace: Workspace) -> list[Finding]:
             )
         else:
             seen[link.target] = "link"
+
     for copy in workspace.manifest.copies:
         if copy.target in seen:
             findings.append(
@@ -95,22 +99,18 @@ def check_asset_target_clashes(workspace: Workspace) -> list[Finding]:
             )
         else:
             seen[copy.target] = "copy"
-    return findings
 
 
-def check_asset_target_escapes(workspace: Workspace) -> list[Finding]:
-    findings = []
+def _check_asset_target_escapes(workspace: Workspace, findings: list[Finding]) -> None:
     for asset in [*workspace.manifest.links, *workspace.manifest.copies]:
         normalized = posixpath.normpath(asset.target)
         if normalized.startswith("../") or normalized == ".." or posixpath.isabs(normalized):
             findings.append(
                 Finding("error", f"Asset target '{asset.target}' escapes the worktree root")
             )
-    return findings
 
 
-def check_var_normalization_clashes(workspace: Workspace) -> list[Finding]:
-    findings = []
+def _check_var_normalization_clashes(workspace: Workspace, findings: list[Finding]) -> None:
     seen: dict[str, str] = {}
     for key in workspace.manifest.vars:
         normalized = re.sub(r"[^A-Z0-9]", "_", key.upper())
@@ -124,11 +124,9 @@ def check_var_normalization_clashes(workspace: Workspace) -> list[Finding]:
             )
         else:
             seen[normalized] = key
-    return findings
 
 
-def check_hook_bin_references(workspace: Workspace) -> list[Finding]:
-    findings = []
+def _check_hook_bin_references(workspace: Workspace, findings: list[Finding]) -> None:
     bin_dir = workspace.paths.bin
     for _, entry in _iter_hook_entries(workspace):
         if not entry.strip() or " " in entry or "\t" in entry:
@@ -146,19 +144,15 @@ def check_hook_bin_references(workspace: Workspace) -> list[Finding]:
             findings.append(
                 Finding("warning", f"Hook script 'bin/{entry}' exists but is not executable")
             )
-    return findings
 
 
-def check_hook_empty_entries(workspace: Workspace) -> list[Finding]:
-    findings = []
+def _check_hook_empty_entries(workspace: Workspace, findings: list[Finding]) -> None:
     for event, entry in _iter_hook_entries(workspace):
         if not entry.strip():
             findings.append(Finding("warning", f"Hook '{event}' contains an empty entry"))
-    return findings
 
 
-def check_hook_duplicates(workspace: Workspace) -> list[Finding]:
-    findings = []
+def _check_hook_duplicates(workspace: Workspace, findings: list[Finding]) -> None:
     hooks = workspace.manifest.hooks
     for event, entries in [
         ("on_setup", hooks.on_setup),
@@ -173,57 +167,54 @@ def check_hook_duplicates(workspace: Workspace) -> list[Finding]:
                     Finding("warning", f"Hook '{event}' has duplicate entry: '{entry}'")
                 )
             seen.add(entry)
-    return findings
 
 
-def check_orphaned_bin_scripts(workspace: Workspace) -> list[Finding]:
+def _check_orphaned_bin_scripts(workspace: Workspace, findings: list[Finding]) -> None:
     bin_dir = workspace.paths.bin
     if not bin_dir.is_dir():
-        return []
+        return
+
     referenced = {entry for _, entry in _iter_hook_entries(workspace)}
-    findings = []
     for script in sorted(bin_dir.iterdir()):
         if script.is_file() and script.name not in referenced:
             findings.append(
                 Finding("warning", f"Script 'bin/{script.name}' is not referenced by any hook")
             )
-    return findings
 
 
-def check_orphaned_assets(workspace: Workspace) -> list[Finding]:
+def _check_orphaned_assets(workspace: Workspace, findings: list[Finding]) -> None:
     assets_dir = workspace.paths.assets
     if not assets_dir.is_dir():
-        return []
+        return
+
     referenced = {a.source for a in [*workspace.manifest.links, *workspace.manifest.copies]}
-    findings = []
     for asset in sorted(assets_dir.iterdir()):
         if asset.is_file() and asset.name not in referenced:
             findings.append(
                 Finding("warning", f"Asset '{asset.name}' is not referenced by any link or copy")
             )
-    return findings
 
 
-def check_base_branch(workspace: Workspace) -> list[Finding]:
+def _check_base_branch(workspace: Workspace, findings: list[Finding]) -> None:
     base = workspace.manifest.base_branch
-    if git.local_branch_exists(base, workspace.dir) or git.remote_branch_exists(
-        base, workspace.dir
+    if not (
+        git.local_branch_exists(base, workspace.dir)
+        or git.remote_branch_exists(base, workspace.dir)
     ):
-        return []
-    return [
-        Finding(
-            "warning",
-            f"base_branch '{base}' does not resolve to any local or remote ref",
+        findings.append(
+            Finding(
+                "warning",
+                f"base_branch '{base}' does not resolve to any local or remote ref",
+            )
         )
-    ]
 
 
-def check_stale_worktrees(workspace: Workspace) -> list[Finding]:
+def _check_stale_worktrees(workspace: Workspace, findings: list[Finding]) -> None:
     try:
         raw_worktrees = git.list_worktrees(workspace.dir)
     except WorktreeListingError:
-        return []
-    findings = []
+        return
+
     for wt in raw_worktrees:
         wt_dir = Path(wt["directory"])
         if not wt_dir.exists():
@@ -234,25 +225,32 @@ def check_stale_worktrees(workspace: Workspace) -> list[Finding]:
                     f" but its directory '{wt_dir}' no longer exists",
                 )
             )
-    return findings
 
 
 def run_checks(workspace: Workspace) -> list[Finding]:
-    parse_findings = check_manifest_parseable(workspace)
-    if parse_findings:
-        return parse_findings
+    """
+    Run all workspace health checks and return the collected findings.
 
+    :param workspace: The workspace to inspect.
+    :returns: List of findings; empty if the workspace is healthy.
+    """
     findings: list[Finding] = []
-    findings.extend(check_manifest_version(workspace.manifest))
-    findings.extend(check_asset_sources_exist(workspace))
-    findings.extend(check_asset_target_clashes(workspace))
-    findings.extend(check_asset_target_escapes(workspace))
-    findings.extend(check_var_normalization_clashes(workspace))
-    findings.extend(check_hook_bin_references(workspace))
-    findings.extend(check_hook_empty_entries(workspace))
-    findings.extend(check_hook_duplicates(workspace))
-    findings.extend(check_orphaned_bin_scripts(workspace))
-    findings.extend(check_orphaned_assets(workspace))
-    findings.extend(check_base_branch(workspace))
-    findings.extend(check_stale_worktrees(workspace))
+
+    _check_manifest_parseable(workspace, findings)
+    if findings:
+        return findings
+
+    _check_manifest_version(workspace.manifest, findings)
+    _check_asset_sources_exist(workspace, findings)
+    _check_asset_target_clashes(workspace, findings)
+    _check_asset_target_escapes(workspace, findings)
+    _check_var_normalization_clashes(workspace, findings)
+    _check_hook_bin_references(workspace, findings)
+    _check_hook_empty_entries(workspace, findings)
+    _check_hook_duplicates(workspace, findings)
+    _check_orphaned_bin_scripts(workspace, findings)
+    _check_orphaned_assets(workspace, findings)
+    _check_base_branch(workspace, findings)
+    _check_stale_worktrees(workspace, findings)
+
     return findings

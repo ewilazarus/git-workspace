@@ -5,19 +5,19 @@ import pytest
 from pytest_mock import MockerFixture
 
 from git_workspace.doctor import (
-    check_asset_sources_exist,
-    check_asset_target_clashes,
-    check_asset_target_escapes,
-    check_base_branch,
-    check_hook_bin_references,
-    check_hook_duplicates,
-    check_hook_empty_entries,
-    check_manifest_parseable,
-    check_manifest_version,
-    check_orphaned_assets,
-    check_orphaned_bin_scripts,
-    check_stale_worktrees,
-    check_var_normalization_clashes,
+    _check_asset_sources_exist,
+    _check_asset_target_clashes,
+    _check_asset_target_escapes,
+    _check_base_branch,
+    _check_hook_bin_references,
+    _check_hook_duplicates,
+    _check_hook_empty_entries,
+    _check_manifest_parseable,
+    _check_manifest_version,
+    _check_orphaned_assets,
+    _check_orphaned_bin_scripts,
+    _check_stale_worktrees,
+    _check_var_normalization_clashes,
 )
 from git_workspace.manifest import Copy, Hooks, Link, Manifest
 
@@ -38,41 +38,48 @@ class TestCheckManifestParseable:
     def test_returns_no_findings_for_valid_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = 'version = 1\nbase_branch = "main"'
 
-        assert check_manifest_parseable(workspace) == []
+        findings = []
+        _check_manifest_parseable(workspace, findings)
+        assert findings == []
 
     def test_returns_error_on_os_error(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.side_effect = OSError("file not found")
 
-        result = check_manifest_parseable(workspace)
+        findings = []
+        _check_manifest_parseable(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
-        assert "Cannot read manifest" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert "Cannot read manifest" in findings[0].message
 
     def test_returns_error_on_invalid_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = "!!! not valid toml"
 
-        result = check_manifest_parseable(workspace)
+        findings = []
+        _check_manifest_parseable(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
-        assert "not valid TOML" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert "not valid TOML" in findings[0].message
 
 
 class TestCheckManifestVersion:
     def test_returns_no_findings_for_current_version(self, workspace: MagicMock) -> None:
         workspace.manifest.version = Manifest.DEFAULT_VERSION
 
-        assert check_manifest_version(workspace.manifest) == []
+        findings = []
+        _check_manifest_version(workspace.manifest, findings)
+        assert findings == []
 
     def test_returns_error_for_future_version(self, workspace: MagicMock) -> None:
         workspace.manifest.version = Manifest.DEFAULT_VERSION + 1
 
-        result = check_manifest_version(workspace.manifest)
+        findings = []
+        _check_manifest_version(workspace.manifest, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
-        assert str(Manifest.DEFAULT_VERSION + 1) in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert str(Manifest.DEFAULT_VERSION + 1) in findings[0].message
 
 
 class TestCheckAssetSourcesExist:
@@ -80,7 +87,9 @@ class TestCheckAssetSourcesExist:
         workspace.manifest.links = [Link(source="dotfile", target=".dotfile")]
         (workspace.paths.assets / "dotfile").exists.return_value = True
 
-        assert check_asset_sources_exist(workspace) == []
+        findings = []
+        _check_asset_sources_exist(workspace, findings)
+        assert findings == []
 
     def test_returns_error_for_missing_link_source(
         self, workspace: MagicMock, tmp_path: Path
@@ -90,11 +99,12 @@ class TestCheckAssetSourcesExist:
         workspace.manifest.links = [Link(source="missing", target=".missing")]
         workspace.manifest.copies = []
 
-        result = check_asset_sources_exist(workspace)
+        findings = []
+        _check_asset_sources_exist(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
-        assert "missing" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert "missing" in findings[0].message
 
     def test_returns_error_for_missing_copy_source(
         self, workspace: MagicMock, tmp_path: Path
@@ -104,11 +114,12 @@ class TestCheckAssetSourcesExist:
         workspace.manifest.links = []
         workspace.manifest.copies = [Copy(source="config", target="config.yaml")]
 
-        result = check_asset_sources_exist(workspace)
+        findings = []
+        _check_asset_sources_exist(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
-        assert "config" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert "config" in findings[0].message
 
 
 class TestCheckAssetTargetClashes:
@@ -116,7 +127,9 @@ class TestCheckAssetTargetClashes:
         workspace.manifest.links = [Link(source="a", target=".a")]
         workspace.manifest.copies = [Copy(source="b", target=".b")]
 
-        assert check_asset_target_clashes(workspace) == []
+        findings = []
+        _check_asset_target_clashes(workspace, findings)
+        assert findings == []
 
     def test_returns_error_for_duplicate_link_targets(self, workspace: MagicMock) -> None:
         workspace.manifest.links = [
@@ -125,21 +138,23 @@ class TestCheckAssetTargetClashes:
         ]
         workspace.manifest.copies = []
 
-        result = check_asset_target_clashes(workspace)
+        findings = []
+        _check_asset_target_clashes(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
-        assert ".config" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert ".config" in findings[0].message
 
     def test_returns_error_for_link_copy_target_clash(self, workspace: MagicMock) -> None:
         workspace.manifest.links = [Link(source="a", target=".config")]
         workspace.manifest.copies = [Copy(source="b", target=".config")]
 
-        result = check_asset_target_clashes(workspace)
+        findings = []
+        _check_asset_target_clashes(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
-        assert ".config" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert ".config" in findings[0].message
 
 
 class TestCheckAssetTargetEscapes:
@@ -147,51 +162,59 @@ class TestCheckAssetTargetEscapes:
         workspace.manifest.links = [Link(source="a", target="subdir/config.json")]
         workspace.manifest.copies = []
 
-        assert check_asset_target_escapes(workspace) == []
+        findings = []
+        _check_asset_target_escapes(workspace, findings)
+        assert findings == []
 
     def test_returns_error_for_dotdot_escape(self, workspace: MagicMock) -> None:
         workspace.manifest.links = [Link(source="a", target="../../etc/passwd")]
         workspace.manifest.copies = []
 
-        result = check_asset_target_escapes(workspace)
+        findings = []
+        _check_asset_target_escapes(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
+        assert len(findings) == 1
+        assert findings[0].level == "error"
 
     def test_returns_error_for_absolute_target(self, workspace: MagicMock) -> None:
         workspace.manifest.links = []
         workspace.manifest.copies = [Copy(source="a", target="/etc/passwd")]
 
-        result = check_asset_target_escapes(workspace)
+        findings = []
+        _check_asset_target_escapes(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
+        assert len(findings) == 1
+        assert findings[0].level == "error"
 
     def test_single_dotdot_is_an_escape(self, workspace: MagicMock) -> None:
         workspace.manifest.links = [Link(source="a", target="..")]
         workspace.manifest.copies = []
 
-        result = check_asset_target_escapes(workspace)
+        findings = []
+        _check_asset_target_escapes(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
+        assert len(findings) == 1
+        assert findings[0].level == "error"
 
 
 class TestCheckVarNormalizationClashes:
     def test_returns_no_findings_for_unique_keys(self, workspace: MagicMock) -> None:
         workspace.manifest.vars = {"foo": "1", "bar": "2"}
 
-        assert check_var_normalization_clashes(workspace) == []
+        findings = []
+        _check_var_normalization_clashes(workspace, findings)
+        assert findings == []
 
     def test_returns_error_for_clashing_keys(self, workspace: MagicMock) -> None:
         workspace.manifest.vars = {"my-key": "1", "my_key": "2"}
 
-        result = check_var_normalization_clashes(workspace)
+        findings = []
+        _check_var_normalization_clashes(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "error"
-        assert "my-key" in result[0].message
-        assert "my_key" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert "my-key" in findings[0].message
+        assert "my_key" in findings[0].message
 
 
 class TestCheckHookBinReferences:
@@ -202,18 +225,21 @@ class TestCheckHookBinReferences:
         workspace.paths.bin.mkdir()
         workspace.manifest.hooks = Hooks(on_setup=["docker build . -t myapp"])
 
-        assert check_hook_bin_references(workspace) == []
+        findings = []
+        _check_hook_bin_references(workspace, findings)
+        assert findings == []
 
     def test_warns_for_missing_bin_script(self, workspace: MagicMock, tmp_path: Path) -> None:
         workspace.paths.bin = tmp_path / "bin"
         workspace.paths.bin.mkdir()
         workspace.manifest.hooks = Hooks(on_setup=["install_deps"])
 
-        result = check_hook_bin_references(workspace)
+        findings = []
+        _check_hook_bin_references(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "install_deps" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "install_deps" in findings[0].message
 
     def test_warns_for_non_executable_bin_script(
         self, workspace: MagicMock, tmp_path: Path
@@ -227,11 +253,12 @@ class TestCheckHookBinReferences:
         workspace.paths.bin = bin_dir
         workspace.manifest.hooks = Hooks(on_setup=["setup.sh"])
 
-        result = check_hook_bin_references(workspace)
+        findings = []
+        _check_hook_bin_references(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "not executable" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "not executable" in findings[0].message
 
     def test_no_finding_for_executable_bin_script(
         self, workspace: MagicMock, tmp_path: Path
@@ -245,61 +272,74 @@ class TestCheckHookBinReferences:
         workspace.paths.bin = bin_dir
         workspace.manifest.hooks = Hooks(on_setup=["setup.sh"])
 
-        assert check_hook_bin_references(workspace) == []
+        findings = []
+        _check_hook_bin_references(workspace, findings)
+        assert findings == []
 
     def test_empty_entry_is_skipped(self, workspace: MagicMock, tmp_path: Path) -> None:
         workspace.paths.bin = tmp_path / "bin"
         workspace.paths.bin.mkdir()
         workspace.manifest.hooks = Hooks(on_setup=[""])
 
-        assert check_hook_bin_references(workspace) == []
+        findings = []
+        _check_hook_bin_references(workspace, findings)
+        assert findings == []
 
 
 class TestCheckHookEmptyEntries:
     def test_returns_no_findings_for_non_empty_hooks(self, workspace: MagicMock) -> None:
         workspace.manifest.hooks = Hooks(on_setup=["install"])
 
-        assert check_hook_empty_entries(workspace) == []
+        findings = []
+        _check_hook_empty_entries(workspace, findings)
+        assert findings == []
 
     def test_returns_warning_for_empty_entry(self, workspace: MagicMock) -> None:
         workspace.manifest.hooks = Hooks(on_setup=[""])
 
-        result = check_hook_empty_entries(workspace)
+        findings = []
+        _check_hook_empty_entries(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "on_setup" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "on_setup" in findings[0].message
 
     def test_returns_warning_for_whitespace_only_entry(self, workspace: MagicMock) -> None:
         workspace.manifest.hooks = Hooks(on_detach=["   "])
 
-        result = check_hook_empty_entries(workspace)
+        findings = []
+        _check_hook_empty_entries(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "on_detach" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "on_detach" in findings[0].message
 
 
 class TestCheckHookDuplicates:
     def test_returns_no_findings_for_unique_entries(self, workspace: MagicMock) -> None:
         workspace.manifest.hooks = Hooks(on_setup=["a", "b"])
 
-        assert check_hook_duplicates(workspace) == []
+        findings = []
+        _check_hook_duplicates(workspace, findings)
+        assert findings == []
 
     def test_returns_warning_for_duplicate_in_same_event(self, workspace: MagicMock) -> None:
         workspace.manifest.hooks = Hooks(on_setup=["install", "install"])
 
-        result = check_hook_duplicates(workspace)
+        findings = []
+        _check_hook_duplicates(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "on_setup" in result[0].message
-        assert "install" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "on_setup" in findings[0].message
+        assert "install" in findings[0].message
 
     def test_same_entry_in_different_events_is_fine(self, workspace: MagicMock) -> None:
         workspace.manifest.hooks = Hooks(on_setup=["install"], on_attach=["install"])
 
-        assert check_hook_duplicates(workspace) == []
+        findings = []
+        _check_hook_duplicates(workspace, findings)
+        assert findings == []
 
 
 class TestCheckOrphanedBinScripts:
@@ -308,7 +348,9 @@ class TestCheckOrphanedBinScripts:
     ) -> None:
         workspace.paths.bin = tmp_path / "bin"
 
-        assert check_orphaned_bin_scripts(workspace) == []
+        findings = []
+        _check_orphaned_bin_scripts(workspace, findings)
+        assert findings == []
 
     def test_returns_no_findings_when_all_scripts_referenced(
         self, workspace: MagicMock, tmp_path: Path
@@ -319,7 +361,9 @@ class TestCheckOrphanedBinScripts:
         workspace.paths.bin = bin_dir
         workspace.manifest.hooks = Hooks(on_setup=["setup.sh"])
 
-        assert check_orphaned_bin_scripts(workspace) == []
+        findings = []
+        _check_orphaned_bin_scripts(workspace, findings)
+        assert findings == []
 
     def test_returns_warning_for_unreferenced_script(
         self, workspace: MagicMock, tmp_path: Path
@@ -330,11 +374,12 @@ class TestCheckOrphanedBinScripts:
         workspace.paths.bin = bin_dir
         workspace.manifest.hooks = Hooks()
 
-        result = check_orphaned_bin_scripts(workspace)
+        findings = []
+        _check_orphaned_bin_scripts(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "unused.sh" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "unused.sh" in findings[0].message
 
 
 class TestCheckOrphanedAssets:
@@ -343,7 +388,9 @@ class TestCheckOrphanedAssets:
     ) -> None:
         workspace.paths.assets = tmp_path / "assets"
 
-        assert check_orphaned_assets(workspace) == []
+        findings = []
+        _check_orphaned_assets(workspace, findings)
+        assert findings == []
 
     def test_returns_no_findings_when_all_assets_referenced(
         self, workspace: MagicMock, tmp_path: Path
@@ -355,7 +402,9 @@ class TestCheckOrphanedAssets:
         workspace.manifest.links = [Link(source="dotfile", target=".dotfile")]
         workspace.manifest.copies = []
 
-        assert check_orphaned_assets(workspace) == []
+        findings = []
+        _check_orphaned_assets(workspace, findings)
+        assert findings == []
 
     def test_returns_warning_for_unreferenced_asset(
         self, workspace: MagicMock, tmp_path: Path
@@ -367,11 +416,12 @@ class TestCheckOrphanedAssets:
         workspace.manifest.links = []
         workspace.manifest.copies = []
 
-        result = check_orphaned_assets(workspace)
+        findings = []
+        _check_orphaned_assets(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "orphan.txt" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "orphan.txt" in findings[0].message
 
 
 class TestCheckBaseBranch:
@@ -382,7 +432,9 @@ class TestCheckBaseBranch:
         mocker.patch("git_workspace.doctor.git.remote_branch_exists", return_value=False)
         workspace.manifest.base_branch = "main"
 
-        assert check_base_branch(workspace) == []
+        findings = []
+        _check_base_branch(workspace, findings)
+        assert findings == []
 
     def test_returns_no_findings_when_remote_branch_exists(
         self, workspace: MagicMock, mocker: MockerFixture
@@ -391,7 +443,9 @@ class TestCheckBaseBranch:
         mocker.patch("git_workspace.doctor.git.remote_branch_exists", return_value=True)
         workspace.manifest.base_branch = "main"
 
-        assert check_base_branch(workspace) == []
+        findings = []
+        _check_base_branch(workspace, findings)
+        assert findings == []
 
     def test_returns_warning_when_neither_exists(
         self, workspace: MagicMock, mocker: MockerFixture
@@ -400,11 +454,12 @@ class TestCheckBaseBranch:
         mocker.patch("git_workspace.doctor.git.remote_branch_exists", return_value=False)
         workspace.manifest.base_branch = "develop"
 
-        result = check_base_branch(workspace)
+        findings = []
+        _check_base_branch(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "develop" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "develop" in findings[0].message
 
 
 class TestCheckStaleWorktrees:
@@ -418,7 +473,9 @@ class TestCheckStaleWorktrees:
             return_value=[{"directory": str(wt_dir), "branch": "main", "head": "abc123"}],
         )
 
-        assert check_stale_worktrees(workspace) == []
+        findings = []
+        _check_stale_worktrees(workspace, findings)
+        assert findings == []
 
     def test_returns_warning_for_missing_dir(
         self, workspace: MagicMock, mocker: MockerFixture, tmp_path: Path
@@ -429,11 +486,12 @@ class TestCheckStaleWorktrees:
             return_value=[{"directory": str(wt_dir), "branch": "feature/gone", "head": "abc123"}],
         )
 
-        result = check_stale_worktrees(workspace)
+        findings = []
+        _check_stale_worktrees(workspace, findings)
 
-        assert len(result) == 1
-        assert result[0].level == "warning"
-        assert "feature/gone" in result[0].message
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "feature/gone" in findings[0].message
 
     def test_returns_no_findings_on_listing_error(
         self, workspace: MagicMock, mocker: MockerFixture
@@ -445,4 +503,6 @@ class TestCheckStaleWorktrees:
             side_effect=WorktreeListingError("git error"),
         )
 
-        assert check_stale_worktrees(workspace) == []
+        findings = []
+        _check_stale_worktrees(workspace, findings)
+        assert findings == []

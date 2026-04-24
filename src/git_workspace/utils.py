@@ -6,6 +6,14 @@ from git_workspace.errors import InvalidInputError
 
 
 def directory_birthtime(dir: Path) -> datetime:
+    """
+    Return the creation time of a directory.
+
+    Falls back to ctime on platforms that do not expose birthtime (e.g. Linux ext4).
+
+    :param dir: The directory whose creation time should be returned.
+    :returns: The creation timestamp as a ``datetime``.
+    """
     stat = dir.stat()
     ts = getattr(stat, "st_birthtime", None) or stat.st_ctime
     return datetime.fromtimestamp(ts)

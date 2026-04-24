@@ -27,6 +27,10 @@ _console = Console(stderr=True, theme=_theme, highlight=False)
 
 
 class HookProgress(Protocol):
+    """
+    Protocol for receiving progress callbacks during hook execution.
+    """
+
     def begin_section(self, type_label: str, hook_count: int) -> None: ...
     def on_hook_start(self, hook_name: str) -> None: ...
     def on_output_line(self, line: str) -> None: ...
@@ -35,10 +39,18 @@ class HookProgress(Protocol):
 
 
 class AssetProgress(Protocol):
+    """
+    Protocol for receiving callbacks as assets are applied to a worktree.
+    """
+
     def on_asset_applied(self, src: str, dst: str) -> None: ...
 
 
 class UI(Protocol):
+    """
+    Protocol defining the interface for all UI strategy implementations.
+    """
+
     def step(self, msg: str) -> None: ...
     def success(self, msg: str) -> None: ...
     def error(self, msg: str) -> None: ...
@@ -177,6 +189,10 @@ class _RichAssetProgress:
 
 
 class RichUI:
+    """
+    UI strategy implementation using Rich for animated terminal output.
+    """
+
     def step(self, msg: str) -> None:
         _console.print(f"  {msg}")
 
@@ -277,6 +293,10 @@ class _PlainAssetProgress:
 
 
 class PlainUI:
+    """
+    UI strategy implementation for non-interactive or plain-text terminals.
+    """
+
     def step(self, msg: str) -> None:
         _console.print(f"  {msg}")
 
@@ -364,12 +384,30 @@ console = _UIProxy()
 
 
 def styled_branch(name: str) -> str:
+    """
+    Wrap a branch name in the Rich branch style markup.
+
+    :param name: The branch name to style.
+    :returns: The name wrapped in Rich markup for the ``branch`` theme style.
+    """
     return f"[branch]{name}[/branch]"
 
 
 def styled_path(p: Path | str) -> str:
+    """
+    Wrap a path in the Rich path style markup.
+
+    :param p: The path to style.
+    :returns: The path wrapped in Rich markup for the ``path`` theme style.
+    """
     return f"[path]{p}[/path]"
 
 
 def styled_asset(name: str) -> str:
+    """
+    Wrap an asset name in the Rich name style markup.
+
+    :param name: The asset name to style.
+    :returns: The name wrapped in Rich markup for the ``name`` theme style.
+    """
     return f"[name]{name}[/name]"
