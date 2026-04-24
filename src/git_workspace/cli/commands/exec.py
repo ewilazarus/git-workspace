@@ -44,8 +44,7 @@ def exec_cmd(
     """
     Run an arbitrary command inside a worktree.
 
-    If the worktree for BRANCH does not exist, prompts to create it first
-    (equivalent to `up --detached`). Use --force to skip the prompt.
+    If the worktree for BRANCH does not exist, prompts to create it first (equivalent to `up --detached`). Use --force to skip the prompt.
     """
     command = ctx.args
     if not command:

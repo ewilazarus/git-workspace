@@ -39,8 +39,7 @@ def down(
     """
     Deactivate a workspace worktree.
 
-    Intended for use when leaving a workspace session cleanly, allowing
-    any session-specific state to be torn down.
+    Intended for use when leaving a workspace session cleanly, allowing any session-specific state to be torn down.
     """
     workspace = Workspace.resolve(workspace_dir)
     worktree = workspace.resolve_worktree(branch)
