@@ -24,8 +24,6 @@ def activate_worktree(
         if worktree.is_new:
             hook_runner.run_on_setup_hooks()
 
-        hook_runner.run_on_activate_hooks()
-
         if not detached:
             hook_runner.run_on_attach_hooks()
 
@@ -47,7 +45,7 @@ def deactivate_worktree(
     runtime_vars: dict[str, str],
 ) -> None:
     with HookRunner(workspace, worktree, runtime_vars=runtime_vars) as hook_runner:
-        hook_runner.run_on_deactivate_hooks()
+        hook_runner.run_on_detach_hooks()
 
 
 def remove_worktree(
@@ -58,7 +56,7 @@ def remove_worktree(
     force: bool,
 ) -> None:
     with HookRunner(workspace, worktree, runtime_vars=runtime_vars) as hook_runner:
-        hook_runner.run_on_deactivate_hooks()
-        hook_runner.run_on_remove_hooks()
+        hook_runner.run_on_detach_hooks()
+        hook_runner.run_on_teardown_hooks()
 
     worktree.delete(force)

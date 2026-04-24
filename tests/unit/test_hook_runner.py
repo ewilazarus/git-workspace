@@ -14,10 +14,9 @@ BIN_DIR = Path("/workspace/.workspace/bin")
 ASSETS_DIR = Path("/workspace/.workspace/assets")
 
 HOOKS_ON_SETUP = ["setup.sh"]
-HOOKS_ON_ACTIVATE = ["activate.sh"]
 HOOKS_ON_ATTACH = ["attach.sh"]
-HOOKS_ON_DEACTIVATE = ["deactivate.sh"]
-HOOKS_ON_REMOVE = ["remove.sh"]
+HOOKS_ON_DETACH = ["detach.sh"]
+HOOKS_ON_TEARDOWN = ["teardown.sh"]
 
 
 @pytest.fixture
@@ -28,10 +27,9 @@ def workspace(mocker: MockerFixture) -> MagicMock:
     mock.paths.assets = ASSETS_DIR
     mock.manifest.vars = {}
     mock.manifest.hooks.on_setup = HOOKS_ON_SETUP
-    mock.manifest.hooks.on_activate = HOOKS_ON_ACTIVATE
     mock.manifest.hooks.on_attach = HOOKS_ON_ATTACH
-    mock.manifest.hooks.on_deactivate = HOOKS_ON_DEACTIVATE
-    mock.manifest.hooks.on_remove = HOOKS_ON_REMOVE
+    mock.manifest.hooks.on_detach = HOOKS_ON_DETACH
+    mock.manifest.hooks.on_teardown = HOOKS_ON_TEARDOWN
     return mock
 
 
@@ -122,22 +120,6 @@ class TestRunOnSetupHooks:
         assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_SETUP"
 
 
-class TestRunOnActivateHooks:
-    def test_runs_hooks_from_on_activate_list(
-        self, hook_runner: HookRunner, mock_popen: MagicMock
-    ) -> None:
-        hook_runner.run_on_activate_hooks()
-
-        assert mock_popen.call_args.args[0] == str(BIN_DIR / "activate.sh")
-
-    def test_sets_correct_event_in_env(
-        self, hook_runner: HookRunner, mock_popen: MagicMock
-    ) -> None:
-        hook_runner.run_on_activate_hooks()
-
-        assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_ACTIVATE"
-
-
 class TestRunOnAttachHooks:
     def test_runs_hooks_from_on_attach_list(
         self, hook_runner: HookRunner, mock_popen: MagicMock
@@ -154,33 +136,33 @@ class TestRunOnAttachHooks:
         assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_ATTACH"
 
 
-class TestRunOnDeactivateHooks:
-    def test_runs_hooks_from_on_deactivate_list(
+class TestRunOnDetachHooks:
+    def test_runs_hooks_from_on_detach_list(
         self, hook_runner: HookRunner, mock_popen: MagicMock
     ) -> None:
-        hook_runner.run_on_deactivate_hooks()
+        hook_runner.run_on_detach_hooks()
 
-        assert mock_popen.call_args.args[0] == str(BIN_DIR / "deactivate.sh")
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "detach.sh")
 
     def test_sets_correct_event_in_env(
         self, hook_runner: HookRunner, mock_popen: MagicMock
     ) -> None:
-        hook_runner.run_on_deactivate_hooks()
+        hook_runner.run_on_detach_hooks()
 
-        assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_DEACTIVATE"
+        assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_DETACH"
 
 
-class TestRunOnRemoveHooks:
-    def test_runs_hooks_from_on_remove_list(
+class TestRunOnTeardownHooks:
+    def test_runs_hooks_from_on_teardown_list(
         self, hook_runner: HookRunner, mock_popen: MagicMock
     ) -> None:
-        hook_runner.run_on_remove_hooks()
+        hook_runner.run_on_teardown_hooks()
 
-        assert mock_popen.call_args.args[0] == str(BIN_DIR / "remove.sh")
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "teardown.sh")
 
     def test_sets_correct_event_in_env(
         self, hook_runner: HookRunner, mock_popen: MagicMock
     ) -> None:
-        hook_runner.run_on_remove_hooks()
+        hook_runner.run_on_teardown_hooks()
 
-        assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_REMOVE"
+        assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_TEARDOWN"

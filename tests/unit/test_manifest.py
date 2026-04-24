@@ -119,20 +119,18 @@ DEBUG = true
         workspace.paths.manifest.read_text.return_value = """
 [hooks]
 on_setup = ["setup.sh"]
-on_activate = ["activate.sh"]
 on_attach = ["attach.sh"]
-on_deactivate = ["deactivate.sh"]
-on_remove = ["remove.sh"]
+on_detach = ["detach.sh"]
+on_teardown = ["teardown.sh"]
 """
 
         result = Manifest.load(workspace)
 
         assert result.hooks == Hooks(
             on_setup=["setup.sh"],
-            on_activate=["activate.sh"],
             on_attach=["attach.sh"],
-            on_deactivate=["deactivate.sh"],
-            on_remove=["remove.sh"],
+            on_detach=["detach.sh"],
+            on_teardown=["teardown.sh"],
         )
 
     def test_returns_default_hooks_when_absent_from_toml(self, workspace: MagicMock) -> None:

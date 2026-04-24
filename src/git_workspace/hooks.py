@@ -124,18 +124,6 @@ class HookRunner:
         """
         self._run_hooks("ON_SETUP", self._workspace.manifest.hooks.on_setup)
 
-    def run_on_activate_hooks(self) -> None:
-        """
-        Runs all ``on_activate`` hooks.
-
-        Called on every ``up`` invocation, regardless of whether the session is
-        attached or detached. Suitable for lightweight per-session tasks such as
-        loading environment variables.
-
-        :raises HookExecutionError: If any hook script exits with a non-zero code.
-        """
-        self._run_hooks("ON_ACTIVATE", self._workspace.manifest.hooks.on_activate)
-
     def run_on_attach_hooks(self) -> None:
         """
         Runs all ``on_attach`` hooks.
@@ -148,25 +136,25 @@ class HookRunner:
         """
         self._run_hooks("ON_ATTACH", self._workspace.manifest.hooks.on_attach)
 
-    def run_on_deactivate_hooks(self) -> None:
+    def run_on_detach_hooks(self) -> None:
         """
-        Runs all ``on_deactivate`` hooks.
+        Runs all ``on_detach`` hooks.
 
-        Called during ``down`` and ``remove``. Counterpart to ``on_activate``;
-        intended for tearing down any state set up during activation.
+        Called during ``down`` and at the start of ``rm``. Counterpart to
+        ``on_attach``; intended for tearing down any interactive session state.
 
         :raises HookExecutionError: If any hook script exits with a non-zero code.
         """
-        self._run_hooks("ON_DEACTIVATE", self._workspace.manifest.hooks.on_deactivate)
+        self._run_hooks("ON_DETACH", self._workspace.manifest.hooks.on_detach)
 
-    def run_on_remove_hooks(self) -> None:
+    def run_on_teardown_hooks(self) -> None:
         """
-        Runs all ``on_remove`` hooks.
+        Runs all ``on_teardown`` hooks.
 
-        Called during ``remove``, after deactivation and before the worktree is
-        deleted. Suitable for cleanup tasks that must happen before the worktree
-        directory is removed.
+        Called during ``rm``, after ``on_detach`` and before the worktree is
+        deleted. Suitable for final cleanup tasks that must happen before the
+        worktree directory is removed.
 
         :raises HookExecutionError: If any hook script exits with a non-zero code.
         """
-        self._run_hooks("ON_REMOVE", self._workspace.manifest.hooks.on_remove)
+        self._run_hooks("ON_TEARDOWN", self._workspace.manifest.hooks.on_teardown)
