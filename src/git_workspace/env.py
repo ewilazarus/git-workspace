@@ -1,6 +1,7 @@
 import os
-import re
 from typing import TYPE_CHECKING
+
+from git_workspace.utils import normalize_variable_name
 
 if TYPE_CHECKING:
     from git_workspace.worktree import Worktree
@@ -37,7 +38,7 @@ def build_env(
     }
 
     for key, value in (extra_vars or {}).items():
-        normalized = re.sub(r"[^A-Z0-9]", "_", key.upper())
-        env[f"GIT_WORKSPACE_VAR_{normalized}"] = value
+        normalized = normalize_variable_name(key)
+        env[f"GIT_WORKSPACE_VAR_{normalized}"] = str(value)
 
     return env

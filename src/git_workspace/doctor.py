@@ -1,6 +1,5 @@
 import os
 import posixpath
-import re
 import tomllib
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -10,6 +9,7 @@ from typing import TYPE_CHECKING, Literal
 from git_workspace import git
 from git_workspace.errors import WorktreeListingError
 from git_workspace.manifest import Manifest
+from git_workspace.utils import normalize_variable_name
 
 if TYPE_CHECKING:
     from git_workspace.workspace import Workspace
@@ -118,7 +118,7 @@ def _check_asset_target_escapes(workspace: Workspace, findings: list[Finding]) -
 def _check_var_normalization_clashes(workspace: Workspace, findings: list[Finding]) -> None:
     seen: dict[str, str] = {}
     for key in workspace.manifest.vars:
-        normalized = re.sub(r"[^A-Z0-9]", "_", key.upper())
+        normalized = normalize_variable_name(key)
         if normalized in seen:
             findings.append(
                 Finding(

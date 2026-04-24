@@ -1,8 +1,27 @@
+import re
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 from git_workspace.errors import InvalidInputError
+
+
+def normalize_variable_name(variable: str) -> str:
+    """
+    Normalize a variable name into an uppercase, underscore-safe identifier.
+
+    Converts the variable name to uppercase and replaces every character that is
+    not an ASCII letter or digit with an underscore.
+
+    Examples:
+    - fix/my-feature -> FIX_MY_FEATURE
+    - release/1.2.3  -> RELEASE_1_2_3
+    - hotfix         -> HOTFIX
+
+    :param variable: The variable name to normalize.
+    :returns: The normalized variable name.
+    """
+    return re.sub(r"[^A-Z0-9]", "_", variable.upper())
 
 
 def directory_birthtime(dir: Path) -> datetime:
