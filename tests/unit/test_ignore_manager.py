@@ -8,15 +8,15 @@ from git_workspace.assets import IgnoreManager
 
 
 @pytest.fixture
-def workspace(mocker: MockerFixture) -> MagicMock:
+def worktree(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
-    mock.paths.ignore_file = mocker.MagicMock()
+    mock.workspace.paths.ignore_file = mocker.MagicMock()
     return mock
 
 
 @pytest.fixture
-def ignore_manager(workspace: MagicMock) -> IgnoreManager:
-    return IgnoreManager(workspace)
+def ignore_manager(worktree: MagicMock) -> IgnoreManager:
+    return IgnoreManager(worktree)
 
 
 class TestComposeIgnoreBlock:
@@ -40,33 +40,33 @@ class TestComposeIgnoreBlock:
 
 class TestSync:
     def test_reads_ignore_file(self, ignore_manager: MagicMock) -> None:
-        ignore_manager._workspace.paths.ignore_file.read_text.return_value = ""
+        ignore_manager._worktree.workspace.paths.ignore_file.read_text.return_value = ""
 
         ignore_manager.sync([])
 
-        ignore_manager._workspace.paths.ignore_file.read_text.assert_called_once()
+        ignore_manager._worktree.workspace.paths.ignore_file.read_text.assert_called_once()
 
     def test_removes_existing_managed_block(self, ignore_manager: MagicMock) -> None:
         existing_block = (
             f"{IgnoreManager.BEGIN_IGNORE_MARKER}\nold_entry\n{IgnoreManager.END_IGNORE_MARKER}"
         )
-        ignore_manager._workspace.paths.ignore_file.read_text.return_value = (
+        ignore_manager._worktree.workspace.paths.ignore_file.read_text.return_value = (
             f"existing content\n{existing_block}"
         )
 
         ignore_manager.sync([])
 
-        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[0]
+        written = ignore_manager._worktree.workspace.paths.ignore_file.write_text.call_args.args[0]
         assert IgnoreManager.BEGIN_IGNORE_MARKER not in written.split("\n")[0]
         assert "old_entry" not in written
 
     def test_writes_new_block_to_ignore_file(self, ignore_manager: MagicMock) -> None:
-        ignore_manager._workspace.paths.ignore_file.read_text.return_value = ""
+        ignore_manager._worktree.workspace.paths.ignore_file.read_text.return_value = ""
         entry = Path("/workspace/.env")
 
         ignore_manager.sync([entry])
 
-        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[0]
+        written = ignore_manager._worktree.workspace.paths.ignore_file.write_text.call_args.args[0]
         assert str(entry) in written
         assert IgnoreManager.BEGIN_IGNORE_MARKER in written
         assert IgnoreManager.END_IGNORE_MARKER in written
@@ -74,9 +74,11 @@ class TestSync:
     def test_preserves_existing_content_outside_managed_block(
         self, ignore_manager: MagicMock
     ) -> None:
-        ignore_manager._workspace.paths.ignore_file.read_text.return_value = "pre-existing line"
+        ignore_manager._worktree.workspace.paths.ignore_file.read_text.return_value = (
+            "pre-existing line"
+        )
 
         ignore_manager.sync([])
 
-        written = ignore_manager._workspace.paths.ignore_file.write_text.call_args.args[0]
+        written = ignore_manager._worktree.workspace.paths.ignore_file.write_text.call_args.args[0]
         assert "pre-existing line" in written

@@ -7,7 +7,6 @@ from types import TracebackType
 from git_workspace.env import build_env
 from git_workspace.errors import HookExecutionError
 from git_workspace.ui import HookProgress, console
-from git_workspace.workspace import Workspace
 from git_workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
@@ -29,11 +28,9 @@ class HookRunner:
 
     def __init__(
         self,
-        workspace: Workspace,
         worktree: Worktree,
         runtime_vars: dict[str, str],
     ) -> None:
-        self._workspace = workspace
         self._worktree = worktree
         self._worktree_dir = str(worktree.dir)
         self._runtime_vars = runtime_vars
@@ -60,7 +57,7 @@ class HookRunner:
             self._hook_display_cm.__exit__(exc_type, exc_val, exc_tb)
 
     def _resolve_command(self, hook_name: str) -> str:
-        bin_path = self._workspace.paths.bin / hook_name
+        bin_path = self._worktree.workspace.paths.bin / hook_name
         if bin_path.is_file():
             logger.debug("resolved hook %r to bin script: %s", hook_name, bin_path)
             return str(bin_path)
@@ -73,10 +70,9 @@ class HookRunner:
 
         type_label = event.removeprefix("ON_").capitalize()
         env = build_env(
-            self._workspace,
             self._worktree,
             event=event,
-            extra_vars={**(self._workspace.manifest.vars or {}), **self._runtime_vars},
+            extra_vars={**(self._worktree.workspace.manifest.vars or {}), **self._runtime_vars},
         )
         progress = self._ensure_display()
         shell = os.environ.get("SHELL", "sh")
@@ -122,7 +118,7 @@ class HookRunner:
 
         :raises HookExecutionError: If any hook script exits with a non-zero code.
         """
-        self._run_hooks("ON_SETUP", self._workspace.manifest.hooks.on_setup)
+        self._run_hooks("ON_SETUP", self._worktree.workspace.manifest.hooks.on_setup)
 
     def run_on_attach_hooks(self) -> None:
         """
@@ -134,7 +130,7 @@ class HookRunner:
 
         :raises HookExecutionError: If any hook script exits with a non-zero code.
         """
-        self._run_hooks("ON_ATTACH", self._workspace.manifest.hooks.on_attach)
+        self._run_hooks("ON_ATTACH", self._worktree.workspace.manifest.hooks.on_attach)
 
     def run_on_detach_hooks(self) -> None:
         """
@@ -145,7 +141,7 @@ class HookRunner:
 
         :raises HookExecutionError: If any hook script exits with a non-zero code.
         """
-        self._run_hooks("ON_DETACH", self._workspace.manifest.hooks.on_detach)
+        self._run_hooks("ON_DETACH", self._worktree.workspace.manifest.hooks.on_detach)
 
     def run_on_teardown_hooks(self) -> None:
         """
@@ -157,4 +153,4 @@ class HookRunner:
 
         :raises HookExecutionError: If any hook script exits with a non-zero code.
         """
-        self._run_hooks("ON_TEARDOWN", self._workspace.manifest.hooks.on_teardown)
+        self._run_hooks("ON_TEARDOWN", self._worktree.workspace.manifest.hooks.on_teardown)

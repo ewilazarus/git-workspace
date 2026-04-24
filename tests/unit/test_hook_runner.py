@@ -20,30 +20,24 @@ HOOKS_ON_TEARDOWN = ["teardown.sh"]
 
 
 @pytest.fixture
-def workspace(mocker: MockerFixture) -> MagicMock:
-    mock = mocker.MagicMock()
-    mock.dir = WORKSPACE_DIR
-    mock.paths.bin = BIN_DIR
-    mock.paths.assets = ASSETS_DIR
-    mock.manifest.vars = {}
-    mock.manifest.hooks.on_setup = HOOKS_ON_SETUP
-    mock.manifest.hooks.on_attach = HOOKS_ON_ATTACH
-    mock.manifest.hooks.on_detach = HOOKS_ON_DETACH
-    mock.manifest.hooks.on_teardown = HOOKS_ON_TEARDOWN
-    return mock
-
-
-@pytest.fixture
 def worktree(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
     mock.dir = WORKTREE_DIR
     mock.branch = BRANCH
+    mock.workspace.dir = WORKSPACE_DIR
+    mock.workspace.paths.bin = BIN_DIR
+    mock.workspace.paths.assets = ASSETS_DIR
+    mock.workspace.manifest.vars = {}
+    mock.workspace.manifest.hooks.on_setup = HOOKS_ON_SETUP
+    mock.workspace.manifest.hooks.on_attach = HOOKS_ON_ATTACH
+    mock.workspace.manifest.hooks.on_detach = HOOKS_ON_DETACH
+    mock.workspace.manifest.hooks.on_teardown = HOOKS_ON_TEARDOWN
     return mock
 
 
 @pytest.fixture
-def hook_runner(workspace: MagicMock, worktree: MagicMock) -> HookRunner:
-    return HookRunner(workspace, worktree, {})
+def hook_runner(worktree: MagicMock) -> HookRunner:
+    return HookRunner(worktree, {})
 
 
 @pytest.fixture(autouse=True)

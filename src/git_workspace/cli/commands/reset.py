@@ -49,7 +49,6 @@ def reset(
     console.print(f"Resetting {styled_branch(worktree.branch)}")
 
     operations.reset_worktree(
-        workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
     )

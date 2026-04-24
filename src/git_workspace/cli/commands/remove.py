@@ -59,7 +59,6 @@ def remove(
     console.print(f"Removing {styled_branch(worktree.branch)}")
 
     operations.remove_worktree(
-        workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         force=force,

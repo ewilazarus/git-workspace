@@ -9,7 +9,6 @@ from git_workspace import git
 from git_workspace.errors import WorkspaceCopyError, WorkspaceLinkError
 from git_workspace.manifest import Asset, Copy, Link
 from git_workspace.ui import console
-from git_workspace.workspace import Workspace
 from git_workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
@@ -34,8 +33,8 @@ class IgnoreManager:
         flags=re.DOTALL,
     )
 
-    def __init__(self, workspace: Workspace) -> None:
-        self._workspace = workspace
+    def __init__(self, worktree: Worktree) -> None:
+        self._worktree = worktree
         self._entries: list[Path] = []
 
     def __enter__(self) -> IgnoreManager:
@@ -72,11 +71,11 @@ class IgnoreManager:
 
         :param ignore_entries: Absolute paths to be added to the exclude file.
         """
-        file_content = self._workspace.paths.ignore_file.read_text()
+        ignore_file = self._worktree.workspace.paths.ignore_file
+        file_content = ignore_file.read_text()
         clean_file_content = self.MATCH_REGEX.sub("", file_content)
         ignore_block = self._compose_ignore_block(ignore_entries)
-        new_file_content = clean_file_content + "\n" + ignore_block
-        self._workspace.paths.ignore_file.write_text(new_file_content)
+        ignore_file.write_text(clean_file_content + "\n" + ignore_block)
 
 
 class AssetManager[T: Asset](ABC):
@@ -94,13 +93,11 @@ class AssetManager[T: Asset](ABC):
 
     def __init__(
         self,
-        workspace: Workspace,
         worktree: Worktree,
         ignore: IgnoreManager,
         assets: list[T],
     ) -> None:
-        self._workspace = workspace
-        self._worktree_dir = worktree.dir
+        self._worktree = worktree
         self._ignore = ignore
         self._assets = assets
 
@@ -111,8 +108,8 @@ class AssetManager[T: Asset](ABC):
     def _apply_without_override(self, source: Path, target: Path) -> None: ...
 
     def _apply(self, asset: T) -> None:
-        source = (self._workspace.paths.assets / asset.source).absolute()
-        target = (self._worktree_dir / asset.target).absolute()
+        source = (self._worktree.workspace.paths.assets / asset.source).absolute()
+        target = (self._worktree.dir / asset.target).absolute()
 
         target.parent.mkdir(parents=True, exist_ok=True)
 
@@ -148,8 +145,8 @@ class Linker(AssetManager[Link]):
     asset_name = "link"
     asset_name_plural = "links"
 
-    def __init__(self, workspace: Workspace, worktree: Worktree, ignore: IgnoreManager) -> None:
-        super().__init__(workspace, worktree, ignore, workspace.manifest.links)
+    def __init__(self, worktree: Worktree, ignore: IgnoreManager) -> None:
+        super().__init__(worktree, ignore, worktree.workspace.manifest.links)
 
     def _apply_with_override(self, source: Path, target: Path) -> None:
         if target.exists() or target.is_symlink():
@@ -189,11 +186,11 @@ class Copier(AssetManager[Copy]):
     asset_name = "copy"
     asset_name_plural = "copies"
 
-    def __init__(self, workspace: Workspace, worktree: Worktree, ignore: IgnoreManager) -> None:
-        super().__init__(workspace, worktree, ignore, workspace.manifest.copies)
+    def __init__(self, worktree: Worktree, ignore: IgnoreManager) -> None:
+        super().__init__(worktree, ignore, worktree.workspace.manifest.copies)
 
     def _skip_existing(self, asset: Copy) -> bool:
-        target = (self._worktree_dir / asset.target).absolute()
+        target = (self._worktree.dir / asset.target).absolute()
 
         if asset.overwrite or not target.exists():
             return False

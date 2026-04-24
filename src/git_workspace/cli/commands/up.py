@@ -77,7 +77,6 @@ def up(
     console.print(f"Activating {styled_branch(worktree.branch)}")
 
     operations.activate_worktree(
-        workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         detached=detached,

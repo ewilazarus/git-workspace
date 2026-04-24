@@ -20,18 +20,11 @@ COPY_NO_OVERWRITE_WITH_OVERRIDE = Copy(source="env", target=".env", override=Tru
 
 
 @pytest.fixture
-def workspace(mocker: MockerFixture) -> MagicMock:
-    mock = mocker.MagicMock()
-    mock.paths.assets = ASSETS_DIR
-    mock.paths.ignore_file = mocker.MagicMock()
-    mock.manifest.copies = [COPY_WITH_OVERRIDE, COPY_WITHOUT_OVERRIDE]
-    return mock
-
-
-@pytest.fixture
 def worktree(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
-    mock.directory = WORKTREE_DIR
+    mock.workspace.paths.assets = ASSETS_DIR
+    mock.workspace.paths.ignore_file = mocker.MagicMock()
+    mock.workspace.manifest.copies = [COPY_WITH_OVERRIDE, COPY_WITHOUT_OVERRIDE]
     return mock
 
 
@@ -41,8 +34,8 @@ def ignore(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture
-def copier(workspace: MagicMock, worktree: MagicMock, ignore: MagicMock) -> Copier:
-    return Copier(workspace, worktree, ignore)
+def copier(worktree: MagicMock, ignore: MagicMock) -> Copier:
+    return Copier(worktree, ignore)
 
 
 class TestApplyWithOverride:
@@ -205,14 +198,12 @@ class TestApplyCreatesParentDirs:
 
     @pytest.fixture
     def copier(self, mocker: MockerFixture) -> Copier:
-        workspace = mocker.MagicMock()
-        workspace.paths.assets = self.ASSETS_DIR
-        workspace.paths.ignore_file = mocker.MagicMock()
-        workspace.manifest.copies = []
         worktree = mocker.MagicMock()
         worktree.dir = self.WORKTREE_DIR
+        worktree.workspace.paths.assets = self.ASSETS_DIR
+        worktree.workspace.manifest.copies = []
         ignore = mocker.MagicMock(spec=IgnoreManager)
-        return Copier(workspace, worktree, ignore)
+        return Copier(worktree, ignore)
 
     def test_creates_parent_dir_before_copying(self, copier: Copier) -> None:
         nested = Copy(source="config.yaml", target="config/local/config.yaml")
@@ -238,7 +229,7 @@ class TestSkipExisting:
 
     @pytest.fixture
     def target_mock(self, copier: Copier) -> MagicMock:
-        return cast(MagicMock, copier._worktree_dir).__truediv__.return_value.absolute.return_value
+        return cast(MagicMock, copier._worktree.dir).__truediv__.return_value.absolute.return_value
 
     def test_returns_false_when_overwrite_true(
         self,
@@ -328,7 +319,7 @@ class TestApplyWithOverwriteFalse:
     @pytest.fixture
     def target_mock(self, copier: Copier) -> MagicMock:
         # Resolve the same MagicMock chain that Copier._apply will compute for target
-        return cast(MagicMock, copier._worktree_dir).__truediv__.return_value.absolute.return_value
+        return cast(MagicMock, copier._worktree.dir).__truediv__.return_value.absolute.return_value
 
     def test_skips_non_override_copy_when_target_exists(
         self,
