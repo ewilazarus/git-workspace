@@ -57,14 +57,14 @@ def exec_cmd(
 
     try:
         worktree = workspace.resolve_worktree(branch)
-    except WorktreeResolutionError as e:
+    except WorktreeResolutionError:
         if not force:
             confirmed = typer.confirm(
                 f"Worktree for branch {branch!r} does not exist. Create it?",
                 default=False,
             )
             if not confirmed:
-                raise e
+                raise
 
         worktree = workspace.resolve_or_create_worktree(branch, None)
         operations.activate_worktree(workspace, worktree, runtime_vars={}, detached=True)
