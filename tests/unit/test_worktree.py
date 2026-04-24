@@ -36,7 +36,7 @@ class TestList:
         from datetime import datetime
 
         return mocker.patch(
-            "git_workspace.worktree._directory_birthtime",
+            "git_workspace.worktree.directory_birthtime",
             return_value=datetime(2025, 1, 1),
         )
 

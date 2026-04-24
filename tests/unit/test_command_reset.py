@@ -16,25 +16,8 @@ def mock_workspace_resolve(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture(autouse=True)
-def mock_hook_runner(mocker: MockerFixture) -> MagicMock:
-    mock = mocker.patch("git_workspace.cli.commands.reset.HookRunner")
-    mock.return_value.__enter__.return_value = mock.return_value
-    return mock
-
-
-@pytest.fixture(autouse=True)
-def mock_ignore_manager(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.cli.commands.reset.IgnoreManager")
-
-
-@pytest.fixture(autouse=True)
-def mock_copier(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.cli.commands.reset.Copier")
-
-
-@pytest.fixture(autouse=True)
-def mock_linker(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.cli.commands.reset.Linker")
+def mock_reset_worktree(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.cli.commands.reset.operations.reset_worktree")
 
 
 class TestReset:
@@ -46,44 +29,24 @@ class TestReset:
         reset(branch=BRANCH)
         mock_workspace_resolve.return_value.resolve_worktree.assert_called_once_with(BRANCH)
 
-    def test_applies_copier_and_linker(
+    def test_resets_worktree_with_runtime_vars(
         self,
         mock_workspace_resolve: MagicMock,
-        mock_ignore_manager: MagicMock,
-        mock_copier: MagicMock,
-        mock_linker: MagicMock,
-    ) -> None:
-        reset()
-        workspace = mock_workspace_resolve.return_value
-        worktree = workspace.resolve_worktree.return_value
-        ignore = mock_ignore_manager.return_value.__enter__.return_value
-        mock_copier.assert_called_once_with(workspace, worktree, ignore)
-        mock_copier.return_value.apply.assert_called_once()
-        mock_linker.assert_called_once_with(workspace, worktree, ignore)
-        mock_linker.return_value.apply.assert_called_once()
-
-    def test_creates_hook_runner_with_runtime_vars(
-        self,
-        mock_workspace_resolve: MagicMock,
-        mock_hook_runner: MagicMock,
+        mock_reset_worktree: MagicMock,
     ) -> None:
         reset(runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
-        mock_hook_runner.assert_called_once_with(
+        mock_reset_worktree.assert_called_once_with(
             workspace, worktree, runtime_vars={"MY_VAR": "my_value"}
         )
 
-    def test_creates_hook_runner_with_empty_runtime_vars_when_none(
+    def test_resets_worktree_with_empty_runtime_vars_when_none(
         self,
         mock_workspace_resolve: MagicMock,
-        mock_hook_runner: MagicMock,
+        mock_reset_worktree: MagicMock,
     ) -> None:
         reset()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
-        mock_hook_runner.assert_called_once_with(workspace, worktree, runtime_vars={})
-
-    def test_runs_setup_hooks(self, mock_hook_runner: MagicMock) -> None:
-        reset()
-        mock_hook_runner.return_value.run_on_setup_hooks.assert_called_once()
+        mock_reset_worktree.assert_called_once_with(workspace, worktree, runtime_vars={})

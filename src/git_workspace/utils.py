@@ -1,7 +1,14 @@
-from pathlib import PurePosixPath
+from datetime import datetime
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 from git_workspace.errors import InvalidInputError
+
+
+def directory_birthtime(dir: Path) -> datetime:
+    stat = dir.stat()
+    ts = getattr(stat, "st_birthtime", None) or stat.st_ctime
+    return datetime.fromtimestamp(ts)
 
 
 def extract_humanish_suffix(url: str) -> str:

@@ -7,17 +7,12 @@ from typing import TYPE_CHECKING
 
 from git_workspace import git
 from git_workspace.errors import GitFetchError, WorktreeResolutionError
+from git_workspace.utils import directory_birthtime
 
 if TYPE_CHECKING:
     from git_workspace.workspace import Workspace
 
 logger = logging.getLogger(__name__)
-
-
-def _directory_birthtime(dir: Path) -> datetime:
-    stat = dir.stat()
-    ts = getattr(stat, "st_birthtime", None) or stat.st_ctime
-    return datetime.fromtimestamp(ts)
 
 
 @dataclass
@@ -61,7 +56,7 @@ class Worktree:
                 dir=(d := Path(raw_worktree["directory"]).resolve()),
                 branch=raw_worktree["branch"],
                 is_new=False,
-                timestamp=_directory_birthtime(d),
+                timestamp=directory_birthtime(d),
             )
             for raw_worktree in raw_worktrees
         ]
