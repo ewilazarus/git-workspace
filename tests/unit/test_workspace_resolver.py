@@ -29,7 +29,7 @@ def test_happy_path(raw_workspace_dir: str | None) -> None:
     workspace = WorkspaceResolver.resolve(raw_workspace_dir)
 
     expected = Path(WORKSPACE)
-    actual = workspace.paths.root
+    actual = workspace.dir
 
     assert actual == expected
 
