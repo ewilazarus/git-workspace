@@ -46,7 +46,7 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 ## Features
 
 - 🌳 **Worktree-per-branch** — every branch gets its own directory; no more dirty working trees
-- ⚡ **Lifecycle hooks** — run scripts on setup, activation, attachment, deactivation, and removal
+- ⚡ **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
 - 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree
 - 📋 **File copying** — copy mutable config files that each worktree can edit independently
 - 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
@@ -188,11 +188,10 @@ registry     = "https://registry.npmjs.org"
 
 # Lifecycle hooks (.workspace/bin/ scripts and inline commands)
 [hooks]
-on_setup      = ["install_deps", "docker build . -t myproj:latest"]
-on_activate   = ["load_env"]
-on_attach     = ["open_editor"]
-on_deactivate = ["save_state"]
-on_remove     = ["clean_cache"]
+on_setup    = ["install_deps", "docker build . -t myproj:latest"]
+on_attach   = ["open_editor"]
+on_detach   = ["save_state"]
+on_teardown = ["clean_cache"]
 
 # Symlinks applied to every worktree
 [[link]]
@@ -232,13 +231,17 @@ Each hook entry can be a script in `.workspace/bin/` or an inline shell command.
 
 ### Hook execution order
 
+Hooks come in two pairs that map to the two lifetimes a worktree has:
+
+- **Worktree lifetime** — `on_setup` and `on_teardown` bracket the full existence of the worktree directory.
+- **Session lifetime** — `on_attach` and `on_detach` bracket each interactive session inside it.
+
 | Event | When it runs |
 |---|---|
 | `on_setup` | After a worktree is first created, or on `reset` |
-| `on_activate` | On every `up` (attached and detached) |
-| `on_attach` | On `up` in interactive mode only (skipped with `--detached`) |
-| `on_deactivate` | On `down` and `rm` |
-| `on_remove` | On `rm`, after deactivation |
+| `on_attach` | On `up` in interactive mode (skipped with `--detached`; not run by `exec`) |
+| `on_detach` | On `down` and at the start of `rm` |
+| `on_teardown` | On `rm`, after `on_detach`, before the directory is deleted |
 
 **Example hook** (`.workspace/bin/install_deps`):
 
@@ -254,7 +257,10 @@ npm install
 
 ```toml
 [hooks]
-on_setup = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
+on_setup    = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
+on_attach   = ["open_editor"]
+on_detach   = ["save_session"]
+on_teardown = ["clean_cache"]
 ```
 
 Here `install_deps` runs `.workspace/bin/install_deps`, while `docker build . -t myproj:latest` and `echo ready` run as shell commands.
@@ -343,7 +349,7 @@ For CI pipelines, automation, or agent workflows where you don't want interactiv
 git workspace up main --detached
 ```
 
-This runs `on_setup` and `on_activate` but skips `on_attach`. Combine with `-o` for fully machine-readable output:
+This runs `on_setup` (on first creation only) but skips `on_attach`. Combine with `-o` for fully machine-readable output:
 
 ```bash
 WORKTREE=$(git workspace up main --detached -o)
@@ -363,7 +369,7 @@ git workspace exec hotfix/urgent -r /path/to/workspace -- ./scripts/deploy.sh
 
 The command runs from the worktree root and receives the same `GIT_WORKSPACE_*` environment variables that lifecycle hooks do.
 
-If the worktree for the given branch doesn't exist yet, `exec` prompts you to create it first (equivalent to `up --detached`). Use `--force` to skip the prompt:
+If the worktree for the given branch doesn't exist yet, `exec` prompts you to create it first — it runs `on_setup` but does **not** run `on_attach` or `on_detach`. Use `--force` to skip the prompt:
 
 ```bash
 # prompts: "Worktree for branch 'feature/new' does not exist. Create it?"

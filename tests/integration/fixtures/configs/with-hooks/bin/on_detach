@@ -1,0 +1,2 @@
+#!/bin/sh
+touch "$GIT_WORKSPACE_ROOT/.hook-on-detach"

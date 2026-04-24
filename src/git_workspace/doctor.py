@@ -24,10 +24,9 @@ def _iter_hook_entries(workspace: Workspace):
     hooks = workspace.manifest.hooks
     for event, entries in [
         ("on_setup", hooks.on_setup),
-        ("on_activate", hooks.on_activate),
         ("on_attach", hooks.on_attach),
-        ("on_deactivate", hooks.on_deactivate),
-        ("on_remove", hooks.on_remove),
+        ("on_detach", hooks.on_detach),
+        ("on_teardown", hooks.on_teardown),
     ]:
         for entry in entries:
             yield event, entry
@@ -163,10 +162,9 @@ def check_hook_duplicates(workspace: Workspace) -> list[Finding]:
     hooks = workspace.manifest.hooks
     for event, entries in [
         ("on_setup", hooks.on_setup),
-        ("on_activate", hooks.on_activate),
         ("on_attach", hooks.on_attach),
-        ("on_deactivate", hooks.on_deactivate),
-        ("on_remove", hooks.on_remove),
+        ("on_detach", hooks.on_detach),
+        ("on_teardown", hooks.on_teardown),
     ]:
         seen: set[str] = set()
         for entry in entries:

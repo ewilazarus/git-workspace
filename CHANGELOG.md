@@ -16,8 +16,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `--plain` global flag and automatic TTY detection to fall back to plain text output in non-interactive terminals
 
 ### Changed
+- **Breaking:** Hook lifecycle renamed to clarify two distinct lifetimes:
+  - `on_activate` is removed; its per-`up` role is replaced by `on_attach` (interactive) or nothing (detached)
+  - `on_deactivate` is renamed to `on_detach` — runs on `down` and at the start of `rm`
+  - `on_remove` is renamed to `on_teardown` — runs on `rm`, after `on_detach`, before deletion
+  - `on_setup` and `on_attach` are unchanged in name; `on_attach` is now the only session-start hook
+  - `GIT_WORKSPACE_EVENT` values are now `ON_SETUP`, `ON_ATTACH`, `ON_DETACH`, and `ON_TEARDOWN`
+  - **How to migrate:** rename `on_activate` entries into `on_attach` (if they need a terminal) or `on_setup` (if they are one-time setup); rename `on_deactivate` to `on_detach`; rename `on_remove` to `on_teardown`
+- `git workspace up` no longer runs `on_activate`; it runs `on_setup` (first time only) and `on_attach` (unless `--detached`)
+- `git workspace exec` provisions a missing worktree (runs `on_setup`) but does not run `on_attach` or `on_detach`
 - Worktree lifecycle logic extracted into a dedicated `operations` module; CLI commands now delegate to named operations instead of inlining asset and hook orchestration
-- `git workspace prune` no longer runs `on_deactivate` or `on_remove` hooks — worktrees are force-removed directly
+- `git workspace prune` no longer runs hooks — worktrees are force-removed directly
 - Inline shell commands in hooks now run via the user's shell (`$SHELL`, defaulting to `sh`) instead of the system `sh`
 
 ## [0.5.0] - 2026-04-22

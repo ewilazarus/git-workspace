@@ -271,13 +271,13 @@ class TestCheckHookEmptyEntries:
         assert "on_setup" in result[0].message
 
     def test_returns_warning_for_whitespace_only_entry(self, workspace: MagicMock) -> None:
-        workspace.manifest.hooks = Hooks(on_activate=["   "])
+        workspace.manifest.hooks = Hooks(on_detach=["   "])
 
         result = check_hook_empty_entries(workspace)
 
         assert len(result) == 1
         assert result[0].level == "warning"
-        assert "on_activate" in result[0].message
+        assert "on_detach" in result[0].message
 
 
 class TestCheckHookDuplicates:
@@ -297,7 +297,7 @@ class TestCheckHookDuplicates:
         assert "install" in result[0].message
 
     def test_same_entry_in_different_events_is_fine(self, workspace: MagicMock) -> None:
-        workspace.manifest.hooks = Hooks(on_setup=["install"], on_activate=["install"])
+        workspace.manifest.hooks = Hooks(on_setup=["install"], on_attach=["install"])
 
         assert check_hook_duplicates(workspace) == []
 

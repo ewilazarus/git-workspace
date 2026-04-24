@@ -1,2 +1,0 @@
-#!/bin/sh
-echo "ran" >> "$GIT_WORKSPACE_ROOT/.hook-on-activate-runs"

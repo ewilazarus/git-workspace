@@ -59,7 +59,7 @@ class TestApplyAssetsInternal:
 
 
 class TestActivateWorktree:
-    def test_new_attached_applies_assets_and_runs_all_hooks(
+    def test_new_attached_applies_assets_and_runs_setup_and_attach_hooks(
         self,
         workspace: MagicMock,
         worktree: MagicMock,
@@ -74,7 +74,6 @@ class TestActivateWorktree:
         mock_copier.return_value.apply.assert_called_once()
         mock_linker.return_value.apply.assert_called_once()
         mock_hook_runner.return_value.run_on_setup_hooks.assert_called_once()
-        mock_hook_runner.return_value.run_on_activate_hooks.assert_called_once()
         mock_hook_runner.return_value.run_on_attach_hooks.assert_called_once()
 
     def test_new_detached_applies_assets_and_skips_attach_hooks(
@@ -92,7 +91,6 @@ class TestActivateWorktree:
         mock_copier.return_value.apply.assert_called_once()
         mock_linker.return_value.apply.assert_called_once()
         mock_hook_runner.return_value.run_on_setup_hooks.assert_called_once()
-        mock_hook_runner.return_value.run_on_activate_hooks.assert_called_once()
         mock_hook_runner.return_value.run_on_attach_hooks.assert_not_called()
 
     def test_existing_attached_skips_assets_and_setup_hooks(
@@ -108,10 +106,9 @@ class TestActivateWorktree:
 
         mock_copier.assert_not_called()
         mock_hook_runner.return_value.run_on_setup_hooks.assert_not_called()
-        mock_hook_runner.return_value.run_on_activate_hooks.assert_called_once()
         mock_hook_runner.return_value.run_on_attach_hooks.assert_called_once()
 
-    def test_existing_detached_runs_only_activate_hooks(
+    def test_existing_detached_skips_all_hooks(
         self,
         workspace: MagicMock,
         worktree: MagicMock,
@@ -124,7 +121,6 @@ class TestActivateWorktree:
 
         mock_copier.assert_not_called()
         mock_hook_runner.return_value.run_on_setup_hooks.assert_not_called()
-        mock_hook_runner.return_value.run_on_activate_hooks.assert_called_once()
         mock_hook_runner.return_value.run_on_attach_hooks.assert_not_called()
 
     def test_passes_runtime_vars_to_hook_runner(
@@ -154,7 +150,7 @@ class TestResetWorktree:
         mock_linker.return_value.apply.assert_called_once()
         mock_hook_runner.return_value.run_on_setup_hooks.assert_called_once()
 
-    def test_does_not_run_activate_or_attach_hooks(
+    def test_does_not_run_attach_hooks(
         self,
         workspace: MagicMock,
         worktree: MagicMock,
@@ -162,12 +158,11 @@ class TestResetWorktree:
     ) -> None:
         operations.reset_worktree(workspace, worktree, runtime_vars={})
 
-        mock_hook_runner.return_value.run_on_activate_hooks.assert_not_called()
         mock_hook_runner.return_value.run_on_attach_hooks.assert_not_called()
 
 
 class TestDeactivateWorktree:
-    def test_runs_deactivate_hooks(
+    def test_runs_detach_hooks(
         self,
         workspace: MagicMock,
         worktree: MagicMock,
@@ -175,7 +170,7 @@ class TestDeactivateWorktree:
     ) -> None:
         operations.deactivate_worktree(workspace, worktree, runtime_vars={})
 
-        mock_hook_runner.return_value.run_on_deactivate_hooks.assert_called_once()
+        mock_hook_runner.return_value.run_on_detach_hooks.assert_called_once()
 
     def test_does_not_run_other_hooks(
         self,
@@ -186,13 +181,12 @@ class TestDeactivateWorktree:
         operations.deactivate_worktree(workspace, worktree, runtime_vars={})
 
         mock_hook_runner.return_value.run_on_setup_hooks.assert_not_called()
-        mock_hook_runner.return_value.run_on_activate_hooks.assert_not_called()
         mock_hook_runner.return_value.run_on_attach_hooks.assert_not_called()
-        mock_hook_runner.return_value.run_on_remove_hooks.assert_not_called()
+        mock_hook_runner.return_value.run_on_teardown_hooks.assert_not_called()
 
 
 class TestRemoveWorktree:
-    def test_runs_deactivate_and_remove_hooks_then_deletes(
+    def test_runs_detach_and_teardown_hooks_then_deletes(
         self,
         workspace: MagicMock,
         worktree: MagicMock,
@@ -200,8 +194,8 @@ class TestRemoveWorktree:
     ) -> None:
         operations.remove_worktree(workspace, worktree, runtime_vars={}, force=False)
 
-        mock_hook_runner.return_value.run_on_deactivate_hooks.assert_called_once()
-        mock_hook_runner.return_value.run_on_remove_hooks.assert_called_once()
+        mock_hook_runner.return_value.run_on_detach_hooks.assert_called_once()
+        mock_hook_runner.return_value.run_on_teardown_hooks.assert_called_once()
         worktree.delete.assert_called_once_with(False)
 
     def test_passes_force_to_delete(
