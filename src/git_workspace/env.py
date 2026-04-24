@@ -33,10 +33,8 @@ def build_env(
         "GIT_WORKSPACE_BIN": str(worktree.workspace.paths.bin),
         "GIT_WORKSPACE_ASSETS": str(worktree.workspace.paths.assets),
         "GIT_WORKSPACE_WORKTREE": str(worktree.dir),
+        "GIT_WORKSPACE_EVENT": event or "",
     }
-
-    if event is not None:
-        env["GIT_WORKSPACE_EVENT"] = event
 
     for key, value in (extra_vars or {}).items():
         normalized = re.sub(r"[^A-Z0-9]", "_", key.upper())

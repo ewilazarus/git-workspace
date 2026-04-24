@@ -58,9 +58,9 @@ class TestBuildEnv:
         env = build_env(worktree, event="ON_TEST")
         assert env["GIT_WORKSPACE_EVENT"] == "ON_TEST"
 
-    def test_omits_event_when_none(self, worktree: MagicMock) -> None:
+    def test_includes_empty_string_event_when_none(self, worktree: MagicMock) -> None:
         env = build_env(worktree)
-        assert "GIT_WORKSPACE_EVENT" not in env
+        assert env["GIT_WORKSPACE_EVENT"] == ""
 
     def test_includes_extra_vars(self, worktree: MagicMock) -> None:
         env = build_env(worktree, extra_vars={"FOO": "bar"})
