@@ -15,4 +15,4 @@
 # Examples
 # direnv allow
 
-echo "Running on setup ..."
+echo "Running setup ..."

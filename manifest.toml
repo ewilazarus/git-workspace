@@ -113,25 +113,22 @@ base_branch = "main"
 # variables (see the Variables section above).
 #
 # Available hooks:
-#   on_setup      — runs after a worktree is first created or reset.
-#                   Use for installing dependencies, generating configs, etc.
-#   on_activate   — runs on every `up` invocation (attached and detached).
-#                   Use for lightweight per-session tasks.
-#   on_attach     — runs on `up` only in attached (interactive) mode.
-#                   Skipped when `--detached` is passed.
-#   on_deactivate — runs on `down` and `rm`.
-#                   Counterpart to on_activate; use for teardown.
-#   on_remove     — runs on `rm`, after deactivation, before the worktree is
-#                   deleted. Use for final cleanup.
+#   on_setup    — runs after a worktree is first created or reset.
+#                 Use for installing dependencies, generating configs, etc.
+#   on_attach   — runs on `up` in interactive mode only.
+#                 Skipped when `--detached` is passed. Not run by `exec`.
+#   on_detach   — runs on `down` and at the start of `rm`.
+#                 Counterpart to on_attach; use for session teardown.
+#   on_teardown — runs on `rm`, after on_detach, before the worktree is
+#                 deleted. Use for final cleanup.
 #
 # Examples:
 
 # [hooks]
-# on_setup      = ["01-install-deps.sh", "npm install", "echo \"done\""]
-# on_activate   = ["02-load-env.sh"]
-# on_attach     = ["03-open-editor.sh"]
-# on_deactivate = ["04-stop-services.sh"]
-# on_remove     = ["05-cleanup.sh"]
+# on_setup    = ["01-on-setup.sh"]
+# on_attach   = ["02-on-attach.sh"]
+# on_detach   = ["03-on-detach.sh"]
+# on_teardown = ["04-on-teardown.sh"]
 
 # =============================================================================
 # Prune
