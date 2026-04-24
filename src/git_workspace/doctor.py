@@ -2,6 +2,7 @@ import os
 import posixpath
 import re
 import tomllib
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -27,14 +28,18 @@ class Finding:
     message: str
 
 
-def _iter_hook_entries(workspace: Workspace):
+def _iter_hooks(workspace: Workspace) -> Iterator[tuple[str, list[str]]]:
     hooks = workspace.manifest.hooks
-    for event, entries in [
+    yield from [
         ("on_setup", hooks.on_setup),
         ("on_attach", hooks.on_attach),
         ("on_detach", hooks.on_detach),
         ("on_teardown", hooks.on_teardown),
-    ]:
+    ]
+
+
+def _iter_hook_entries(workspace: Workspace) -> Iterator[tuple[str, str]]:
+    for event, entries in _iter_hooks(workspace):
         for entry in entries:
             yield event, entry
 
@@ -131,6 +136,7 @@ def _check_hook_bin_references(workspace: Workspace, findings: list[Finding]) ->
     for _, entry in _iter_hook_entries(workspace):
         if not entry.strip() or " " in entry or "\t" in entry:
             continue
+
         bin_path = bin_dir / entry
         if not bin_path.exists():
             findings.append(
@@ -153,13 +159,7 @@ def _check_hook_empty_entries(workspace: Workspace, findings: list[Finding]) -> 
 
 
 def _check_hook_duplicates(workspace: Workspace, findings: list[Finding]) -> None:
-    hooks = workspace.manifest.hooks
-    for event, entries in [
-        ("on_setup", hooks.on_setup),
-        ("on_attach", hooks.on_attach),
-        ("on_detach", hooks.on_detach),
-        ("on_teardown", hooks.on_teardown),
-    ]:
+    for event, entries in _iter_hooks(workspace):
         seen: set[str] = set()
         for entry in entries:
             if entry in seen:
