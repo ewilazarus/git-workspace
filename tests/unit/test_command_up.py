@@ -41,7 +41,7 @@ class TestUp:
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
         mock_activate_worktree.assert_called_once_with(
-            workspace, worktree, runtime_vars={"MY_VAR": "my_value"}, detached=False
+            worktree, runtime_vars={"MY_VAR": "my_value"}, detached=False
         )
 
     def test_activates_worktree_with_empty_runtime_vars_when_none(
@@ -52,9 +52,7 @@ class TestUp:
         up()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
-        mock_activate_worktree.assert_called_once_with(
-            workspace, worktree, runtime_vars={}, detached=False
-        )
+        mock_activate_worktree.assert_called_once_with(worktree, runtime_vars={}, detached=False)
 
     def test_activates_worktree_as_detached(
         self,
@@ -64,6 +62,4 @@ class TestUp:
         up(detached=True)
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
-        mock_activate_worktree.assert_called_once_with(
-            workspace, worktree, runtime_vars={}, detached=True
-        )
+        mock_activate_worktree.assert_called_once_with(worktree, runtime_vars={}, detached=True)

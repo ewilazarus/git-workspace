@@ -48,7 +48,6 @@ def down(
     console.print(f"Deactivating {styled_branch(worktree.branch)}")
 
     operations.deactivate_worktree(
-        workspace,
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
     )

@@ -37,9 +37,7 @@ class TestReset:
         reset(runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
-        mock_reset_worktree.assert_called_once_with(
-            workspace, worktree, runtime_vars={"MY_VAR": "my_value"}
-        )
+        mock_reset_worktree.assert_called_once_with(worktree, runtime_vars={"MY_VAR": "my_value"})
 
     def test_resets_worktree_with_empty_runtime_vars_when_none(
         self,
@@ -49,4 +47,4 @@ class TestReset:
         reset()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
-        mock_reset_worktree.assert_called_once_with(workspace, worktree, runtime_vars={})
+        mock_reset_worktree.assert_called_once_with(worktree, runtime_vars={})

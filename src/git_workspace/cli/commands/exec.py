@@ -71,8 +71,8 @@ def exec_cmd(
             raise
 
     if worktree.is_new:
-        operations.activate_worktree(workspace, worktree, runtime_vars={}, detached=True)
+        operations.activate_worktree(worktree, runtime_vars={}, detached=True)
 
-    result = subprocess.run(command, cwd=worktree.dir, env=build_env(workspace, worktree))
+    result = subprocess.run(command, cwd=worktree.dir, env=build_env(worktree))
     if result.returncode != 0:
         raise typer.Exit(result.returncode)

@@ -17,18 +17,11 @@ LINK_WITHOUT_OVERRIDE = Link(source="config", target=".config", override=False)
 
 
 @pytest.fixture
-def workspace(mocker: MockerFixture) -> MagicMock:
-    mock = mocker.MagicMock()
-    mock.paths.assets = ASSETS_DIR
-    mock.paths.ignore_file = mocker.MagicMock()
-    mock.manifest.links = [LINK_WITH_OVERRIDE, LINK_WITHOUT_OVERRIDE]
-    return mock
-
-
-@pytest.fixture
 def worktree(mocker: MockerFixture) -> MagicMock:
     mock = mocker.MagicMock()
-    mock.directory = WORKTREE_DIR
+    mock.workspace.paths.assets = ASSETS_DIR
+    mock.workspace.paths.ignore_file = mocker.MagicMock()
+    mock.workspace.manifest.links = [LINK_WITH_OVERRIDE, LINK_WITHOUT_OVERRIDE]
     return mock
 
 
@@ -38,8 +31,8 @@ def ignore(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture
-def linker(workspace: MagicMock, worktree: MagicMock, ignore: MagicMock) -> Linker:
-    return Linker(workspace, worktree, ignore)
+def linker(worktree: MagicMock, ignore: MagicMock) -> Linker:
+    return Linker(worktree, ignore)
 
 
 class TestApplyWithOverride:
@@ -190,14 +183,12 @@ class TestApplyCreatesParentDirs:
 
     @pytest.fixture
     def linker(self, mocker: MockerFixture) -> Linker:
-        workspace = mocker.MagicMock()
-        workspace.paths.assets = self.ASSETS_DIR
-        workspace.paths.ignore_file = mocker.MagicMock()
-        workspace.manifest.links = []
         worktree = mocker.MagicMock()
         worktree.dir = self.WORKTREE_DIR
+        worktree.workspace.paths.assets = self.ASSETS_DIR
+        worktree.workspace.manifest.links = []
         ignore = mocker.MagicMock(spec=IgnoreManager)
-        return Linker(workspace, worktree, ignore)
+        return Linker(worktree, ignore)
 
     def test_creates_parent_dir_before_linking(self, linker: Linker) -> None:
         nested = Link(source="settings.json", target=".vscode/settings.json")

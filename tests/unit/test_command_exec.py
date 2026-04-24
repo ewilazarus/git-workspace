@@ -150,13 +150,10 @@ class TestExec:
         )
         mocker.patch("git_workspace.cli.commands.exec.typer.confirm", return_value=True)
         worktree = mock_workspace_resolve.return_value.resolve_or_create_worktree.return_value
-        workspace = mock_workspace_resolve.return_value
 
         exec_cmd(branch=BRANCH, ctx=mock_ctx)
 
-        mock_activate_worktree.assert_called_once_with(
-            workspace, worktree, runtime_vars={}, detached=True
-        )
+        mock_activate_worktree.assert_called_once_with(worktree, runtime_vars={}, detached=True)
 
     def test_skips_prompt_when_force(
         self,
