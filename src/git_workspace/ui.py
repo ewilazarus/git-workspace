@@ -43,7 +43,7 @@ class AssetProgress(Protocol):
     Protocol for receiving callbacks as assets are applied to a worktree.
     """
 
-    def on_asset_applied(self, src: str, dst: str) -> None: ...
+    def on_asset_applied(self, src: str, dst: str, substitutions: int) -> None: ...
 
 
 class UI(Protocol):
@@ -166,15 +166,15 @@ class _RichAssetProgress:
     def __init__(self, label: str) -> None:
         self._label = label
         self._live: Live | None = None
-        self._applied: list[tuple[str, str]] = []
+        self._applied: list[tuple[str, str, int]] = []
 
     def _start(self) -> None:
         spinner = Spinner("dots", text=f" Applying {self._label}")
         self._live = Live(spinner, console=_console, refresh_per_second=15, transient=True)
         self._live.start()
 
-    def on_asset_applied(self, src: str, dst: str) -> None:
-        self._applied.append((src, dst))
+    def on_asset_applied(self, src: str, dst: str, substitutions: int = 0) -> None:
+        self._applied.append((src, dst, substitutions))
 
     def _finalize(self, success: bool) -> None:
         if self._live is not None:
@@ -182,8 +182,11 @@ class _RichAssetProgress:
             self._live = None
         if success:
             _console.print(f"[success]✓[/success]  Applying {self._label}")
-            for src, dst in self._applied:
-                _console.print(f"[success]✓[/success]    {styled_asset(src)} → {styled_asset(dst)}")
+            for src, dst, substitutions in self._applied:
+                suffix = _substitution_suffix(substitutions)
+                _console.print(
+                    f"[success]✓[/success]    {styled_asset(src)} → {styled_asset(dst)}{suffix}"
+                )
         else:
             _console.print(f"[error]✗[/error]  Applying {self._label}")
 
@@ -272,21 +275,18 @@ class _PlainHookProgress:
 class _PlainAssetProgress:
     def __init__(self, label: str) -> None:
         self._label = label
-        self._applied: list[tuple[str, str]] = []
+        self._verb = "Linked" if label == "links" else "Copied"
+        self._applied: list[tuple[str, str, int]] = []
 
-    def on_asset_applied(self, src: str, dst: str) -> None:
-        self._applied.append((src, dst))
+    def on_asset_applied(self, src: str, dst: str, substitutions: int = 0) -> None:
+        self._applied.append((src, dst, substitutions))
 
     def _finalize(self, success: bool) -> None:
-        if self._label == "links":
-            verb = "Linked"
-        else:
-            verb = "Copied"
-
         if success:
-            for src, dst in self._applied:
+            for src, dst, substitutions in self._applied:
+                suffix = _substitution_suffix(substitutions)
                 _console.print(
-                    f"[magenta]→[/magenta]  {verb}:  {styled_asset(src)} → {styled_asset(dst)}"
+                    f"[magenta]→[/magenta]  {self._verb}:  {styled_asset(src)} → {styled_asset(dst)}{suffix}"
                 )
         else:
             _console.print(f"[error]✗[/error]  Applying {self._label}")
@@ -381,6 +381,13 @@ class _UIProxy:
 
 
 console = _UIProxy()
+
+
+def _substitution_suffix(count: int) -> str:
+    if count == 0:
+        return ""
+    noun = "substitution" if count == 1 else "substitutions"
+    return f"  [dim]({count} {noun} performed)[/dim]"
 
 
 def styled_branch(name: str) -> str:

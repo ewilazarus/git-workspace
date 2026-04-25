@@ -48,7 +48,7 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - 🌳 **Worktree-per-branch** — every branch gets its own directory; no more dirty working trees
 - ⚡ **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
 - 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree
-- 📋 **File copying** — copy mutable config files that each worktree can edit independently
+- 📋 **File copying** — copy mutable config files that each worktree can edit independently, with placeholder substitution
 - 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
 - 📦 **Variables** — pass manifest-level and runtime variables into hooks as environment variables
 - 🧭 **CWD-aware** — detects when you're already inside a workspace or worktree
@@ -306,6 +306,27 @@ target = "config.local.yaml"
 overwrite = false
 ```
 
+### Placeholders in copies
+
+Text files in `.workspace/assets/` can contain `{{ GIT_WORKSPACE_* }}` placeholders. When the file is copied, each placeholder is replaced with the corresponding value from the environment — the same variables available to hooks, including manifest and runtime vars.
+
+```
+# .workspace/assets/config.local.yaml
+branch: {{ GIT_WORKSPACE_BRANCH }}
+worktree: {{ GIT_WORKSPACE_WORKTREE }}
+env: {{ GIT_WORKSPACE_VAR_ENV }}
+```
+
+After `git workspace up feature/my-feature -v env=staging`, the copied file becomes:
+
+```yaml
+branch: feature/my-feature
+worktree: /path/to/workspace/feature/my-feature
+env: staging
+```
+
+Unknown placeholders are left verbatim. Binary files are copied as-is without substitution. When the source is a directory, substitution is applied to every text file inside it.
+
 ### Override mode
 
 By default, asset targets are added to `.git/info/exclude` so they stay invisible to git. Set `override = true` to replace a tracked file instead — the target is marked with `git update-index --skip-worktree` before the asset is applied.
@@ -432,6 +453,7 @@ The command exits 1 if any errors are found, 0 if the workspace is clean or has 
 | Duplicate hook entry | The same entry appears more than once in the same hook event |
 | Orphaned bin script | A file in `bin/` is not referenced by any hook |
 | Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` |
+| Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable or manifest var |
 | Unknown base branch | `base_branch` does not resolve to any local or remote ref |
 | Stale worktree | A git-registered worktree's directory no longer exists on disk |
 

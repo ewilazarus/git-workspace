@@ -100,6 +100,7 @@ class AssetManager[T: Asset](ABC):
         self._worktree = worktree
         self._ignore = ignore
         self._assets = assets
+        self._substitution_count = 0
 
     @abstractmethod
     def _apply_with_override(self, source: Path, target: Path) -> None: ...
@@ -131,7 +132,7 @@ class AssetManager[T: Asset](ABC):
         with console.asset_display(self.asset_name_plural) as progress:
             for asset in self._assets:
                 self._apply(asset)
-                progress.on_asset_applied(asset.source, asset.target)
+                progress.on_asset_applied(asset.source, asset.target, self._substitution_count)
 
 
 class Linker(AssetManager[Link]):
@@ -181,13 +182,54 @@ class Copier(AssetManager[Copy]):
     Unlike links, copies are idempotent: non-override copies silently
     overwrite existing files on reapplication. The only error case is
     attempting to copy over an existing symlink.
+
+    Text files are inspected for ``{{ GIT_WORKSPACE_* }}`` placeholders and
+    values are substituted from the provided environment dict. Binary files
+    are copied as-is.
     """
 
     asset_name = "copy"
     asset_name_plural = "copies"
 
-    def __init__(self, worktree: Worktree, ignore: IgnoreManager) -> None:
+    PLACEHOLDER_RE = re.compile(r"\{\{\s*(GIT_WORKSPACE_\w+)\s*\}\}")
+
+    def __init__(self, worktree: Worktree, ignore: IgnoreManager, env: dict[str, str]) -> None:
         super().__init__(worktree, ignore, worktree.workspace.manifest.copies)
+        self._env = env
+        self._substitution_count = 0
+
+    def _resolve_placeholders(self, content: str) -> tuple[str, int]:
+        count = 0
+
+        def replace(m: re.Match) -> str:
+            nonlocal count
+
+            value = self._env.get(m.group(1))
+            if value is not None:
+                count += 1
+                return value
+
+            return m.group(0)
+
+        return self.PLACEHOLDER_RE.sub(replace, content), count
+
+    def _copy_with_substitution(self, source: Path, target: Path) -> None:
+        try:
+            content = source.read_text(encoding="utf-8")
+            new_content, count = self._resolve_placeholders(content)
+
+            self._substitution_count += count
+
+            target.write_text(new_content, encoding="utf-8")
+        except UnicodeDecodeError, ValueError:
+            shutil.copy2(source, target)
+
+    def _copy_dir_with_substitution(self, source: Path, target: Path) -> None:
+        shutil.copytree(
+            source,
+            target,
+            copy_function=lambda s, d: self._copy_with_substitution(Path(s), Path(d)),
+        )
 
     def _skip_existing(self, asset: Copy) -> bool:
         target = (self._worktree.dir / asset.target).absolute()
@@ -201,11 +243,15 @@ class Copier(AssetManager[Copy]):
             git.skip_worktree(target)
         else:
             self._ignore.collect(Path(asset.target))
+
         return True
 
     def _apply(self, asset: Copy) -> None:
+        self._substitution_count = 0
+
         if self._skip_existing(asset):
             return
+
         super()._apply(asset)
 
     def _apply_with_override(self, source: Path, target: Path) -> None:
@@ -218,9 +264,9 @@ class Copier(AssetManager[Copy]):
 
         logger.debug("copying (override) %s -> %s", source, target)
         if source.is_dir():
-            shutil.copytree(source, target)
+            self._copy_dir_with_substitution(source, target)
         else:
-            shutil.copy2(source, target)
+            self._copy_with_substitution(source, target)
 
     def _apply_without_override(self, source: Path, target: Path) -> None:
         if target.is_symlink():
@@ -231,6 +277,6 @@ class Copier(AssetManager[Copy]):
         if source.is_dir():
             if target.is_dir():
                 shutil.rmtree(target)
-            shutil.copytree(source, target)
+            self._copy_dir_with_substitution(source, target)
         else:
-            shutil.copy2(source, target)
+            self._copy_with_substitution(source, target)

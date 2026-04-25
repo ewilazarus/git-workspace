@@ -4,7 +4,6 @@ import subprocess
 from contextlib import AbstractContextManager
 from types import TracebackType
 
-from git_workspace.env import build_env
 from git_workspace.errors import HookExecutionError
 from git_workspace.ui import HookProgress, console
 from git_workspace.worktree import Worktree
@@ -29,11 +28,11 @@ class HookRunner:
     def __init__(
         self,
         worktree: Worktree,
-        runtime_vars: dict[str, str],
+        env: dict[str, str],
     ) -> None:
         self._worktree = worktree
         self._worktree_dir = str(worktree.dir)
-        self._runtime_vars = runtime_vars
+        self._env = env
         self._hook_display_cm: AbstractContextManager[HookProgress] | None = None
         self._hook_progress: HookProgress | None = None
 
@@ -69,11 +68,7 @@ class HookRunner:
             return
 
         type_label = event.removeprefix("ON_").capitalize()
-        env = build_env(
-            self._worktree,
-            event=event,
-            extra_vars={**(self._worktree.workspace.manifest.vars or {}), **self._runtime_vars},
-        )
+        env = {**self._env, "GIT_WORKSPACE_EVENT": event}
         progress = self._ensure_display()
         shell = os.environ.get("SHELL", "sh")
 

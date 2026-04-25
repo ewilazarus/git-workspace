@@ -1,4 +1,5 @@
 import os
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from git_workspace.utils import normalize_variable_name
@@ -6,38 +7,45 @@ from git_workspace.utils import normalize_variable_name
 if TYPE_CHECKING:
     from git_workspace.worktree import Worktree
 
+_BASE_VAR_BUILDERS: tuple[tuple[str, Callable[[Worktree], str]], ...] = (
+    ("GIT_WORKSPACE_BRANCH", lambda wt: wt.branch),
+    ("GIT_WORKSPACE_BRANCH_NO_SLASH", lambda wt: wt.branch.replace("/", "_")),
+    ("GIT_WORKSPACE_ROOT", lambda wt: str(wt.workspace.dir)),
+    ("GIT_WORKSPACE_NAME", lambda wt: wt.workspace.dir.name),
+    ("GIT_WORKSPACE_BIN", lambda wt: str(wt.workspace.paths.bin)),
+    ("GIT_WORKSPACE_ASSETS", lambda wt: str(wt.workspace.paths.assets)),
+    ("GIT_WORKSPACE_WORKTREE", lambda wt: str(wt.dir)),
+)
 
-def build_env(
-    worktree: Worktree,
-    event: str | None = None,
-    extra_vars: dict[str, str] | None = None,
-) -> dict[str, str]:
+BASE_VAR_KEYS: frozenset[str] = frozenset(key for key, _ in _BASE_VAR_BUILDERS)
+
+
+def _vars(worktree: Worktree, runtime_vars: dict[str, str] | None) -> dict[str, str]:
+    manifest_vars = worktree.workspace.manifest.vars or {}
+    runtime_vars = runtime_vars or {}
+
+    return {**manifest_vars, **runtime_vars}
+
+
+def build_env(worktree: Worktree, runtime_vars: dict[str, str] | None = None) -> dict[str, str]:
     """
     Build the environment dict for hook and exec invocations within a worktree.
 
     Starts from the current process environment and layers in ``GIT_WORKSPACE_*``
-    variables. Each key in ``extra_vars`` is normalized to uppercase with
+    variables. Each key in ``vars`` is normalized to uppercase with
     non-alphanumeric characters replaced by underscores and exposed as
     ``GIT_WORKSPACE_VAR_<NORMALIZED_KEY>``.
 
     :param worktree: The worktree for which the environment is being built.
-    :param event: If set, exposed as ``GIT_WORKSPACE_EVENT``.
-    :param extra_vars: Manifest-level variables to expose as ``GIT_WORKSPACE_VAR_*`` entries.
+    :param runtime_vars: Runtime variables to expose as ``GIT_WORKSPACE_VAR_*`` entries.
     :returns: A copy of the current process environment with all ``GIT_WORKSPACE_*`` keys set.
     """
     env = {
         **os.environ,
-        "GIT_WORKSPACE_BRANCH": worktree.branch,
-        "GIT_WORKSPACE_BRANCH_NO_SLASH": worktree.branch.replace("/", "_"),
-        "GIT_WORKSPACE_ROOT": str(worktree.workspace.dir),
-        "GIT_WORKSPACE_NAME": worktree.workspace.dir.name,
-        "GIT_WORKSPACE_BIN": str(worktree.workspace.paths.bin),
-        "GIT_WORKSPACE_ASSETS": str(worktree.workspace.paths.assets),
-        "GIT_WORKSPACE_WORKTREE": str(worktree.dir),
-        "GIT_WORKSPACE_EVENT": event or "",
+        **{key: builder(worktree) for key, builder in _BASE_VAR_BUILDERS},
     }
 
-    for key, value in (extra_vars or {}).items():
+    for key, value in _vars(worktree, runtime_vars).items():
         normalized = normalize_variable_name(key)
         env[f"GIT_WORKSPACE_VAR_{normalized}"] = str(value)
 

@@ -305,6 +305,29 @@ class TestDoctorStaleWorktrees:
         assert any("main" in msg and "no longer exists" in msg for msg in _messages(mock_warning))
 
 
+class TestDoctorCopyPlaceholders:
+    def test_warns_on_unknown_placeholder(
+        self, workspace_with_placeholder_copies: Workspace, mocker: MockerFixture
+    ) -> None:
+        asset = workspace_with_placeholder_copies.paths.assets / "template.txt"
+        asset.write_text("x={{ GIT_WORKSPACE_TYPO }}\n")
+
+        mock_warning = _warnings(mocker)
+
+        doctor(workspace_dir=str(workspace_with_placeholder_copies.dir))
+
+        assert any("GIT_WORKSPACE_TYPO" in msg for msg in _messages(mock_warning))
+
+    def test_no_warning_for_known_base_var(
+        self, workspace_with_placeholder_copies: Workspace, mocker: MockerFixture
+    ) -> None:
+        mock_warning = _warnings(mocker)
+
+        doctor(workspace_dir=str(workspace_with_placeholder_copies.dir))
+
+        assert not any("placeholder" in msg for msg in _messages(mock_warning))
+
+
 class TestDoctorClean:
     def test_healthy_workspace_prints_success(
         self, workspace: Workspace, mocker: MockerFixture

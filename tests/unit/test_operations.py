@@ -5,6 +5,13 @@ from pytest_mock import MockerFixture
 
 import git_workspace.operations as operations
 
+MOCK_ENV = {"GIT_WORKSPACE_BRANCH": "main"}
+
+
+@pytest.fixture(autouse=True)
+def mock_build_env(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.operations.build_env", return_value=MOCK_ENV)
+
 
 @pytest.fixture(autouse=True)
 def mock_ignore_manager(mocker: MockerFixture) -> MagicMock:
@@ -43,10 +50,10 @@ class TestApplyAssetsInternal:
         mock_copier: MagicMock,
         mock_linker: MagicMock,
     ) -> None:
-        operations._apply_assets(worktree)
+        operations._apply_assets(worktree, MOCK_ENV)
 
         ignore = mock_ignore_manager.return_value.__enter__.return_value
-        mock_copier.assert_called_once_with(worktree, ignore)
+        mock_copier.assert_called_once_with(worktree, ignore, MOCK_ENV)
         mock_copier.return_value.apply.assert_called_once()
         mock_linker.assert_called_once_with(worktree, ignore)
         mock_linker.return_value.apply.assert_called_once()
@@ -113,13 +120,13 @@ class TestActivateWorktree:
         mock_hook_runner.return_value.run_on_setup_hooks.assert_not_called()
         mock_hook_runner.return_value.run_on_attach_hooks.assert_not_called()
 
-    def test_passes_runtime_vars_to_hook_runner(
+    def test_passes_env_to_hook_runner(
         self,
         worktree: MagicMock,
         mock_hook_runner: MagicMock,
     ) -> None:
         operations.activate_worktree(worktree, runtime_vars={"KEY": "val"}, detached=False)
-        mock_hook_runner.assert_called_once_with(worktree, runtime_vars={"KEY": "val"})
+        mock_hook_runner.assert_called_once_with(worktree, env=MOCK_ENV)
 
 
 class TestResetWorktree:

@@ -1,11 +1,12 @@
 from git_workspace.assets import Copier, IgnoreManager, Linker
+from git_workspace.env import build_env
 from git_workspace.hooks import HookRunner
 from git_workspace.worktree import Worktree
 
 
-def _apply_assets(worktree: Worktree) -> None:
+def _apply_assets(worktree: Worktree, env: dict[str, str]) -> None:
     with IgnoreManager(worktree) as ignore:
-        Copier(worktree, ignore).apply()
+        Copier(worktree, ignore, env).apply()
         Linker(worktree, ignore).apply()
 
 
@@ -25,10 +26,12 @@ def activate_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param detached: If ``True``, ``on_attach`` hooks are skipped.
     """
-    if worktree.is_new:
-        _apply_assets(worktree)
+    env = build_env(worktree, runtime_vars)
 
-    with HookRunner(worktree, runtime_vars=runtime_vars) as hook_runner:
+    if worktree.is_new:
+        _apply_assets(worktree, env)
+
+    with HookRunner(worktree, env=env) as hook_runner:
         if worktree.is_new:
             hook_runner.run_on_setup_hooks()
 
@@ -46,9 +49,10 @@ def reset_worktree(
     :param worktree: The worktree being reset.
     :param runtime_vars: Extra variables to inject into the hook environment.
     """
-    _apply_assets(worktree)
+    env = build_env(worktree, runtime_vars)
+    _apply_assets(worktree, env)
 
-    with HookRunner(worktree, runtime_vars=runtime_vars) as hook_runner:
+    with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_setup_hooks()
 
 
@@ -62,7 +66,9 @@ def deactivate_worktree(
     :param worktree: The worktree being deactivated.
     :param runtime_vars: Extra variables to inject into the hook environment.
     """
-    with HookRunner(worktree, runtime_vars=runtime_vars) as hook_runner:
+    env = build_env(worktree, runtime_vars)
+
+    with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_detach_hooks()
 
 
@@ -82,7 +88,9 @@ def remove_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param force: If ``True``, passes ``--force`` to the underlying ``git worktree remove`` call.
     """
-    with HookRunner(worktree, runtime_vars=runtime_vars) as hook_runner:
+    env = build_env(worktree, runtime_vars)
+
+    with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_detach_hooks()
         hook_runner.run_on_teardown_hooks()
 
