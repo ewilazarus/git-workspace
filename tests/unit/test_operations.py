@@ -9,6 +9,11 @@ MOCK_ENV = {"GIT_WORKSPACE_BRANCH": "main"}
 
 
 @pytest.fixture(autouse=True)
+def mock_compute_fingerprints(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.operations.compute_fingerprints", return_value={})
+
+
+@pytest.fixture(autouse=True)
 def mock_build_env(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("git_workspace.operations.build_env", return_value=MOCK_ENV)
 
