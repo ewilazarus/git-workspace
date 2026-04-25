@@ -1,10 +1,13 @@
 import hashlib
+import logging
 from typing import TYPE_CHECKING
 
 from git_workspace.manifest import Fingerprint
 
 if TYPE_CHECKING:
     from git_workspace.worktree import Worktree
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_ALGORITHM = "sha256"
 DEFAULT_LENGTH = 12
@@ -40,12 +43,25 @@ def compute_fingerprints(worktree: Worktree, fingerprints: list[Fingerprint]) ->
             raise ValueError(
                 f"Unsupported fingerprint algorithm {fp.algorithm!r} for fingerprint {fp.name!r}"
             )
+        logger.debug(
+            "computing fingerprint %r using %s over %d file(s)",
+            fp.name,
+            fp.algorithm,
+            len(fp.files),
+        )
         hasher = hashlib.new(fp.algorithm)
         for rel in sorted(fp.files):
             hasher.update(rel.encode("utf-8"))
             try:
                 hasher.update((worktree.dir / rel).read_bytes())
             except OSError:
+                logger.debug(
+                    "file %r missing or unreadable in worktree %s, using NULL marker",
+                    rel,
+                    worktree.dir,
+                )
                 hasher.update(_MISSING_FILE_MARKER)
-        result[fp.name] = hasher.hexdigest()[: fp.length]
+        digest = hasher.hexdigest()[: fp.length]
+        logger.debug("fingerprint %r = %r", fp.name, digest)
+        result[fp.name] = digest
     return result

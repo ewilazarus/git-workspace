@@ -1,4 +1,5 @@
 import functools
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -7,6 +8,8 @@ from git_workspace.env import build_env
 from git_workspace.fingerprint import compute_fingerprints
 from git_workspace.hooks import HookRunner
 from git_workspace.worktree import Worktree
+
+logger = logging.getLogger(__name__)
 
 
 def _env(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -43,6 +46,13 @@ def activate_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param detached: If ``True``, ``on_attach`` hooks are skipped.
     """
+    logger.debug(
+        "activating worktree %r (is_new=%s, detached=%s)",
+        worktree.branch,
+        worktree.is_new,
+        detached,
+    )
+
     if worktree.is_new:
         _apply_assets(worktree, env)
 
@@ -66,6 +76,7 @@ def reset_worktree(
     :param worktree: The worktree being reset.
     :param runtime_vars: Extra variables to inject into the hook environment.
     """
+    logger.debug("resetting worktree %r", worktree.branch)
     _apply_assets(worktree, env)
 
     with HookRunner(worktree, env=env) as hook_runner:
@@ -84,6 +95,7 @@ def deactivate_worktree(
     :param worktree: The worktree being deactivated.
     :param runtime_vars: Extra variables to inject into the hook environment.
     """
+    logger.debug("deactivating worktree %r", worktree.branch)
     with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_detach_hooks()
 
@@ -106,6 +118,7 @@ def remove_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param force: If ``True``, passes ``--force`` to the underlying ``git worktree remove`` call.
     """
+    logger.debug("removing worktree %r (force=%s)", worktree.branch, force)
     with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_detach_hooks()
         hook_runner.run_on_teardown_hooks()

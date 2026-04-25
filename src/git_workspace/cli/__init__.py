@@ -6,13 +6,11 @@ from git_workspace.cli.commands import (
     doctor_command,
     down_command,
     edit_command,
-    exec_command,
     init_command,
     list_command,
     prune_command,
     remove_command,
     reset_command,
-    root_command,
     up_command,
 )
 
@@ -34,11 +32,9 @@ app.add_typer(clone_command)
 app.add_typer(doctor_command)
 app.add_typer(down_command)
 app.add_typer(edit_command)
-app.add_typer(exec_command)
 app.add_typer(init_command)
 app.add_typer(list_command)
 app.add_typer(prune_command)
 app.add_typer(remove_command)
 app.add_typer(reset_command)
-app.add_typer(root_command)
 app.add_typer(up_command)

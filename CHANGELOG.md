@@ -17,6 +17,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `GIT_WORKSPACE_BIN` and `GIT_WORKSPACE_ASSETS` environment variables injected into hook execution environments
 - `--plain` global flag and automatic TTY detection to fall back to plain text output in non-interactive terminals
 
+### Removed
+- `git workspace exec` command — removed; use shell subexpressions with `git workspace up --detached -o` to run commands inside a worktree
+- `git workspace root` command — removed; use `git workspace up --output` or check `GIT_WORKSPACE_ROOT` from within a hook instead
+
 ### Changed
 - **Breaking:** Hook lifecycle renamed to clarify two distinct lifetimes:
   - `on_activate` is removed; its per-`up` role is replaced by `on_attach` (interactive) or nothing (detached)

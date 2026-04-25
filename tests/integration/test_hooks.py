@@ -1,20 +1,9 @@
-from unittest.mock import MagicMock
-
-import typer
-
 from git_workspace.cli.commands.down import down
-from git_workspace.cli.commands.exec import exec_cmd
 from git_workspace.cli.commands.prune import prune
 from git_workspace.cli.commands.remove import remove
 from git_workspace.cli.commands.reset import reset
 from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
-
-
-def _make_ctx(args: list[str]) -> MagicMock:
-    ctx = MagicMock(spec=typer.Context)
-    ctx.args = args
-    return ctx
 
 
 def test_inline_command_runs_as_shell(workspace_with_inline_hooks: Workspace) -> None:
@@ -88,26 +77,6 @@ def test_on_detach_runs_before_on_teardown_on_remove(workspace_with_hooks: Works
     remove(branch="main", workspace_dir=str(workspace_with_hooks.dir))
     assert (workspace_with_hooks.dir / ".hook-on-detach").exists()
     assert (workspace_with_hooks.dir / ".hook-on-teardown").exists()
-
-
-def test_exec_runs_setup_hook_on_new_worktree(workspace_with_hooks: Workspace) -> None:
-    exec_cmd(
-        branch="feat",
-        ctx=_make_ctx(["true"]),
-        workspace_dir=str(workspace_with_hooks.dir),
-        force=True,
-    )
-    assert (workspace_with_hooks.dir / ".hook-on-setup").exists()
-
-
-def test_exec_does_not_run_attach_hook(workspace_with_hooks: Workspace) -> None:
-    exec_cmd(
-        branch="feat",
-        ctx=_make_ctx(["true"]),
-        workspace_dir=str(workspace_with_hooks.dir),
-        force=True,
-    )
-    assert not (workspace_with_hooks.dir / ".hook-on-attach").exists()
 
 
 def test_hooks_do_not_run_on_prune(workspace_with_hooks: Workspace) -> None:

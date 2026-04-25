@@ -1,19 +1,9 @@
 import hashlib
 from pathlib import Path
-from unittest.mock import MagicMock
 
-import typer
-
-from git_workspace.cli.commands.exec import exec_cmd
 from git_workspace.cli.commands.reset import reset
 from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
-
-
-def _make_ctx(args: list[str]) -> MagicMock:
-    ctx = MagicMock(spec=typer.Context)
-    ctx.args = args
-    return ctx
 
 
 def test_fingerprint_env_var_is_set_after_up(
@@ -61,20 +51,6 @@ def test_fingerprint_with_md5_algorithm_and_custom_length(
     value = (workspace_with_fingerprints.dir / ".hook-fingerprint-config-only").read_text().strip()
     # config-only fingerprint uses md5 with length=8
     assert len(value) == 8
-
-
-def test_fingerprint_is_exposed_via_exec(
-    workspace_with_fingerprints: Workspace, tmp_path: Path
-) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_fingerprints.dir))
-    output_file = tmp_path / "fingerprint.txt"
-    exec_cmd(
-        branch="main",
-        ctx=_make_ctx(["sh", "-c", f"echo $GIT_WORKSPACE_FINGERPRINT_DEPS > {output_file}"]),
-        workspace_dir=str(workspace_with_fingerprints.dir),
-    )
-    value = output_file.read_text().strip()
-    assert len(value) == 12
 
 
 def test_fingerprint_matches_expected_hash(
