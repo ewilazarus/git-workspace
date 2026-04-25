@@ -61,3 +61,26 @@ class TestBuildEnv:
     def test_normalizes_var_keys(self, worktree: MagicMock) -> None:
         env = build_env(worktree, runtime_vars={"my-runtime-var": "value"})
         assert env["GIT_WORKSPACE_VAR_MY_RUNTIME_VAR"] == "value"
+
+    def test_includes_fingerprint_vars(self, worktree: MagicMock) -> None:
+        env = build_env(worktree, fingerprint_vars={"docker-deps": "abc123"})
+        assert env["GIT_WORKSPACE_FINGERPRINT_DOCKER_DEPS"] == "abc123"
+
+    def test_normalizes_fingerprint_keys(self, worktree: MagicMock) -> None:
+        env = build_env(worktree, fingerprint_vars={"my-fingerprint": "deadbeef"})
+        assert env["GIT_WORKSPACE_FINGERPRINT_MY_FINGERPRINT"] == "deadbeef"
+
+    def test_fingerprint_and_var_same_normalized_name_produce_separate_keys(
+        self, worktree: MagicMock
+    ) -> None:
+        env = build_env(
+            worktree,
+            runtime_vars={"deps": "from-var"},
+            fingerprint_vars={"deps": "from-fp"},
+        )
+        assert env["GIT_WORKSPACE_VAR_DEPS"] == "from-var"
+        assert env["GIT_WORKSPACE_FINGERPRINT_DEPS"] == "from-fp"
+
+    def test_no_fingerprint_vars_does_not_set_fingerprint_keys(self, worktree: MagicMock) -> None:
+        env = build_env(worktree)
+        assert not any(k.startswith("GIT_WORKSPACE_FINGERPRINT_") for k in env)

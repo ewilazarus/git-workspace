@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "$GIT_WORKSPACE_FINGERPRINT_DEPS" > "$GIT_WORKSPACE_ROOT/.hook-fingerprint-deps"
+echo "$GIT_WORKSPACE_FINGERPRINT_CONFIG_ONLY" > "$GIT_WORKSPACE_ROOT/.hook-fingerprint-config-only"

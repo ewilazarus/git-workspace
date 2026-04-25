@@ -6,6 +6,7 @@ import typer
 from git_workspace import operations
 from git_workspace.env import build_env
 from git_workspace.errors import InvalidInputError, WorktreeResolutionError
+from git_workspace.fingerprint import compute_fingerprints
 from git_workspace.workspace import Workspace
 
 app = typer.Typer()
@@ -72,6 +73,9 @@ def exec_cmd(
     if worktree.is_new:
         operations.activate_worktree(worktree, runtime_vars={}, detached=True)
 
-    result = subprocess.run(command, cwd=worktree.dir, env=build_env(worktree))
+    fingerprint_vars = compute_fingerprints(worktree, worktree.workspace.manifest.fingerprints)
+    result = subprocess.run(
+        command, cwd=worktree.dir, env=build_env(worktree, fingerprint_vars=fingerprint_vars)
+    )
     if result.returncode != 0:
         raise typer.Exit(result.returncode)

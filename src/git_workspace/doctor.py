@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, Literal
 
 from git_workspace import git
 from git_workspace.assets import Copier
-from git_workspace.env import BASE_VAR_KEYS
+from git_workspace.env import BASE_VAR_KEYS, FINGERPRINT_VAR_PREFIX
 from git_workspace.errors import WorktreeListingError
+from git_workspace.fingerprint import SUPPORTED_ALGORITHMS
 from git_workspace.manifest import Manifest
 from git_workspace.utils import normalize_variable_name
 
@@ -133,6 +134,106 @@ def _check_var_normalization_clashes(workspace: Workspace, findings: list[Findin
             seen[normalized] = key
 
 
+def _check_fingerprint_name_clashes(workspace: Workspace, findings: list[Finding]) -> None:
+    seen: dict[str, str] = {}
+    for fp in workspace.manifest.fingerprints:
+        normalized = normalize_variable_name(fp.name)
+        if normalized in seen:
+            findings.append(
+                Finding(
+                    "error",
+                    f"Fingerprints '{seen[normalized]}' and '{fp.name}' both normalize"
+                    f" to {FINGERPRINT_VAR_PREFIX}{normalized}",
+                )
+            )
+        else:
+            seen[normalized] = fp.name
+
+
+def _check_fingerprint_name_var_clashes(workspace: Workspace, findings: list[Finding]) -> None:
+    var_normalized = {normalize_variable_name(k) for k in (workspace.manifest.vars or {})}
+    for fp in workspace.manifest.fingerprints:
+        normalized = normalize_variable_name(fp.name)
+        if normalized in var_normalized:
+            findings.append(
+                Finding(
+                    "warning",
+                    f"Fingerprint '{fp.name}' and a var both normalize to '{normalized}';"
+                    " they occupy different env namespaces (FINGERPRINT vs VAR)"
+                    " but this may cause confusion in copy templates",
+                )
+            )
+
+
+def _check_fingerprint_empty_name(workspace: Workspace, findings: list[Finding]) -> None:
+    for fp in workspace.manifest.fingerprints:
+        if not fp.name.strip():
+            findings.append(Finding("error", "Fingerprint has an empty or whitespace-only name"))
+
+
+def _check_fingerprint_files(workspace: Workspace, findings: list[Finding]) -> None:
+    for fp in workspace.manifest.fingerprints:
+        if not fp.files:
+            findings.append(
+                Finding("warning", f"Fingerprint '{fp.name}' has an empty files list")
+            )
+            continue
+
+        seen: set[str] = set()
+        for f in fp.files:
+            if f in seen:
+                findings.append(
+                    Finding(
+                        "warning",
+                        f"File '{f}' is listed more than once in fingerprint '{fp.name}'",
+                    )
+                )
+            seen.add(f)
+
+            normalized = posixpath.normpath(f)
+            if normalized.startswith("../") or normalized == ".." or posixpath.isabs(normalized):
+                findings.append(
+                    Finding(
+                        "error",
+                        f"File '{f}' in fingerprint '{fp.name}' escapes the worktree root",
+                    )
+                )
+
+
+def _check_fingerprint_algorithm(workspace: Workspace, findings: list[Finding]) -> None:
+    for fp in workspace.manifest.fingerprints:
+        if fp.algorithm not in SUPPORTED_ALGORITHMS:
+            findings.append(
+                Finding(
+                    "error",
+                    f"Fingerprint '{fp.name}' uses unsupported algorithm '{fp.algorithm}'"
+                    f" (supported: {', '.join(sorted(SUPPORTED_ALGORITHMS))})",
+                )
+            )
+
+
+def _check_fingerprint_length(workspace: Workspace, findings: list[Finding]) -> None:
+    _DIGEST_SIZES = {"sha256": 64, "md5": 32}
+
+    for fp in workspace.manifest.fingerprints:
+        if fp.length <= 0:
+            findings.append(
+                Finding("error", f"Fingerprint '{fp.name}' has an invalid length {fp.length} (must be > 0)")
+            )
+            continue
+
+        max_len = _DIGEST_SIZES.get(fp.algorithm)
+        if max_len is not None and fp.length > max_len:
+            findings.append(
+                Finding(
+                    "warning",
+                    f"Fingerprint '{fp.name}' length {fp.length} exceeds the"
+                    f" {fp.algorithm} digest size of {max_len};"
+                    f" the full {max_len}-character digest will be used",
+                )
+            )
+
+
 def _check_hook_bin_references(workspace: Workspace, findings: list[Finding]) -> None:
     bin_dir = workspace.paths.bin
     for _, entry in _iter_hook_entries(workspace):
@@ -212,9 +313,14 @@ def _check_base_branch(workspace: Workspace, findings: list[Finding]) -> None:
 
 
 def _check_copy_placeholders(workspace: Workspace, findings: list[Finding]) -> None:
-    known = BASE_VAR_KEYS | {
-        f"GIT_WORKSPACE_VAR_{normalize_variable_name(k)}" for k in (workspace.manifest.vars or {})
-    }
+    known = (
+        BASE_VAR_KEYS
+        | {f"GIT_WORKSPACE_VAR_{normalize_variable_name(k)}" for k in (workspace.manifest.vars or {})}
+        | {
+            f"{FINGERPRINT_VAR_PREFIX}{normalize_variable_name(fp.name)}"
+            for fp in workspace.manifest.fingerprints
+        }
+    )
     assets_dir = workspace.paths.assets
 
     for copy in workspace.manifest.copies:
@@ -282,6 +388,12 @@ def run_checks(workspace: Workspace) -> list[Finding]:
     _check_asset_target_clashes(workspace, findings)
     _check_asset_target_escapes(workspace, findings)
     _check_var_normalization_clashes(workspace, findings)
+    _check_fingerprint_name_clashes(workspace, findings)
+    _check_fingerprint_name_var_clashes(workspace, findings)
+    _check_fingerprint_empty_name(workspace, findings)
+    _check_fingerprint_files(workspace, findings)
+    _check_fingerprint_algorithm(workspace, findings)
+    _check_fingerprint_length(workspace, findings)
     _check_hook_bin_references(workspace, findings)
     _check_hook_empty_entries(workspace, findings)
     _check_hook_duplicates(workspace, findings)

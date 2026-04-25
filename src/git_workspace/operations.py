@@ -1,5 +1,6 @@
 from git_workspace.assets import Copier, IgnoreManager, Linker
 from git_workspace.env import build_env
+from git_workspace.fingerprint import compute_fingerprints
 from git_workspace.hooks import HookRunner
 from git_workspace.worktree import Worktree
 
@@ -26,7 +27,8 @@ def activate_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param detached: If ``True``, ``on_attach`` hooks are skipped.
     """
-    env = build_env(worktree, runtime_vars)
+    fingerprint_vars = compute_fingerprints(worktree, worktree.workspace.manifest.fingerprints)
+    env = build_env(worktree, runtime_vars, fingerprint_vars=fingerprint_vars)
 
     if worktree.is_new:
         _apply_assets(worktree, env)
@@ -49,7 +51,8 @@ def reset_worktree(
     :param worktree: The worktree being reset.
     :param runtime_vars: Extra variables to inject into the hook environment.
     """
-    env = build_env(worktree, runtime_vars)
+    fingerprint_vars = compute_fingerprints(worktree, worktree.workspace.manifest.fingerprints)
+    env = build_env(worktree, runtime_vars, fingerprint_vars=fingerprint_vars)
     _apply_assets(worktree, env)
 
     with HookRunner(worktree, env=env) as hook_runner:
@@ -66,7 +69,8 @@ def deactivate_worktree(
     :param worktree: The worktree being deactivated.
     :param runtime_vars: Extra variables to inject into the hook environment.
     """
-    env = build_env(worktree, runtime_vars)
+    fingerprint_vars = compute_fingerprints(worktree, worktree.workspace.manifest.fingerprints)
+    env = build_env(worktree, runtime_vars, fingerprint_vars=fingerprint_vars)
 
     with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_detach_hooks()
@@ -88,7 +92,8 @@ def remove_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param force: If ``True``, passes ``--force`` to the underlying ``git worktree remove`` call.
     """
-    env = build_env(worktree, runtime_vars)
+    fingerprint_vars = compute_fingerprints(worktree, worktree.workspace.manifest.fingerprints)
+    env = build_env(worktree, runtime_vars, fingerprint_vars=fingerprint_vars)
 
     with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_detach_hooks()

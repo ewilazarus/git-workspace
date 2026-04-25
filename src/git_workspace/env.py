@@ -19,6 +19,9 @@ _BASE_VAR_BUILDERS: tuple[tuple[str, Callable[[Worktree], str]], ...] = (
 
 BASE_VAR_KEYS: frozenset[str] = frozenset(key for key, _ in _BASE_VAR_BUILDERS)
 
+VAR_PREFIX = "GIT_WORKSPACE_VAR_"
+FINGERPRINT_VAR_PREFIX = "GIT_WORKSPACE_FINGERPRINT_"
+
 
 def _vars(worktree: Worktree, runtime_vars: dict[str, str] | None) -> dict[str, str]:
     manifest_vars = worktree.workspace.manifest.vars or {}
@@ -27,17 +30,24 @@ def _vars(worktree: Worktree, runtime_vars: dict[str, str] | None) -> dict[str, 
     return {**manifest_vars, **runtime_vars}
 
 
-def build_env(worktree: Worktree, runtime_vars: dict[str, str] | None = None) -> dict[str, str]:
+def build_env(
+    worktree: Worktree,
+    runtime_vars: dict[str, str] | None = None,
+    fingerprint_vars: dict[str, str] | None = None,
+) -> dict[str, str]:
     """
     Build the environment dict for hook and exec invocations within a worktree.
 
     Starts from the current process environment and layers in ``GIT_WORKSPACE_*``
     variables. Each key in ``vars`` is normalized to uppercase with
     non-alphanumeric characters replaced by underscores and exposed as
-    ``GIT_WORKSPACE_VAR_<NORMALIZED_KEY>``.
+    ``GIT_WORKSPACE_VAR_<NORMALIZED_KEY>``. Each key in ``fingerprint_vars``
+    is similarly normalized and exposed as ``GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_KEY>``.
 
     :param worktree: The worktree for which the environment is being built.
     :param runtime_vars: Runtime variables to expose as ``GIT_WORKSPACE_VAR_*`` entries.
+    :param fingerprint_vars: Pre-computed fingerprints keyed by raw name to expose
+        as ``GIT_WORKSPACE_FINGERPRINT_*`` entries.
     :returns: A copy of the current process environment with all ``GIT_WORKSPACE_*`` keys set.
     """
     env = {
@@ -47,6 +57,10 @@ def build_env(worktree: Worktree, runtime_vars: dict[str, str] | None = None) ->
 
     for key, value in _vars(worktree, runtime_vars).items():
         normalized = normalize_variable_name(key)
-        env[f"GIT_WORKSPACE_VAR_{normalized}"] = str(value)
+        env[f"{VAR_PREFIX}{normalized}"] = str(value)
+
+    for key, value in (fingerprint_vars or {}).items():
+        normalized = normalize_variable_name(key)
+        env[f"{FINGERPRINT_VAR_PREFIX}{normalized}"] = str(value)
 
     return env

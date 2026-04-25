@@ -3,7 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.manifest import Hooks, Link, Manifest, Prune
+from git_workspace.fingerprint import DEFAULT_ALGORITHM, DEFAULT_LENGTH
+from git_workspace.manifest import Fingerprint, Hooks, Link, Manifest, Prune
 
 
 @pytest.fixture
@@ -160,3 +161,62 @@ exclude_branches = ["main", "develop"]
         result = Manifest.load(workspace)
 
         assert result.prune is None
+
+    def test_parses_fingerprint_from_toml(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[fingerprint]]
+name = "docker-deps"
+files = ["package.json", "package-lock.json"]
+algorithm = "md5"
+length = 8
+"""
+
+        result = Manifest.load(workspace)
+
+        assert result.fingerprints == [
+            Fingerprint(name="docker-deps", files=["package.json", "package-lock.json"], algorithm="md5", length=8)
+        ]
+
+    def test_fingerprint_algorithm_defaults_to_sha256(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[fingerprint]]
+name = "deps"
+files = ["a.txt"]
+"""
+
+        result = Manifest.load(workspace)
+
+        assert result.fingerprints[0].algorithm == DEFAULT_ALGORITHM
+
+    def test_fingerprint_length_defaults_to_12(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[fingerprint]]
+name = "deps"
+files = ["a.txt"]
+"""
+
+        result = Manifest.load(workspace)
+
+        assert result.fingerprints[0].length == DEFAULT_LENGTH
+
+    def test_parses_multiple_fingerprint_blocks_in_order(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[fingerprint]]
+name = "alpha"
+files = ["a.txt"]
+
+[[fingerprint]]
+name = "beta"
+files = ["b.txt"]
+"""
+
+        result = Manifest.load(workspace)
+
+        assert [fp.name for fp in result.fingerprints] == ["alpha", "beta"]
+
+    def test_returns_empty_fingerprints_when_absent_from_toml(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = ""
+
+        result = Manifest.load(workspace)
+
+        assert result.fingerprints == []

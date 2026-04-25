@@ -1,0 +1,15 @@
+version = 1
+base_branch = "main"
+
+[[fingerprint]]
+name = "deps"
+files = ["alpha.txt", "beta.txt"]
+
+[[fingerprint]]
+name = "config-only"
+files = ["config.json"]
+algorithm = "md5"
+length = 8
+
+[hooks]
+on_setup = ["on_setup"]

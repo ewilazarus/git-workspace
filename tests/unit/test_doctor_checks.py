@@ -10,6 +10,12 @@ from git_workspace.doctor import (
     _check_asset_target_escapes,
     _check_base_branch,
     _check_copy_placeholders,
+    _check_fingerprint_algorithm,
+    _check_fingerprint_empty_name,
+    _check_fingerprint_files,
+    _check_fingerprint_length,
+    _check_fingerprint_name_clashes,
+    _check_fingerprint_name_var_clashes,
     _check_hook_bin_references,
     _check_hook_duplicates,
     _check_hook_empty_entries,
@@ -20,7 +26,7 @@ from git_workspace.doctor import (
     _check_stale_worktrees,
     _check_var_normalization_clashes,
 )
-from git_workspace.manifest import Copy, Hooks, Link, Manifest
+from git_workspace.manifest import Copy, Fingerprint, Hooks, Link, Manifest
 
 
 @pytest.fixture
@@ -30,6 +36,7 @@ def workspace(mocker: MockerFixture) -> MagicMock:
     ws.manifest.links = []
     ws.manifest.copies = []
     ws.manifest.vars = {}
+    ws.manifest.fingerprints = []
     ws.manifest.version = Manifest.DEFAULT_VERSION
     ws.manifest.base_branch = Manifest.DEFAULT_BRANCH
     return ws
@@ -612,3 +619,226 @@ class TestCheckCopyPlaceholders:
 
         assert len(findings) == 1
         assert "GIT_WORKSPACE_UNKNOWN" in findings[0].message
+
+    def test_returns_no_findings_for_fingerprint_placeholder(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "template.txt").write_text("hash={{ GIT_WORKSPACE_FINGERPRINT_DEPS }}")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.vars = {}
+        workspace.manifest.fingerprints = [Fingerprint(name="deps", files=["package.json"])]
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+        assert findings == []
+
+    def test_warns_for_fingerprint_placeholder_when_fingerprint_not_declared(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "template.txt").write_text("hash={{ GIT_WORKSPACE_FINGERPRINT_DEPS }}")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.vars = {}
+        workspace.manifest.fingerprints = []
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+
+        assert len(findings) == 1
+        assert "GIT_WORKSPACE_FINGERPRINT_DEPS" in findings[0].message
+
+
+class TestCheckFingerprintNameClashes:
+    def test_returns_no_findings_for_unique_names(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [
+            Fingerprint(name="alpha", files=[]),
+            Fingerprint(name="beta", files=[]),
+        ]
+
+        findings = []
+        _check_fingerprint_name_clashes(workspace, findings)
+        assert findings == []
+
+    def test_returns_error_for_clashing_normalized_names(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [
+            Fingerprint(name="docker-deps", files=[]),
+            Fingerprint(name="docker_deps", files=[]),
+        ]
+
+        findings = []
+        _check_fingerprint_name_clashes(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert "docker-deps" in findings[0].message
+        assert "docker_deps" in findings[0].message
+
+
+class TestCheckFingerprintNameVarClashes:
+    def test_returns_no_findings_when_no_overlap(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="deps", files=[])]
+        workspace.manifest.vars = {"other": "value"}
+
+        findings = []
+        _check_fingerprint_name_var_clashes(workspace, findings)
+        assert findings == []
+
+    def test_returns_warning_when_normalized_names_match(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="my-key", files=[])]
+        workspace.manifest.vars = {"my_key": "value"}
+
+        findings = []
+        _check_fingerprint_name_var_clashes(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "my-key" in findings[0].message
+
+
+class TestCheckFingerprintEmptyName:
+    def test_returns_no_findings_for_non_empty_name(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="deps", files=[])]
+
+        findings = []
+        _check_fingerprint_empty_name(workspace, findings)
+        assert findings == []
+
+    def test_returns_error_for_empty_name(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="", files=[])]
+
+        findings = []
+        _check_fingerprint_empty_name(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+
+    def test_returns_error_for_whitespace_only_name(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="   ", files=[])]
+
+        findings = []
+        _check_fingerprint_empty_name(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+
+
+class TestCheckFingerprintFiles:
+    def test_returns_no_findings_for_valid_files(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [
+            Fingerprint(name="deps", files=["package.json", "uv.lock"])
+        ]
+
+        findings = []
+        _check_fingerprint_files(workspace, findings)
+        assert findings == []
+
+    def test_returns_warning_for_empty_files_list(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="deps", files=[])]
+
+        findings = []
+        _check_fingerprint_files(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+
+    def test_returns_warning_for_duplicate_file(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [
+            Fingerprint(name="deps", files=["package.json", "package.json"])
+        ]
+
+        findings = []
+        _check_fingerprint_files(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "package.json" in findings[0].message
+
+    def test_returns_error_for_dotdot_escape(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [
+            Fingerprint(name="deps", files=["../../etc/passwd"])
+        ]
+
+        findings = []
+        _check_fingerprint_files(workspace, findings)
+
+        assert any(f.level == "error" for f in findings)
+
+    def test_returns_error_for_absolute_path(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [
+            Fingerprint(name="deps", files=["/etc/passwd"])
+        ]
+
+        findings = []
+        _check_fingerprint_files(workspace, findings)
+
+        assert any(f.level == "error" for f in findings)
+
+
+class TestCheckFingerprintAlgorithm:
+    def test_returns_no_findings_for_sha256(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="x", files=[], algorithm="sha256")]
+
+        findings = []
+        _check_fingerprint_algorithm(workspace, findings)
+        assert findings == []
+
+    def test_returns_no_findings_for_md5(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="x", files=[], algorithm="md5")]
+
+        findings = []
+        _check_fingerprint_algorithm(workspace, findings)
+        assert findings == []
+
+    def test_returns_error_for_unsupported_algorithm(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="x", files=[], algorithm="blake2b")]
+
+        findings = []
+        _check_fingerprint_algorithm(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert "blake2b" in findings[0].message
+
+
+class TestCheckFingerprintLength:
+    def test_returns_no_findings_for_valid_length(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="x", files=[], length=12)]
+
+        findings = []
+        _check_fingerprint_length(workspace, findings)
+        assert findings == []
+
+    def test_returns_error_for_zero_length(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="x", files=[], length=0)]
+
+        findings = []
+        _check_fingerprint_length(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+
+    def test_returns_error_for_negative_length(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [Fingerprint(name="x", files=[], length=-1)]
+
+        findings = []
+        _check_fingerprint_length(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+
+    def test_returns_warning_when_length_exceeds_digest_size(self, workspace: MagicMock) -> None:
+        workspace.manifest.fingerprints = [
+            Fingerprint(name="x", files=[], algorithm="md5", length=100)
+        ]
+
+        findings = []
+        _check_fingerprint_length(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "32" in findings[0].message
