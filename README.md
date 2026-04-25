@@ -47,10 +47,10 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - 🌳 **Worktree-per-branch** — every branch gets its own directory; no more dirty working trees
 - ⚡ **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
 - 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree
-- 📋 **File copying** — copy mutable config files that each worktree can edit independently, with placeholder substitution
+- 📋 **File copying** — copy mutable config files that each worktree can edit independently
 - 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
 - 📦 **Variables** — pass manifest-level and runtime variables into hooks as environment variables
-- 🔏 **Fingerprints** — hash worktree files and expose the digest as an env var so hooks can skip work when inputs haven't changed
+- 🔏 **Fingerprints** — hash worktree files and expose the digest for further processing
 - 🧭 **CWD-aware** — detects when you're already inside a workspace or worktree
 - 🏗️ **Detached mode** — skip interactive hooks for headless, CI, or agent workflows
 - 🧹 **Stale worktree pruning** — clean up old worktrees by age with dry-run preview
@@ -231,7 +231,7 @@ Each hook entry can be a script in `.workspace/bin/` or an inline shell command.
 | `GIT_WORKSPACE_BRANCH` | Current branch name |
 | `GIT_WORKSPACE_EVENT` | The lifecycle event that triggered the hook |
 | `GIT_WORKSPACE_VAR_*` | All manifest and runtime variables |
-| `GIT_WORKSPACE_FINGERPRINT_*` | Fingerprints declared in `[[fingerprint]]` blocks |
+| `GIT_WORKSPACE_FINGERPRINT_*` | Content hashes computed from `[[fingerprint]]` file sets |
 
 ### Hook execution order
 
