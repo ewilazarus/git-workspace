@@ -35,6 +35,14 @@ def reset(
             callback=parse_vars,
         ),
     ] = None,
+    effective_branch: Annotated[
+        str | None,
+        typer.Option(
+            "-a",
+            "--as",
+            help="Treat the worktree as if it were on this branch when evaluating hook conditions. Does not change the actual branch or GIT_WORKSPACE_BRANCH.",
+        ),
+    ] = None,
 ) -> None:
     """
     Reapply configuration and setup for a workspace worktree.
@@ -51,6 +59,7 @@ def reset(
     operations.reset_worktree(
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
+        effective_branch=effective_branch,
     )
 
     console.success("Done")

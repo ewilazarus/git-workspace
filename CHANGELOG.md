@@ -8,6 +8,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- **Adaptive hooks** — each hook event now supports multiple `[[hooks.<event>]]` groups with an optional `conditions` block; groups can be gated on `if_branch_matches` and/or `if_branch_not_matches` (POSIX glob, AND-ed when both are set); groups without conditions always run; groups are evaluated top-to-bottom in manifest order
+- `-a`/`--as <branch>` flag on `up`, `down`, `reset`, and `rm` — overrides the branch used to evaluate hook conditions without affecting the real branch or `GIT_WORKSPACE_BRANCH`; useful for impersonating a branch pattern in scripted or CI workflows
+- `git workspace doctor` now warns on unknown condition keys, invalid glob patterns, and hook groups with no commands
 - Fingerprint support — declare `[[fingerprint]]` blocks in `manifest.toml` to hash a set of files at the worktree root and expose the result as `GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>` in hook and `exec` environments; supports `sha256` (default) and `md5` algorithms with configurable digest prefix length; `git workspace doctor` validates fingerprint config (name clashes, unsupported algorithms, path escapes, etc.)
 - Placeholder substitution in copied assets — `{{ GIT_WORKSPACE_* }}` tokens are replaced with their environment variable values at copy time
 - `git workspace exec <branch> -- <command>` — runs an arbitrary command inside a worktree; prompts to create the worktree first if it doesn't exist (`--force` skips the prompt); propagates the command's exit code
@@ -22,6 +25,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `git workspace root` command — removed; use `git workspace up --output` or check `GIT_WORKSPACE_ROOT` from within a hook instead
 
 ### Changed
+- **Breaking:** Hook manifest schema — the flat `[hooks] on_setup = [...]` format is replaced by `[[hooks.on_setup]]` groups with a `commands` list. Migrate by wrapping each existing list inside a single unconditional group:
+  ```toml
+  # Before
+  [hooks]
+  on_setup = ["install_deps", "docker build ."]
+
+  # After
+  [[hooks.on_setup]]
+  commands = ["install_deps", "docker build ."]
+  ```
 - **Breaking:** Hook lifecycle renamed to clarify two distinct lifetimes:
   - `on_activate` is removed; its per-`up` role is replaced by `on_attach` (interactive) or nothing (detached)
   - `on_deactivate` is renamed to `on_detach` — runs on `down` and at the start of `rm`

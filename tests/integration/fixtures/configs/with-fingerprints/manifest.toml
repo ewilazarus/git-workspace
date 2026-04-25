@@ -11,5 +11,5 @@ files = ["config.json"]
 algorithm = "md5"
 length = 8
 
-[hooks]
-on_setup = ["on_setup"]
+[[hooks.on_setup]]
+commands = ["on_setup"]

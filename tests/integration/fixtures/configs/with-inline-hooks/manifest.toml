@@ -2,5 +2,5 @@ version = 1
 
 base_branch = "main"
 
-[hooks]
-on_setup = ["touch $GIT_WORKSPACE_ROOT/.inline-hook-ran"]
+[[hooks.on_setup]]
+commands = ["touch $GIT_WORKSPACE_ROOT/.inline-hook-ran"]

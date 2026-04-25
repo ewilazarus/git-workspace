@@ -41,7 +41,10 @@ class TestUp:
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
         mock_activate_worktree.assert_called_once_with(
-            worktree, runtime_vars={"MY_VAR": "my_value"}, detached=False
+            worktree,
+            runtime_vars={"MY_VAR": "my_value"},
+            detached=False,
+            effective_branch=None,
         )
 
     def test_activates_worktree_with_empty_runtime_vars_when_none(
@@ -52,7 +55,12 @@ class TestUp:
         up()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
-        mock_activate_worktree.assert_called_once_with(worktree, runtime_vars={}, detached=False)
+        mock_activate_worktree.assert_called_once_with(
+            worktree,
+            runtime_vars={},
+            detached=False,
+            effective_branch=None,
+        )
 
     def test_activates_worktree_as_detached(
         self,
@@ -62,4 +70,24 @@ class TestUp:
         up(detached=True)
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
-        mock_activate_worktree.assert_called_once_with(worktree, runtime_vars={}, detached=True)
+        mock_activate_worktree.assert_called_once_with(
+            worktree,
+            runtime_vars={},
+            detached=True,
+            effective_branch=None,
+        )
+
+    def test_passes_effective_branch_to_activate(
+        self,
+        mock_workspace_resolve: MagicMock,
+        mock_activate_worktree: MagicMock,
+    ) -> None:
+        up(effective_branch="gabriel/impersonated")
+        workspace = mock_workspace_resolve.return_value
+        worktree = workspace.resolve_or_create_worktree.return_value
+        mock_activate_worktree.assert_called_once_with(
+            worktree,
+            runtime_vars={},
+            detached=False,
+            effective_branch="gabriel/impersonated",
+        )

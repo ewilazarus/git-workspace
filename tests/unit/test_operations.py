@@ -131,7 +131,9 @@ class TestActivateWorktree:
         mock_hook_runner: MagicMock,
     ) -> None:
         operations.activate_worktree(worktree, runtime_vars={"KEY": "val"}, detached=False)
-        mock_hook_runner.assert_called_once_with(worktree, env=MOCK_ENV)
+        mock_hook_runner.assert_called_once_with(
+            worktree, env=MOCK_ENV, effective_branch=worktree.branch
+        )
 
 
 class TestResetWorktree:

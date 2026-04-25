@@ -6,5 +6,5 @@ base_branch = "main"
 manifest-var = "from-manifest"
 shared-var = "manifest-value"
 
-[hooks]
-on_setup = ["on_setup"]
+[[hooks.on_setup]]
+commands = ["on_setup"]

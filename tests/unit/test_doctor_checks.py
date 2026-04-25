@@ -19,6 +19,9 @@ from git_workspace.doctor import (
     _check_hook_bin_references,
     _check_hook_duplicates,
     _check_hook_empty_entries,
+    _check_hook_empty_groups,
+    _check_hook_invalid_glob,
+    _check_hook_unknown_condition_keys,
     _check_manifest_parseable,
     _check_manifest_version,
     _check_orphaned_assets,
@@ -26,7 +29,15 @@ from git_workspace.doctor import (
     _check_stale_worktrees,
     _check_var_normalization_clashes,
 )
-from git_workspace.manifest import Copy, Fingerprint, Hooks, Link, Manifest
+from git_workspace.manifest import (
+    Copy,
+    Fingerprint,
+    HookConditions,
+    HookGroup,
+    Hooks,
+    Link,
+    Manifest,
+)
 
 
 @pytest.fixture
@@ -231,7 +242,7 @@ class TestCheckHookBinReferences:
     ) -> None:
         workspace.paths.bin = tmp_path / "bin"
         workspace.paths.bin.mkdir()
-        workspace.manifest.hooks = Hooks(on_setup=["docker build . -t myapp"])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["docker build . -t myapp"])])
 
         findings = []
         _check_hook_bin_references(workspace, findings)
@@ -240,7 +251,7 @@ class TestCheckHookBinReferences:
     def test_warns_for_missing_bin_script(self, workspace: MagicMock, tmp_path: Path) -> None:
         workspace.paths.bin = tmp_path / "bin"
         workspace.paths.bin.mkdir()
-        workspace.manifest.hooks = Hooks(on_setup=["install_deps"])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["install_deps"])])
 
         findings = []
         _check_hook_bin_references(workspace, findings)
@@ -259,7 +270,7 @@ class TestCheckHookBinReferences:
         script.chmod(0o644)
 
         workspace.paths.bin = bin_dir
-        workspace.manifest.hooks = Hooks(on_setup=["setup.sh"])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["setup.sh"])])
 
         findings = []
         _check_hook_bin_references(workspace, findings)
@@ -278,7 +289,7 @@ class TestCheckHookBinReferences:
         script.chmod(0o755)
 
         workspace.paths.bin = bin_dir
-        workspace.manifest.hooks = Hooks(on_setup=["setup.sh"])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["setup.sh"])])
 
         findings = []
         _check_hook_bin_references(workspace, findings)
@@ -287,7 +298,7 @@ class TestCheckHookBinReferences:
     def test_empty_entry_is_skipped(self, workspace: MagicMock, tmp_path: Path) -> None:
         workspace.paths.bin = tmp_path / "bin"
         workspace.paths.bin.mkdir()
-        workspace.manifest.hooks = Hooks(on_setup=[""])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=[""])])
 
         findings = []
         _check_hook_bin_references(workspace, findings)
@@ -296,14 +307,14 @@ class TestCheckHookBinReferences:
 
 class TestCheckHookEmptyEntries:
     def test_returns_no_findings_for_non_empty_hooks(self, workspace: MagicMock) -> None:
-        workspace.manifest.hooks = Hooks(on_setup=["install"])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["install"])])
 
         findings = []
         _check_hook_empty_entries(workspace, findings)
         assert findings == []
 
     def test_returns_warning_for_empty_entry(self, workspace: MagicMock) -> None:
-        workspace.manifest.hooks = Hooks(on_setup=[""])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=[""])])
 
         findings = []
         _check_hook_empty_entries(workspace, findings)
@@ -313,7 +324,7 @@ class TestCheckHookEmptyEntries:
         assert "on_setup" in findings[0].message
 
     def test_returns_warning_for_whitespace_only_entry(self, workspace: MagicMock) -> None:
-        workspace.manifest.hooks = Hooks(on_detach=["   "])
+        workspace.manifest.hooks = Hooks(on_detach=[HookGroup(commands=["   "])])
 
         findings = []
         _check_hook_empty_entries(workspace, findings)
@@ -325,14 +336,14 @@ class TestCheckHookEmptyEntries:
 
 class TestCheckHookDuplicates:
     def test_returns_no_findings_for_unique_entries(self, workspace: MagicMock) -> None:
-        workspace.manifest.hooks = Hooks(on_setup=["a", "b"])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["a", "b"])])
 
         findings = []
         _check_hook_duplicates(workspace, findings)
         assert findings == []
 
     def test_returns_warning_for_duplicate_in_same_event(self, workspace: MagicMock) -> None:
-        workspace.manifest.hooks = Hooks(on_setup=["install", "install"])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["install", "install"])])
 
         findings = []
         _check_hook_duplicates(workspace, findings)
@@ -343,7 +354,10 @@ class TestCheckHookDuplicates:
         assert "install" in findings[0].message
 
     def test_same_entry_in_different_events_is_fine(self, workspace: MagicMock) -> None:
-        workspace.manifest.hooks = Hooks(on_setup=["install"], on_attach=["install"])
+        workspace.manifest.hooks = Hooks(
+            on_setup=[HookGroup(commands=["install"])],
+            on_attach=[HookGroup(commands=["install"])],
+        )
 
         findings = []
         _check_hook_duplicates(workspace, findings)
@@ -367,7 +381,7 @@ class TestCheckOrphanedBinScripts:
         bin_dir.mkdir()
         (bin_dir / "setup.sh").write_text("#!/bin/sh")
         workspace.paths.bin = bin_dir
-        workspace.manifest.hooks = Hooks(on_setup=["setup.sh"])
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["setup.sh"])])
 
         findings = []
         _check_orphaned_bin_scripts(workspace, findings)
@@ -838,3 +852,109 @@ class TestCheckFingerprintLength:
         assert len(findings) == 1
         assert findings[0].level == "warning"
         assert "32" in findings[0].message
+
+
+class TestCheckHookUnknownConditionKeys:
+    def test_returns_no_findings_for_known_keys(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(
+            on_setup=[
+                HookGroup(
+                    commands=["setup.sh"],
+                    conditions=HookConditions(if_branch_matches="gabriel/*"),
+                )
+            ]
+        )
+
+        findings = []
+        _check_hook_unknown_condition_keys(workspace, findings)
+        assert findings == []
+
+    def test_warns_for_unknown_condition_key(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(
+            on_setup=[
+                HookGroup(
+                    commands=["setup.sh"],
+                    conditions=HookConditions(unknown_keys=("if_branch_match",)),
+                )
+            ]
+        )
+
+        findings = []
+        _check_hook_unknown_condition_keys(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "if_branch_match" in findings[0].message
+        assert "on_setup" in findings[0].message
+
+    def test_warns_for_each_unknown_key(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(
+            on_setup=[
+                HookGroup(
+                    commands=["setup.sh"],
+                    conditions=HookConditions(unknown_keys=("typo_a", "typo_b")),
+                )
+            ]
+        )
+
+        findings = []
+        _check_hook_unknown_condition_keys(workspace, findings)
+
+        assert len(findings) == 2
+
+    def test_no_findings_when_conditions_is_none(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["setup.sh"])])
+
+        findings = []
+        _check_hook_unknown_condition_keys(workspace, findings)
+        assert findings == []
+
+
+class TestCheckHookInvalidGlob:
+    def test_returns_no_findings_for_valid_glob(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(
+            on_setup=[
+                HookGroup(
+                    commands=["setup.sh"],
+                    conditions=HookConditions(if_branch_matches="gabriel/*"),
+                )
+            ]
+        )
+
+        findings = []
+        _check_hook_invalid_glob(workspace, findings)
+        assert findings == []
+
+    def test_returns_no_findings_when_conditions_none(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["setup.sh"])])
+
+        findings = []
+        _check_hook_invalid_glob(workspace, findings)
+        assert findings == []
+
+
+class TestCheckHookEmptyGroups:
+    def test_returns_no_findings_for_group_with_commands(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["setup.sh"])])
+
+        findings = []
+        _check_hook_empty_groups(workspace, findings)
+        assert findings == []
+
+    def test_warns_for_group_with_no_commands(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=[])])
+
+        findings = []
+        _check_hook_empty_groups(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "on_setup" in findings[0].message
+
+    def test_warns_for_multiple_empty_groups(self, workspace: MagicMock) -> None:
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=[]), HookGroup(commands=[])])
+
+        findings = []
+        _check_hook_empty_groups(workspace, findings)
+
+        assert len(findings) == 2

@@ -8,6 +8,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+KNOWN_CONDITION_KEYS: frozenset[str] = frozenset({"if_branch_matches", "if_branch_not_matches"})
+
 
 @dataclass
 class Asset:
@@ -39,15 +41,47 @@ class Copy(Asset):
 
 
 @dataclass
+class HookConditions:
+    """
+    Conditions that gate whether a hook group runs.
+
+    Both fields use POSIX glob syntax (fnmatch). When both are set, they are
+    AND-ed: the group runs only when the branch matches ``if_branch_matches``
+    AND does not match ``if_branch_not_matches``.
+
+    Unknown keys found in the manifest conditions table are captured in
+    ``unknown_keys`` for ``doctor`` to surface as warnings.
+    """
+
+    if_branch_matches: str | None = None
+    if_branch_not_matches: str | None = None
+    unknown_keys: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass
+class HookGroup:
+    """
+    A group of hook commands with an optional set of conditions.
+
+    When ``conditions`` is ``None`` the group always runs.
+    When ``commands`` is empty the group is a no-op (doctor warns about this).
+    """
+
+    commands: list[str] = field(default_factory=list)
+    conditions: HookConditions | None = None
+
+
+@dataclass
 class Hooks:
     """
     Defines lifecycle hooks executed during workspace operations.
 
-    Each hook is a list of entries executed in order. An entry that matches a
-    file in ``.workspace/bin`` is run as a script; otherwise it is executed as
-    an inline shell command via the user's shell (``$SHELL``, defaulting to ``sh``).
+    Each hook event holds an ordered list of ``HookGroup`` objects. Groups are
+    evaluated top-to-bottom; a group runs only when its conditions match the
+    effective branch (or when it has no conditions). Each command within a
+    matching group is executed in order.
 
-    Available hooks:
+    Available hook events:
 
     - on_setup: executed after a worktree is first created or on reset (worktree lifetime)
     - on_attach: executed on ``up`` in interactive mode (session lifetime)
@@ -55,10 +89,10 @@ class Hooks:
     - on_teardown: executed on ``rm``, after on_detach, before deletion (worktree lifetime)
     """
 
-    on_setup: list[str] = field(default_factory=list)
-    on_attach: list[str] = field(default_factory=list)
-    on_detach: list[str] = field(default_factory=list)
-    on_teardown: list[str] = field(default_factory=list)
+    on_setup: list[HookGroup] = field(default_factory=list)
+    on_attach: list[HookGroup] = field(default_factory=list)
+    on_detach: list[HookGroup] = field(default_factory=list)
+    on_teardown: list[HookGroup] = field(default_factory=list)
 
 
 @dataclass
@@ -180,13 +214,30 @@ class Manifest:
         ]
 
     @classmethod
+    def _parse_hook_group(cls, group_data: dict[str, Any]) -> HookGroup:
+        commands = group_data.get("commands", [])
+        conditions_data = group_data.get("conditions")
+        if conditions_data is None:
+            return HookGroup(commands=commands)
+
+        unknown = tuple(k for k in conditions_data if k not in KNOWN_CONDITION_KEYS)
+        return HookGroup(
+            commands=commands,
+            conditions=HookConditions(
+                if_branch_matches=conditions_data.get("if_branch_matches"),
+                if_branch_not_matches=conditions_data.get("if_branch_not_matches"),
+                unknown_keys=unknown,
+            ),
+        )
+
+    @classmethod
     def _parse_hooks(cls, data: dict[str, Any]) -> Hooks:
         hooks_data = data.get("hooks", {})
         return Hooks(
-            on_setup=hooks_data.get("on_setup", []),
-            on_attach=hooks_data.get("on_attach", []),
-            on_detach=hooks_data.get("on_detach", []),
-            on_teardown=hooks_data.get("on_teardown", []),
+            on_setup=[cls._parse_hook_group(g) for g in hooks_data.get("on_setup", [])],
+            on_attach=[cls._parse_hook_group(g) for g in hooks_data.get("on_attach", [])],
+            on_detach=[cls._parse_hook_group(g) for g in hooks_data.get("on_detach", [])],
+            on_teardown=[cls._parse_hook_group(g) for g in hooks_data.get("on_teardown", [])],
         )
 
     @classmethod
@@ -210,7 +261,7 @@ class Manifest:
         describing workspace configuration such as hooks, links, and prune rules.
         If the file cannot be read or parsed, sane defaults are returned.
 
-        :param path: Path to the manifest file
+        :param workspace: The workspace whose manifest should be loaded.
         :returns: Parsed Manifest instance
         """
         logger.debug("loading manifest from %s", workspace.paths.manifest)
@@ -236,13 +287,17 @@ class Manifest:
         prune = cls._parse_prune(data)
 
         logger.debug(
-            "manifest loaded: version=%d base_branch=%r copies=%d links=%d fingerprints=%d hooks=%s prune=%s",
+            "manifest loaded: version=%d base_branch=%r copies=%d links=%d fingerprints=%d"
+            " hooks=(on_setup=%d on_attach=%d on_detach=%d on_teardown=%d) prune=%s",
             version,
             base_branch,
             len(copies),
             len(links),
             len(fingerprints),
-            {k: v for k, v in hooks.__dict__.items() if v},
+            len(hooks.on_setup),
+            len(hooks.on_attach),
+            len(hooks.on_detach),
+            len(hooks.on_teardown),
             f"older_than_days={prune.older_than_days}" if prune else None,
         )
         return Manifest(version, base_branch, copies, links, vars, fingerprints, hooks, prune)

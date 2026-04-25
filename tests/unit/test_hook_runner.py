@@ -5,6 +5,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from git_workspace.hooks import HookRunner
+from git_workspace.manifest import HookConditions, HookGroup
 
 BRANCH = "feat/GWS-001"
 WORKSPACE_DIR = Path("/workspace")
@@ -13,10 +14,15 @@ WORKTREE_DIR = Path("/workspace/feat/GWS-001")
 BIN_DIR = Path("/workspace/.workspace/bin")
 ASSETS_DIR = Path("/workspace/.workspace/assets")
 
-HOOKS_ON_SETUP = ["setup.sh"]
-HOOKS_ON_ATTACH = ["attach.sh"]
-HOOKS_ON_DETACH = ["detach.sh"]
-HOOKS_ON_TEARDOWN = ["teardown.sh"]
+
+def _group(commands: list[str], conditions: HookConditions | None = None) -> HookGroup:
+    return HookGroup(commands=commands, conditions=conditions)
+
+
+HOOKS_ON_SETUP = [_group(["setup.sh"])]
+HOOKS_ON_ATTACH = [_group(["attach.sh"])]
+HOOKS_ON_DETACH = [_group(["detach.sh"])]
+HOOKS_ON_TEARDOWN = [_group(["teardown.sh"])]
 
 
 @pytest.fixture
@@ -37,7 +43,7 @@ def worktree(mocker: MockerFixture) -> MagicMock:
 
 @pytest.fixture
 def hook_runner(worktree: MagicMock) -> HookRunner:
-    return HookRunner(worktree, {})
+    return HookRunner(worktree, {}, effective_branch=BRANCH)
 
 
 @pytest.fixture(autouse=True)
@@ -160,3 +166,79 @@ class TestRunOnTeardownHooks:
         hook_runner.run_on_teardown_hooks()
 
         assert mock_popen.call_args.kwargs["env"]["GIT_WORKSPACE_EVENT"] == "ON_TEARDOWN"
+
+
+class TestConditionMatching:
+    def _runner(self, worktree: MagicMock, groups: list[HookGroup], branch: str) -> HookRunner:
+        worktree.workspace.manifest.hooks.on_setup = groups
+        return HookRunner(worktree, {}, effective_branch=branch)
+
+    def test_no_conditions_always_runs(self, worktree: MagicMock, mock_popen: MagicMock) -> None:
+        runner = self._runner(worktree, [_group(["cmd.sh"])], "any/branch")
+        runner.run_on_setup_hooks()
+        assert mock_popen.called
+
+    def test_if_branch_matches_runs_when_pattern_matches(
+        self, worktree: MagicMock, mock_popen: MagicMock
+    ) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*")
+        runner = self._runner(worktree, [_group(["cmd.sh"], cond)], "gabriel/foo")
+        runner.run_on_setup_hooks()
+        assert mock_popen.called
+
+    def test_if_branch_matches_skipped_when_pattern_does_not_match(
+        self, worktree: MagicMock, mock_popen: MagicMock
+    ) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*")
+        runner = self._runner(worktree, [_group(["cmd.sh"], cond)], "feat/bar")
+        runner.run_on_setup_hooks()
+        assert not mock_popen.called
+
+    def test_if_branch_not_matches_runs_when_branch_does_not_match(
+        self, worktree: MagicMock, mock_popen: MagicMock
+    ) -> None:
+        cond = HookConditions(if_branch_not_matches="gabriel/*")
+        runner = self._runner(worktree, [_group(["cmd.sh"], cond)], "feat/bar")
+        runner.run_on_setup_hooks()
+        assert mock_popen.called
+
+    def test_if_branch_not_matches_skipped_when_branch_matches(
+        self, worktree: MagicMock, mock_popen: MagicMock
+    ) -> None:
+        cond = HookConditions(if_branch_not_matches="gabriel/*")
+        runner = self._runner(worktree, [_group(["cmd.sh"], cond)], "gabriel/foo")
+        runner.run_on_setup_hooks()
+        assert not mock_popen.called
+
+    def test_both_conditions_runs_when_all_hold(
+        self, worktree: MagicMock, mock_popen: MagicMock
+    ) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*", if_branch_not_matches="gabriel/wip-*")
+        runner = self._runner(worktree, [_group(["cmd.sh"], cond)], "gabriel/feature")
+        runner.run_on_setup_hooks()
+        assert mock_popen.called
+
+    def test_both_conditions_skipped_when_not_matches_fails(
+        self, worktree: MagicMock, mock_popen: MagicMock
+    ) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*", if_branch_not_matches="gabriel/wip-*")
+        runner = self._runner(worktree, [_group(["cmd.sh"], cond)], "gabriel/wip-thing")
+        runner.run_on_setup_hooks()
+        assert not mock_popen.called
+
+    def test_two_matching_groups_both_run(self, worktree: MagicMock, mock_popen: MagicMock) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*")
+        groups = [_group(["first.sh"]), _group(["second.sh"], cond)]
+        runner = self._runner(worktree, groups, "gabriel/foo")
+        runner.run_on_setup_hooks()
+        assert mock_popen.call_count == 2
+
+    def test_only_matching_group_runs_when_one_skipped(
+        self, worktree: MagicMock, mock_popen: MagicMock
+    ) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*")
+        groups = [_group(["unconditional.sh"]), _group(["conditional.sh"], cond)]
+        runner = self._runner(worktree, groups, "feat/bar")
+        runner.run_on_setup_hooks()
+        assert mock_popen.call_count == 1
+        assert mock_popen.call_args.args[0] == str(BIN_DIR / "unconditional.sh")

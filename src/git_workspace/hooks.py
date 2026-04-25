@@ -1,3 +1,4 @@
+import fnmatch
 import logging
 import os
 import subprocess
@@ -5,10 +6,22 @@ from contextlib import AbstractContextManager
 from types import TracebackType
 
 from git_workspace.errors import HookExecutionError
+from git_workspace.manifest import HookGroup
 from git_workspace.ui import HookProgress, console
 from git_workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
+
+
+def _matches(group: HookGroup, effective_branch: str) -> bool:
+    if group.conditions is None:
+        return True
+    c = group.conditions
+    if c.if_branch_matches and not fnmatch.fnmatchcase(effective_branch, c.if_branch_matches):
+        return False
+    if c.if_branch_not_matches and fnmatch.fnmatchcase(effective_branch, c.if_branch_not_matches):
+        return False
+    return True
 
 
 class HookRunner:
@@ -21,6 +34,10 @@ class HookRunner:
     caller-supplied runtime vars are both normalised and forwarded as
     ``GIT_WORKSPACE_VAR_*`` variables.
 
+    ``effective_branch`` is used only to evaluate hook group conditions; it does
+    not affect the ``GIT_WORKSPACE_BRANCH`` environment variable exposed to hook
+    scripts (which always reflects the real worktree branch).
+
     Use as a context manager so the "Running hooks" display is finalized
     correctly after all hook types complete.
     """
@@ -29,10 +46,12 @@ class HookRunner:
         self,
         worktree: Worktree,
         env: dict[str, str],
+        effective_branch: str,
     ) -> None:
         self._worktree = worktree
         self._worktree_dir = str(worktree.dir)
         self._env = env
+        self._effective_branch = effective_branch
         self._hook_display_cm: AbstractContextManager[HookProgress] | None = None
         self._hook_progress: HookProgress | None = None
 
@@ -63,7 +82,14 @@ class HookRunner:
         logger.debug("no bin script for %r, running as inline shell command", hook_name)
         return hook_name
 
-    def _run_hooks(self, event: str, hook_names: list[str]) -> None:
+    def _run_hooks(self, event: str, groups: list[HookGroup]) -> None:
+        hook_names = [
+            cmd
+            for g in groups
+            if _matches(g, self._effective_branch)
+            for cmd in g.commands
+            if cmd.strip()
+        ]
         if not hook_names:
             return
 
@@ -105,7 +131,7 @@ class HookRunner:
 
     def run_on_setup_hooks(self) -> None:
         """
-        Runs all ``on_setup`` hooks.
+        Runs all matching ``on_setup`` hook groups.
 
         Called after a worktree is first created or explicitly reset. Suitable
         for one-time setup tasks such as installing dependencies or generating
@@ -117,7 +143,7 @@ class HookRunner:
 
     def run_on_attach_hooks(self) -> None:
         """
-        Runs all ``on_attach`` hooks.
+        Runs all matching ``on_attach`` hook groups.
 
         Called during ``up`` when running in attached (interactive) mode. Skipped
         when ``--detached`` is passed. Suitable for tasks that require a terminal
@@ -129,7 +155,7 @@ class HookRunner:
 
     def run_on_detach_hooks(self) -> None:
         """
-        Runs all ``on_detach`` hooks.
+        Runs all matching ``on_detach`` hook groups.
 
         Called during ``down`` and at the start of ``rm``. Counterpart to
         ``on_attach``; intended for tearing down any interactive session state.
@@ -140,7 +166,7 @@ class HookRunner:
 
     def run_on_teardown_hooks(self) -> None:
         """
-        Runs all ``on_teardown`` hooks.
+        Runs all matching ``on_teardown`` hook groups.
 
         Called during ``rm``, after ``on_detach`` and before the worktree is
         deleted. Suitable for final cleanup tasks that must happen before the

@@ -154,3 +154,13 @@ def workspace_with_fingerprints(setup: Setup, tmp_path: Path) -> Workspace:
         url=str(tmp_path / "repo"),
         config_url=str(tmp_path / "configs" / "with-fingerprints"),
     )
+
+
+@pytest.fixture
+def workspace_with_adaptive_hooks(setup: Setup, tmp_path: Path) -> Workspace:
+    setup(config="with-adaptive-hooks")
+    return Workspace.clone(
+        workspace_dir=str(tmp_path / "workspace"),
+        url=str(tmp_path / "repo"),
+        config_url=str(tmp_path / "configs" / "with-adaptive-hooks"),
+    )

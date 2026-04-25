@@ -184,11 +184,17 @@ node-version = "22"
 registry     = "https://registry.npmjs.org"
 
 # Lifecycle hooks (.workspace/bin/ scripts and inline commands)
-[hooks]
-on_setup    = ["install_deps", "docker build . -t myproj:latest"]
-on_attach   = ["open_editor"]
-on_detach   = ["save_state"]
-on_teardown = ["clean_cache"]
+[[hooks.on_setup]]
+commands = ["install_deps", "docker build . -t myproj:latest"]
+
+[[hooks.on_attach]]
+commands = ["open_editor"]
+
+[[hooks.on_detach]]
+commands = ["save_state"]
+
+[[hooks.on_teardown]]
+commands = ["clean_cache"]
 
 # Symlinks applied to every worktree
 [[link]]
@@ -254,11 +260,17 @@ npm install
 **Mix bin scripts and inline commands** in the same hook list:
 
 ```toml
-[hooks]
-on_setup    = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
-on_attach   = ["open_editor"]
-on_detach   = ["save_session"]
-on_teardown = ["clean_cache"]
+[[hooks.on_setup]]
+commands = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
+
+[[hooks.on_attach]]
+commands = ["open_editor"]
+
+[[hooks.on_detach]]
+commands = ["save_session"]
+
+[[hooks.on_teardown]]
+commands = ["clean_cache"]
 ```
 
 Here `install_deps` runs `.workspace/bin/install_deps`, while `docker build . -t myproj:latest` and `echo ready` run as shell commands.
@@ -268,6 +280,55 @@ Here `install_deps` runs `.workspace/bin/install_deps`, while `docker build . -t
 ```bash
 git workspace up feature/my-feature -v env=staging -v debug=true
 ```
+
+---
+
+## Adaptive hooks
+
+Each hook event can have multiple `[[hooks.<event>]]` groups. A group only runs when its `conditions` block matches the effective branch. Groups with no `conditions` always run. Groups are evaluated top-to-bottom in manifest order.
+
+### Supported conditions
+
+| Key | Behaviour |
+|---|---|
+| `if_branch_matches` | Run only when the branch matches the glob pattern |
+| `if_branch_not_matches` | Run only when the branch does **not** match the glob pattern |
+
+Both conditions use POSIX glob syntax (`*`, `?`, `[...]`). When both keys are present they are AND-ed: the group runs only when both hold.
+
+**Example:**
+
+```toml
+# Always runs — no conditions
+[[hooks.on_setup]]
+commands = ["npm install"]
+
+# Only on your own branches
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "gabriel/*" }
+commands = ["tmux attach -t MYSESSION"]
+
+# Only on other branches
+[[hooks.on_setup]]
+conditions = { if_branch_not_matches = "gabriel/*" }
+commands = ["echo not my branch"]
+
+# Only on gabriel/* but not wip branches (AND)
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "gabriel/*", if_branch_not_matches = "gabriel/wip-*" }
+commands = ["start_long_running_task"]
+```
+
+### Impersonating a branch with `--as`
+
+All hook-running commands (`up`, `down`, `reset`, `rm`) accept `-a`/`--as <branch>` to override which branch is used when evaluating hook conditions. The real `GIT_WORKSPACE_BRANCH` environment variable and git state are **not** affected.
+
+```bash
+# Run hooks as if this were a gabriel/* branch, even though the real branch is feat/my-feature
+git workspace up feat/my-feature --as gabriel/my-feature
+```
+
+This is useful when a shared feature branch should trigger the same hooks as a personal branch, or when scripting against a branch that doesn't exist yet.
 
 ---
 

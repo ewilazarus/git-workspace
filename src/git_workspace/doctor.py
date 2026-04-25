@@ -1,3 +1,4 @@
+import fnmatch
 import os
 import posixpath
 import tomllib
@@ -11,7 +12,7 @@ from git_workspace.assets import Copier
 from git_workspace.env import BASE_VAR_KEYS, FINGERPRINT_VAR_PREFIX
 from git_workspace.errors import WorktreeListingError
 from git_workspace.fingerprint import SUPPORTED_ALGORITHMS
-from git_workspace.manifest import Manifest
+from git_workspace.manifest import KNOWN_CONDITION_KEYS, HookGroup, Manifest
 from git_workspace.utils import normalize_variable_name
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ class Finding:
     message: str
 
 
-def _iter_hooks(workspace: Workspace) -> Iterator[tuple[str, list[str]]]:
+def _iter_hooks(workspace: Workspace) -> Iterator[tuple[str, list[HookGroup]]]:
     hooks = workspace.manifest.hooks
     yield from [
         ("on_setup", hooks.on_setup),
@@ -42,9 +43,10 @@ def _iter_hooks(workspace: Workspace) -> Iterator[tuple[str, list[str]]]:
 
 
 def _iter_hook_entries(workspace: Workspace) -> Iterator[tuple[str, str]]:
-    for event, entries in _iter_hooks(workspace):
-        for entry in entries:
-            yield event, entry
+    for event, groups in _iter_hooks(workspace):
+        for group in groups:
+            for cmd in group.commands:
+                yield event, cmd
 
 
 def _check_manifest_parseable(workspace: Workspace, findings: list[Finding]) -> None:
@@ -263,14 +265,15 @@ def _check_hook_empty_entries(workspace: Workspace, findings: list[Finding]) -> 
 
 
 def _check_hook_duplicates(workspace: Workspace, findings: list[Finding]) -> None:
-    for event, entries in _iter_hooks(workspace):
+    for event, groups in _iter_hooks(workspace):
         seen: set[str] = set()
-        for entry in entries:
-            if entry in seen:
-                findings.append(
-                    Finding("warning", f"Hook '{event}' has duplicate entry: '{entry}'")
-                )
-            seen.add(entry)
+        for group in groups:
+            for entry in group.commands:
+                if entry in seen:
+                    findings.append(
+                        Finding("warning", f"Hook '{event}' has duplicate entry: '{entry}'")
+                    )
+                seen.add(entry)
 
 
 def _check_orphaned_bin_scripts(workspace: Workspace, findings: list[Finding]) -> None:
@@ -374,6 +377,48 @@ def _check_stale_worktrees(workspace: Workspace, findings: list[Finding]) -> Non
             )
 
 
+def _check_hook_unknown_condition_keys(workspace: Workspace, findings: list[Finding]) -> None:
+    known_str = ", ".join(sorted(KNOWN_CONDITION_KEYS))
+    for event, groups in _iter_hooks(workspace):
+        for group in groups:
+            if group.conditions is None:
+                continue
+            for key in group.conditions.unknown_keys:
+                findings.append(
+                    Finding(
+                        "warning",
+                        f"Hook '{event}' has unknown condition key '{key}' (known: {known_str})",
+                    )
+                )
+
+
+def _check_hook_invalid_glob(workspace: Workspace, findings: list[Finding]) -> None:
+    for event, groups in _iter_hooks(workspace):
+        for group in groups:
+            if group.conditions is None:
+                continue
+            for attr in ("if_branch_matches", "if_branch_not_matches"):
+                pattern = getattr(group.conditions, attr)
+                if pattern is None:
+                    continue
+                try:
+                    fnmatch.translate(pattern)
+                except Exception:
+                    findings.append(
+                        Finding(
+                            "warning",
+                            f"Hook '{event}' condition '{attr}' has invalid glob pattern: {pattern!r}",
+                        )
+                    )
+
+
+def _check_hook_empty_groups(workspace: Workspace, findings: list[Finding]) -> None:
+    for event, groups in _iter_hooks(workspace):
+        for group in groups:
+            if not group.commands:
+                findings.append(Finding("warning", f"Hook '{event}' has a group with no commands"))
+
+
 def run_checks(workspace: Workspace) -> list[Finding]:
     """
     Run all workspace health checks and return the collected findings.
@@ -401,6 +446,9 @@ def run_checks(workspace: Workspace) -> list[Finding]:
     _check_hook_bin_references(workspace, findings)
     _check_hook_empty_entries(workspace, findings)
     _check_hook_duplicates(workspace, findings)
+    _check_hook_unknown_condition_keys(workspace, findings)
+    _check_hook_invalid_glob(workspace, findings)
+    _check_hook_empty_groups(workspace, findings)
     _check_orphaned_bin_scripts(workspace, findings)
     _check_orphaned_assets(workspace, findings)
     _check_copy_placeholders(workspace, findings)
