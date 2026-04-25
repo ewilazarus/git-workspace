@@ -71,6 +71,7 @@ class IgnoreManager:
 
         :param ignore_entries: Absolute paths to be added to the exclude file.
         """
+        logger.debug("syncing exclude file with %d entries", len(ignore_entries))
         ignore_file = self._worktree.workspace.paths.ignore_file
         file_content = ignore_file.read_text()
         clean_file_content = self.MATCH_REGEX.sub("", file_content)
@@ -222,6 +223,7 @@ class Copier(AssetManager[Copy]):
 
             target.write_text(new_content, encoding="utf-8")
         except UnicodeDecodeError, ValueError:
+            logger.debug("copying %s as binary (not valid UTF-8 text)", source)
             shutil.copy2(source, target)
 
     def _copy_dir_with_substitution(self, source: Path, target: Path) -> None:
