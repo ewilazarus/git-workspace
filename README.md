@@ -50,6 +50,7 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - 📋 **File copying** — copy mutable config files that each worktree can edit independently, with placeholder substitution
 - 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
 - 📦 **Variables** — pass manifest-level and runtime variables into hooks as environment variables
+- 🔏 **Fingerprints** — hash worktree files and expose the digest as an env var so hooks can skip work when inputs haven't changed
 - 🧭 **CWD-aware** — detects when you're already inside a workspace or worktree
 - 🏗️ **Detached mode** — skip interactive hooks for headless, CI, or agent workflows
 - 🧹 **Stale worktree pruning** — clean up old worktrees by age with dry-run preview
@@ -536,6 +537,7 @@ src/git_workspace/
 ├── doctor.py       ← workspace diagnostic checks
 ├── env.py          ← GIT_WORKSPACE_* environment variable construction
 ├── errors.py       ← exception hierarchy
+├── fingerprint.py  ← worktree file hashing and fingerprint env var computation
 ├── git.py          ← subprocess wrappers for git
 ├── hooks.py        ← hook logic and execution
 ├── manifest.py     ← manifest parsing
