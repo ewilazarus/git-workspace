@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- Fingerprint support — declare `[[fingerprint]]` blocks in `manifest.toml` to hash a set of files at the worktree root and expose the result as `GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>` in hook and `exec` environments; supports `sha256` (default) and `md5` algorithms with configurable digest prefix length; `git workspace doctor` validates fingerprint config (name clashes, unsupported algorithms, path escapes, etc.)
 - Placeholder substitution in copied assets — `{{ GIT_WORKSPACE_* }}` tokens are replaced with their environment variable values at copy time
 - `git workspace exec <branch> -- <command>` — runs an arbitrary command inside a worktree; prompts to create the worktree first if it doesn't exist (`--force` skips the prompt); propagates the command's exit code
 - `git workspace doctor` command — inspects the workspace for inconsistencies (missing asset sources, clashing targets, broken hook references, orphaned files, stale worktrees, and more); exits 1 on errors, 0 on warnings or clean

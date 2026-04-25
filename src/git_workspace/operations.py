@@ -1,7 +1,22 @@
+import functools
+from collections.abc import Callable
+from typing import Any
+
 from git_workspace.assets import Copier, IgnoreManager, Linker
 from git_workspace.env import build_env
+from git_workspace.fingerprint import compute_fingerprints
 from git_workspace.hooks import HookRunner
 from git_workspace.worktree import Worktree
+
+
+def _env(fn: Callable[..., Any]) -> Callable[..., Any]:
+    @functools.wraps(fn)
+    def wrapper(worktree: Worktree, runtime_vars: dict[str, str], *args: Any, **kwargs: Any) -> Any:
+        fingerprint_vars = compute_fingerprints(worktree, worktree.workspace.manifest.fingerprints)
+        env = build_env(worktree, runtime_vars, fingerprint_vars)
+        return fn(worktree, runtime_vars, env, *args, **kwargs)
+
+    return wrapper
 
 
 def _apply_assets(worktree: Worktree, env: dict[str, str]) -> None:
@@ -10,9 +25,11 @@ def _apply_assets(worktree: Worktree, env: dict[str, str]) -> None:
         Linker(worktree, ignore).apply()
 
 
+@_env
 def activate_worktree(
     worktree: Worktree,
     runtime_vars: dict[str, str],
+    env: dict[str, str],
     *,
     detached: bool,
 ) -> None:
@@ -26,8 +43,6 @@ def activate_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param detached: If ``True``, ``on_attach`` hooks are skipped.
     """
-    env = build_env(worktree, runtime_vars)
-
     if worktree.is_new:
         _apply_assets(worktree, env)
 
@@ -39,9 +54,11 @@ def activate_worktree(
             hook_runner.run_on_attach_hooks()
 
 
+@_env
 def reset_worktree(
     worktree: Worktree,
     runtime_vars: dict[str, str],
+    env: dict[str, str],
 ) -> None:
     """
     Re-apply assets and re-run ``on_setup`` hooks for an existing worktree.
@@ -49,16 +66,17 @@ def reset_worktree(
     :param worktree: The worktree being reset.
     :param runtime_vars: Extra variables to inject into the hook environment.
     """
-    env = build_env(worktree, runtime_vars)
     _apply_assets(worktree, env)
 
     with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_setup_hooks()
 
 
+@_env
 def deactivate_worktree(
     worktree: Worktree,
     runtime_vars: dict[str, str],
+    env: dict[str, str],
 ) -> None:
     """
     Run ``on_detach`` hooks when leaving a worktree without removing it.
@@ -66,15 +84,15 @@ def deactivate_worktree(
     :param worktree: The worktree being deactivated.
     :param runtime_vars: Extra variables to inject into the hook environment.
     """
-    env = build_env(worktree, runtime_vars)
-
     with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_detach_hooks()
 
 
+@_env
 def remove_worktree(
     worktree: Worktree,
     runtime_vars: dict[str, str],
+    env: dict[str, str],
     *,
     force: bool,
 ) -> None:
@@ -88,8 +106,6 @@ def remove_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param force: If ``True``, passes ``--force`` to the underlying ``git worktree remove`` call.
     """
-    env = build_env(worktree, runtime_vars)
-
     with HookRunner(worktree, env=env) as hook_runner:
         hook_runner.run_on_detach_hooks()
         hook_runner.run_on_teardown_hooks()

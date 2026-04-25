@@ -144,3 +144,13 @@ def workspace_with_prune(setup: Setup, tmp_path: Path) -> Workspace:
         url=str(tmp_path / "repo"),
         config_url=str(tmp_path / "configs" / "with-prune"),
     )
+
+
+@pytest.fixture
+def workspace_with_fingerprints(setup: Setup, tmp_path: Path) -> Workspace:
+    setup(config="with-fingerprints")
+    return Workspace.clone(
+        workspace_dir=str(tmp_path / "workspace"),
+        url=str(tmp_path / "repo"),
+        config_url=str(tmp_path / "configs" / "with-fingerprints"),
+    )

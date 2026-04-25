@@ -79,6 +79,27 @@ class Prune:
 
 
 @dataclass
+class Fingerprint:
+    """
+    Defines a named hash over a set of files at the worktree root.
+
+    The resulting value is exposed as ``GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>``
+    in hook and exec environments, letting hooks gate expensive steps (e.g. docker
+    builds, npm installs) on whether the relevant files have changed.
+
+    - name: identifier for the fingerprint; normalized the same way as variable names.
+    - files: paths relative to the worktree root; sorted alphabetically before hashing.
+    - algorithm: ``"sha256"`` or ``"md5"``; defaults to ``"sha256"``.
+    - length: prefix size of the hex digest to expose; defaults to 12.
+    """
+
+    name: str
+    files: list[str] = field(default_factory=list)
+    algorithm: str = "sha256"
+    length: int = 12
+
+
+@dataclass
 class Manifest:
     """
     Represents the workspace manifest configuration.
@@ -95,6 +116,8 @@ class Manifest:
     - prune: optional prune configuration for workspace cleanup
     - vars: optional set of variables to be injected as environment variables
         during hooks execution
+    - fingerprints: optional list of file-hash definitions exposed as
+        ``GIT_WORKSPACE_FINGERPRINT_*`` environment variables
     """
 
     DEFAULT_VERSION = 1
@@ -105,6 +128,7 @@ class Manifest:
     copies: list[Copy] = field(default_factory=list)
     links: list[Link] = field(default_factory=list)
     vars: dict[str, str] = field(default_factory=dict)
+    fingerprints: list[Fingerprint] = field(default_factory=list)
     hooks: Hooks = field(default_factory=Hooks)
     prune: Prune | None = None
 
@@ -142,6 +166,18 @@ class Manifest:
     @classmethod
     def _parse_vars(cls, data: dict[str, Any]) -> dict[str, str]:
         return {k: str(v) for k, v in data.get("vars", {}).items()}
+
+    @classmethod
+    def _parse_fingerprints(cls, data: dict[str, Any]) -> list[Fingerprint]:
+        return [
+            Fingerprint(
+                name=fp_data["name"],
+                files=fp_data.get("files", []),
+                algorithm=fp_data.get("algorithm", "sha256"),
+                length=fp_data.get("length", 12),
+            )
+            for fp_data in data.get("fingerprint", [])
+        ]
 
     @classmethod
     def _parse_hooks(cls, data: dict[str, Any]) -> Hooks:
@@ -195,16 +231,18 @@ class Manifest:
         copies = cls._parse_copies(data)
         links = cls._parse_links(data)
         vars = cls._parse_vars(data)
+        fingerprints = cls._parse_fingerprints(data)
         hooks = cls._parse_hooks(data)
         prune = cls._parse_prune(data)
 
         logger.debug(
-            "manifest loaded: version=%d base_branch=%r copies=%d links=%d hooks=%s prune=%s",
+            "manifest loaded: version=%d base_branch=%r copies=%d links=%d fingerprints=%d hooks=%s prune=%s",
             version,
             base_branch,
             len(copies),
             len(links),
+            len(fingerprints),
             {k: v for k, v in hooks.__dict__.items() if v},
             f"older_than_days={prune.older_than_days}" if prune else None,
         )
-        return Manifest(version, base_branch, copies, links, vars, hooks, prune)
+        return Manifest(version, base_branch, copies, links, vars, fingerprints, hooks, prune)

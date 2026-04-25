@@ -228,6 +228,7 @@ Each hook entry can be a script in `.workspace/bin/` or an inline shell command.
 | `GIT_WORKSPACE_BRANCH` | Current branch name |
 | `GIT_WORKSPACE_EVENT` | The lifecycle event that triggered the hook |
 | `GIT_WORKSPACE_VAR_*` | All manifest and runtime variables |
+| `GIT_WORKSPACE_FINGERPRINT_*` | Fingerprints declared in `[[fingerprint]]` blocks |
 
 ### Hook execution order
 
@@ -270,6 +271,55 @@ Here `install_deps` runs `.workspace/bin/install_deps`, while `docker build . -t
 ```bash
 git workspace up feature/my-feature -v env=staging -v debug=true
 ```
+
+---
+
+## Fingerprints
+
+Fingerprints let you compute a short content hash over a set of files in the worktree and expose it as an environment variable. This gives hooks a cheap way to detect whether their inputs have changed — for example, only re-run `npm install` when `package-lock.json` changes, or only rebuild a Docker image when the Dockerfile or dependency files change.
+
+Declare fingerprints as `[[fingerprint]]` blocks in the manifest:
+
+```toml
+[[fingerprint]]
+name = "docker-deps"
+files = [
+    "Dockerfile",
+    "package.json",
+    "package-lock.json",
+]
+algorithm = "sha256"  # optional; default: sha256
+length = 12           # optional; default: 12
+```
+
+Each fingerprint is exposed as `GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>` (same normalization as vars — uppercase, non-alphanumeric replaced by `_`). The above example produces `GIT_WORKSPACE_FINGERPRINT_DOCKER_DEPS`.
+
+Fingerprints are recomputed on every `up`, `reset`, `down`, `rm`, and `exec` invocation. Files are looked up relative to the worktree root; a missing or unreadable file contributes its path and the literal marker `NULL` to the hash rather than failing.
+
+**Example hook** (`.workspace/bin/install_deps`):
+
+```sh
+#!/bin/sh
+state_file="$GIT_WORKSPACE_ROOT/.fingerprint-docker-deps"
+current="$GIT_WORKSPACE_FINGERPRINT_DOCKER_DEPS"
+previous=$(cat "$state_file" 2>/dev/null || echo "")
+
+if [ "$current" != "$previous" ]; then
+    docker build . -t myapp
+    echo "$current" > "$state_file"
+fi
+```
+
+**Properties:**
+
+| Property | Required | Default | Description |
+|---|---|---|---|
+| `name` | yes | — | Identifier; normalized to `GIT_WORKSPACE_FINGERPRINT_<NAME>` |
+| `files` | yes | — | Paths relative to the worktree root; sorted alphabetically before hashing |
+| `algorithm` | no | `sha256` | Hash algorithm: `sha256` or `md5` |
+| `length` | no | `12` | Prefix length of the hex digest to expose |
+
+Fingerprint placeholders (`{{ GIT_WORKSPACE_FINGERPRINT_* }}`) are also recognized in copy assets (see [Placeholders in copies](#placeholders-in-copies)).
 
 ---
 
@@ -442,6 +492,11 @@ The command exits 1 if any errors are found, 0 if the workspace is clean or has 
 | Clashing asset targets | Two entries share the same `target` path |
 | Escaping asset target | A `target` path traverses outside the worktree root (e.g. `../../`) |
 | Variable name collision | Two `[vars]` keys normalize to the same `GIT_WORKSPACE_VAR_*` name |
+| Fingerprint name collision | Two `[[fingerprint]]` names normalize to the same `GIT_WORKSPACE_FINGERPRINT_*` name |
+| Empty fingerprint name | A `[[fingerprint]]` has an empty or whitespace-only `name` |
+| Escaping fingerprint file | A `files` entry traverses outside the worktree root (e.g. `../../`) |
+| Unsupported fingerprint algorithm | `algorithm` is not `sha256` or `md5` |
+| Invalid fingerprint length | `length` is zero or negative |
 
 **Warnings:**
 
@@ -453,9 +508,13 @@ The command exits 1 if any errors are found, 0 if the workspace is clean or has 
 | Duplicate hook entry | The same entry appears more than once in the same hook event |
 | Orphaned bin script | A file in `bin/` is not referenced by any hook |
 | Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` |
-| Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable or manifest var |
+| Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable, manifest var, or fingerprint |
 | Unknown base branch | `base_branch` does not resolve to any local or remote ref |
 | Stale worktree | A git-registered worktree's directory no longer exists on disk |
+| Fingerprint/var name overlap | A `[[fingerprint]]` name and a `[vars]` key normalize the same (they use different env prefixes, but may be confusing in templates) |
+| Empty fingerprint files list | A `[[fingerprint]]` has no entries in `files` |
+| Duplicate fingerprint file | The same file path appears more than once within one `[[fingerprint]]` |
+| Fingerprint length exceeds digest | `length` is larger than the algorithm's full digest size; the full digest is used |
 
 ---
 
