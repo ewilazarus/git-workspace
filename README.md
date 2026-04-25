@@ -453,6 +453,7 @@ The command exits 1 if any errors are found, 0 if the workspace is clean or has 
 | Duplicate hook entry | The same entry appears more than once in the same hook event |
 | Orphaned bin script | A file in `bin/` is not referenced by any hook |
 | Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` |
+| Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable or manifest var |
 | Unknown base branch | `base_branch` does not resolve to any local or remote ref |
 | Stale worktree | A git-registered worktree's directory no longer exists on disk |
 

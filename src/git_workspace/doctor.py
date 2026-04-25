@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from git_workspace import git
+from git_workspace.assets import Copier
+from git_workspace.env import BASE_VAR_KEYS
 from git_workspace.errors import WorktreeListingError
 from git_workspace.manifest import Manifest
 from git_workspace.utils import normalize_variable_name
@@ -209,6 +211,41 @@ def _check_base_branch(workspace: Workspace, findings: list[Finding]) -> None:
         )
 
 
+def _check_copy_placeholders(workspace: Workspace, findings: list[Finding]) -> None:
+    known = BASE_VAR_KEYS | {
+        f"GIT_WORKSPACE_VAR_{normalize_variable_name(k)}" for k in (workspace.manifest.vars or {})
+    }
+    assets_dir = workspace.paths.assets
+
+    for copy in workspace.manifest.copies:
+        source = assets_dir / copy.source
+        if not source.exists():
+            continue
+
+        files = sorted(source.rglob("*")) if source.is_dir() else [source]
+        for file in files:
+            if not file.is_file():
+                continue
+            try:
+                content = file.read_text(encoding="utf-8")
+            except UnicodeDecodeError, OSError:
+                continue
+            seen: set[str] = set()
+            for match in Copier.PLACEHOLDER_RE.finditer(content):
+                key = match.group(1)
+                if key not in known and key not in seen:
+                    seen.add(key)
+                    rel = file.relative_to(assets_dir)
+                    findings.append(
+                        Finding(
+                            "warning",
+                            f"Copy asset '{rel}' references unknown placeholder '{{{{{key}}}}}'"
+                            " (not a base variable or manifest var;"
+                            " pass it as a runtime var or add it to [vars])",
+                        )
+                    )
+
+
 def _check_stale_worktrees(workspace: Workspace, findings: list[Finding]) -> None:
     try:
         raw_worktrees = git.list_worktrees(workspace.dir)
@@ -250,6 +287,7 @@ def run_checks(workspace: Workspace) -> list[Finding]:
     _check_hook_duplicates(workspace, findings)
     _check_orphaned_bin_scripts(workspace, findings)
     _check_orphaned_assets(workspace, findings)
+    _check_copy_placeholders(workspace, findings)
     _check_base_branch(workspace, findings)
     _check_stale_worktrees(workspace, findings)
 

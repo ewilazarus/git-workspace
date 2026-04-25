@@ -9,6 +9,7 @@ from git_workspace.doctor import (
     _check_asset_target_clashes,
     _check_asset_target_escapes,
     _check_base_branch,
+    _check_copy_placeholders,
     _check_hook_bin_references,
     _check_hook_duplicates,
     _check_hook_empty_entries,
@@ -506,3 +507,108 @@ class TestCheckStaleWorktrees:
         findings = []
         _check_stale_worktrees(workspace, findings)
         assert findings == []
+
+
+class TestCheckCopyPlaceholders:
+    def test_returns_no_findings_for_known_base_var(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "template.txt").write_text("branch={{ GIT_WORKSPACE_BRANCH }}")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+        assert findings == []
+
+    def test_returns_no_findings_for_known_manifest_var(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "template.txt").write_text("env={{ GIT_WORKSPACE_VAR_ENV }}")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.vars = {"env": "staging"}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+        assert findings == []
+
+    def test_returns_warning_for_unknown_placeholder(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "template.txt").write_text("x={{ GIT_WORKSPACE_TYPO }}")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "warning"
+        assert "GIT_WORKSPACE_TYPO" in findings[0].message
+
+    def test_deduplicates_repeated_unknown_placeholder_in_same_file(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "template.txt").write_text(
+            "{{ GIT_WORKSPACE_TYPO }} and {{ GIT_WORKSPACE_TYPO }}"
+        )
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+
+        assert len(findings) == 1
+
+    def test_skips_missing_source(self, workspace: MagicMock, tmp_path: Path) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="missing.txt", target="missing.txt")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+        assert findings == []
+
+    def test_skips_binary_files(self, workspace: MagicMock, tmp_path: Path) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "binary.bin").write_bytes(b"\xff\xfe")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="binary.bin", target="binary.bin")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+        assert findings == []
+
+    def test_checks_files_inside_directory_source(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        subdir = assets / "config"
+        subdir.mkdir()
+        (subdir / "app.yaml").write_text("key={{ GIT_WORKSPACE_UNKNOWN }}")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="config", target="config")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+
+        assert len(findings) == 1
+        assert "GIT_WORKSPACE_UNKNOWN" in findings[0].message
