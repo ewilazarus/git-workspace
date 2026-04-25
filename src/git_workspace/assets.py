@@ -205,9 +205,17 @@ class Copier(AssetManager[Copy]):
     def _copy_with_substitution(self, source: Path, target: Path) -> None:
         try:
             content = source.read_text(encoding="utf-8")
-            target.write_text(self._resolve_placeholders(content), encoding="utf-8")
+            new_content = self._resolve_placeholders(content)
+            target.write_text(new_content, encoding="utf-8")
         except UnicodeDecodeError, ValueError:
             shutil.copy2(source, target)
+
+    def _copy_dir_with_substitution(self, source: Path, target: Path) -> None:
+        shutil.copytree(
+            source,
+            target,
+            copy_function=lambda s, d: self._copy_with_substitution(Path(s), Path(d)),
+        )
 
     def _skip_existing(self, asset: Copy) -> bool:
         target = (self._worktree.dir / asset.target).absolute()
@@ -238,11 +246,7 @@ class Copier(AssetManager[Copy]):
 
         logger.debug("copying (override) %s -> %s", source, target)
         if source.is_dir():
-            shutil.copytree(
-                source,
-                target,
-                copy_function=lambda s, d: self._copy_with_substitution(Path(s), Path(d)),
-            )
+            self._copy_dir_with_substitution(source, target)
         else:
             self._copy_with_substitution(source, target)
 
@@ -255,10 +259,6 @@ class Copier(AssetManager[Copy]):
         if source.is_dir():
             if target.is_dir():
                 shutil.rmtree(target)
-            shutil.copytree(
-                source,
-                target,
-                copy_function=lambda s, d: self._copy_with_substitution(Path(s), Path(d)),
-            )
+            self._copy_dir_with_substitution(source, target)
         else:
             self._copy_with_substitution(source, target)
