@@ -36,7 +36,6 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - [Assets: links and copies](#assets-links-and-copies)
 - [Pruning stale worktrees](#pruning-stale-worktrees)
 - [Detached mode](#detached-mode)
-- [Running commands in worktrees](#running-commands-in-worktrees)
 - [Diagnosing a workspace](#diagnosing-a-workspace)
 - [Debugging](#debugging)
 - [Development](#development)
@@ -53,7 +52,6 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - 📦 **Variables** — pass manifest-level and runtime variables into hooks as environment variables
 - 🧭 **CWD-aware** — detects when you're already inside a workspace or worktree
 - 🏗️ **Detached mode** — skip interactive hooks for headless, CI, or agent workflows
-- 🔧 **Exec in context** — run arbitrary commands inside any worktree without switching directories
 - 🧹 **Stale worktree pruning** — clean up old worktrees by age with dry-run preview
 - 🩺 **Workspace diagnostics** — detect manifest errors, missing assets, broken hook references, and more
 - 🎨 **Rich terminal UI** — styled output, progress bars, and sortable worktree tables
@@ -148,8 +146,6 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 | `git workspace rm` | Remove a worktree (branch is preserved) |
 | `git workspace ls` | List all active worktrees with branch, path, and age |
 | `git workspace prune` | Remove stale worktrees by age (dry-run by default) |
-| `git workspace root` | Print workspace root path; exits 0 if inside a workspace, 1 otherwise |
-| `git workspace exec` | Run an arbitrary command inside a worktree, creating it first if needed |
 | `git workspace doctor` | Inspect the workspace for inconsistencies |
 | `git workspace edit` | Open the workspace config in your editor |
 
@@ -240,7 +236,7 @@ Hooks come in two pairs that map to the two lifetimes a worktree has:
 | Event | When it runs |
 |---|---|
 | `on_setup` | After a worktree is first created, or on `reset` |
-| `on_attach` | On `up` in interactive mode (skipped with `--detached`; not run by `exec`) |
+| `on_attach` | On `up` in interactive mode (skipped with `--detached`) |
 | `on_detach` | On `down` and at the start of `rm` |
 | `on_teardown` | On `rm`, after `on_detach`, before the directory is deleted |
 
@@ -294,7 +290,7 @@ length = 12           # optional; default: 12
 
 Each fingerprint is exposed as `GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>` (same normalization as vars — uppercase, non-alphanumeric replaced by `_`). The above example produces `GIT_WORKSPACE_FINGERPRINT_DOCKER_DEPS`.
 
-Fingerprints are recomputed on every `up`, `reset`, `down`, `rm`, and `exec` invocation. Files are looked up relative to the worktree root; a missing or unreadable file contributes its path and the literal marker `NULL` to the hash rather than failing.
+Fingerprints are recomputed on every `up`, `reset`, `down`, and `rm` invocation. Files are looked up relative to the worktree root; a missing or unreadable file contributes its path and the literal marker `NULL` to the hash rather than failing.
 
 **Example hook** (`.workspace/bin/install_deps`):
 
@@ -425,32 +421,6 @@ This runs `on_setup` (on first creation only) but skips `on_attach`. Combine wit
 ```bash
 WORKTREE=$(git workspace up main --detached -o)
 ```
-
----
-
-## Running commands in worktrees
-
-`exec` runs an arbitrary command inside a worktree without you having to `cd` into it first:
-
-```bash
-git workspace exec feature/my-feature -- make test
-git workspace exec main -- npm run build
-git workspace exec hotfix/urgent -r /path/to/workspace -- ./scripts/deploy.sh
-```
-
-The command runs from the worktree root and receives the same `GIT_WORKSPACE_*` environment variables that lifecycle hooks do.
-
-If the worktree for the given branch doesn't exist yet, `exec` prompts you to create it first — it runs `on_setup` but does **not** run `on_attach` or `on_detach`. Use `--force` to skip the prompt:
-
-```bash
-# prompts: "Worktree for branch 'feature/new' does not exist. Create it?"
-git workspace exec feature/new -- npm install
-
-# creates the worktree silently and then runs the command
-git workspace exec feature/new --force -- npm install
-```
-
-The exit code of the command is propagated — `exec` exits with the same code as the command it ran.
 
 ---
 
