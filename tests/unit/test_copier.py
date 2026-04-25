@@ -455,3 +455,85 @@ class TestCopyWithSubstitution:
         copier._copy_with_substitution(source, target)
 
         assert target.read_bytes() == binary_content
+
+    def test_count_is_one_for_single_resolved_placeholder(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert copier._substitution_count == 1
+
+    def test_count_reflects_number_of_resolved_placeholders(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH }} {{ GIT_WORKSPACE_ROOT }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert copier._substitution_count == 2
+
+    def test_count_is_zero_for_unknown_placeholder(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_UNKNOWN }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert copier._substitution_count == 0
+
+    def test_count_is_zero_for_binary_file(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "binary.bin"
+        target = self.WORKTREE_DIR / "binary.bin"
+        fs.create_dir(str(self.ASSETS_DIR))
+        fs.create_dir(str(self.WORKTREE_DIR))
+        source.write_bytes(b"\xff\xfe")
+
+        copier._copy_with_substitution(source, target)
+
+        assert copier._substitution_count == 0
+
+    def test_count_accumulates_across_calls(self, copier: Copier, fs: FakeFilesystem) -> None:
+        s1 = self.ASSETS_DIR / "f1.txt"
+        s2 = self.ASSETS_DIR / "f2.txt"
+        fs.create_file(str(s1), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_file(str(s2), contents="{{ GIT_WORKSPACE_ROOT }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(s1, self.WORKTREE_DIR / "f1.txt")
+        copier._copy_with_substitution(s2, self.WORKTREE_DIR / "f2.txt")
+
+        assert copier._substitution_count == 2
+
+    def test_apply_resets_count_per_asset(
+        self, copier: Copier, fs: FakeFilesystem, mocker: MockerFixture
+    ) -> None:
+        mocker.patch("git_workspace.assets.git.skip_worktree")
+        fs.create_file(str(self.ASSETS_DIR / "template.txt"), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+        copy = Copy(source="template.txt", target="template.txt")
+
+        copier._substitution_count = 99
+        copier._apply(copy)
+
+        assert copier._substitution_count == 1
+
+    def test_apply_resets_count_even_when_skipped(self, copier: Copier, fs: FakeFilesystem) -> None:
+        fs.create_file(str(self.ASSETS_DIR / "template.txt"), contents="x")
+        fs.create_file(str(self.WORKTREE_DIR / "template.txt"), contents="existing")
+        copy = Copy(source="template.txt", target="template.txt", overwrite=False)
+
+        copier._substitution_count = 99
+        copier._apply(copy)
+
+        assert copier._substitution_count == 0
