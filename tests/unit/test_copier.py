@@ -35,7 +35,7 @@ def ignore(mocker: MockerFixture) -> MagicMock:
 
 @pytest.fixture
 def copier(worktree: MagicMock, ignore: MagicMock) -> Copier:
-    return Copier(worktree, ignore)
+    return Copier(worktree, ignore, env={})
 
 
 class TestApplyWithOverride:
@@ -58,8 +58,8 @@ class TestApplyWithOverride:
         return mocker.patch("git_workspace.assets.git.skip_worktree")
 
     @pytest.fixture(autouse=True)
-    def mock_shutil_copy2(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.shutil.copy2")
+    def mock_copy_with_substitution(self, mocker: MockerFixture, copier: Copier) -> MagicMock:
+        return mocker.patch.object(copier, "_copy_with_substitution")
 
     def test_apply_calls_skip_worktree_for_override(
         self,
@@ -109,11 +109,11 @@ class TestApplyWithOverride:
         copier: Copier,
         source: MagicMock,
         target: MagicMock,
-        mock_shutil_copy2: MagicMock,
+        mock_copy_with_substitution: MagicMock,
     ) -> None:
         copier._apply_with_override(source, target)
 
-        mock_shutil_copy2.assert_called_once_with(source, target)
+        mock_copy_with_substitution.assert_called_once_with(source, target)
 
 
 class TestApplyWithoutOverride:
@@ -131,32 +131,32 @@ class TestApplyWithoutOverride:
         return mock
 
     @pytest.fixture(autouse=True)
-    def mock_shutil_copy2(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.shutil.copy2")
+    def mock_copy_with_substitution(self, mocker: MockerFixture, copier: Copier) -> MagicMock:
+        return mocker.patch.object(copier, "_copy_with_substitution")
 
     def test_copies_file_when_target_absent(
         self,
         copier: Copier,
         source: MagicMock,
         target: MagicMock,
-        mock_shutil_copy2: MagicMock,
+        mock_copy_with_substitution: MagicMock,
     ) -> None:
         copier._apply_without_override(source, target)
 
-        mock_shutil_copy2.assert_called_once_with(source, target)
+        mock_copy_with_substitution.assert_called_once_with(source, target)
 
     def test_overwrites_when_target_exists(
         self,
         copier: Copier,
         source: MagicMock,
         target: MagicMock,
-        mock_shutil_copy2: MagicMock,
+        mock_copy_with_substitution: MagicMock,
     ) -> None:
         target.exists.return_value = True
 
         copier._apply_without_override(source, target)
 
-        mock_shutil_copy2.assert_called_once_with(source, target)
+        mock_copy_with_substitution.assert_called_once_with(source, target)
 
     def test_raises_when_target_is_symlink(
         self, copier: Copier, source: MagicMock, target: MagicMock
@@ -203,7 +203,7 @@ class TestApplyCreatesParentDirs:
         worktree.workspace.paths.assets = self.ASSETS_DIR
         worktree.workspace.manifest.copies = []
         ignore = mocker.MagicMock(spec=IgnoreManager)
-        return Copier(worktree, ignore)
+        return Copier(worktree, ignore, env={})
 
     def test_creates_parent_dir_before_copying(self, copier: Copier) -> None:
         nested = Copy(source="config.yaml", target="config/local/config.yaml")
@@ -309,8 +309,8 @@ class TestSkipExisting:
 
 class TestApplyWithOverwriteFalse:
     @pytest.fixture(autouse=True)
-    def mock_shutil_copy2(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.shutil.copy2")
+    def mock_copy_with_substitution(self, mocker: MockerFixture, copier: Copier) -> MagicMock:
+        return mocker.patch.object(copier, "_copy_with_substitution")
 
     @pytest.fixture(autouse=True)
     def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
@@ -325,26 +325,26 @@ class TestApplyWithOverwriteFalse:
         self,
         copier: Copier,
         target_mock: MagicMock,
-        mock_shutil_copy2: MagicMock,
+        mock_copy_with_substitution: MagicMock,
     ) -> None:
         target_mock.exists.return_value = True
 
         copier._apply(COPY_NO_OVERWRITE)
 
-        mock_shutil_copy2.assert_not_called()
+        mock_copy_with_substitution.assert_not_called()
 
     def test_copies_non_override_when_target_absent(
         self,
         copier: Copier,
         target_mock: MagicMock,
-        mock_shutil_copy2: MagicMock,
+        mock_copy_with_substitution: MagicMock,
     ) -> None:
         target_mock.exists.return_value = False
         target_mock.is_symlink.return_value = False
 
         copier._apply(COPY_NO_OVERWRITE)
 
-        mock_shutil_copy2.assert_called_once()
+        mock_copy_with_substitution.assert_called_once()
 
     def test_still_collects_ignore_when_target_exists(
         self,
@@ -362,13 +362,13 @@ class TestApplyWithOverwriteFalse:
         self,
         copier: Copier,
         target_mock: MagicMock,
-        mock_shutil_copy2: MagicMock,
+        mock_copy_with_substitution: MagicMock,
     ) -> None:
         target_mock.exists.return_value = True
 
         copier._apply(COPY_NO_OVERWRITE_WITH_OVERRIDE)
 
-        mock_shutil_copy2.assert_not_called()
+        mock_copy_with_substitution.assert_not_called()
 
     def test_calls_skip_worktree_even_when_skipping_override(
         self,
@@ -386,11 +386,72 @@ class TestApplyWithOverwriteFalse:
         self,
         copier: Copier,
         target_mock: MagicMock,
-        mock_shutil_copy2: MagicMock,
+        mock_copy_with_substitution: MagicMock,
     ) -> None:
         target_mock.exists.return_value = False
         target_mock.is_symlink.return_value = False
 
         copier._apply(COPY_NO_OVERWRITE_WITH_OVERRIDE)
 
-        mock_shutil_copy2.assert_called_once()
+        mock_copy_with_substitution.assert_called_once()
+
+
+class TestCopyWithSubstitution:
+    ASSETS_DIR = Path("/workspace/.workspace/assets")
+    WORKTREE_DIR = Path("/workspace/feat/GWS-001")
+    ENV = {
+        "GIT_WORKSPACE_BRANCH": "feat/GWS-001",
+        "GIT_WORKSPACE_ROOT": "/workspace",
+        "GIT_WORKSPACE_VAR_MY_VAR": "my_value",
+    }
+
+    @pytest.fixture
+    def copier(self, mocker: MockerFixture) -> Copier:
+        worktree = mocker.MagicMock()
+        worktree.dir = self.WORKTREE_DIR
+        worktree.workspace.paths.assets = self.ASSETS_DIR
+        worktree.workspace.manifest.copies = []
+        ignore = mocker.MagicMock(spec=IgnoreManager)
+        return Copier(worktree, ignore, env=self.ENV)
+
+    def test_resolves_known_placeholder(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="branch={{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "branch=feat/GWS-001"
+
+    def test_leaves_unknown_placeholder_verbatim(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_TYPO }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "{{ GIT_WORKSPACE_TYPO }}"
+
+    def test_resolves_custom_var_placeholder(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_VAR_MY_VAR }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "my_value"
+
+    def test_copies_binary_file_as_is(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "binary.bin"
+        target = self.WORKTREE_DIR / "binary.bin"
+        binary_content = b"\xff\xfe\x00\x01"
+        fs.create_dir(str(self.ASSETS_DIR))
+        fs.create_dir(str(self.WORKTREE_DIR))
+        source.write_bytes(binary_content)
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_bytes() == binary_content

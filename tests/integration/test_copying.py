@@ -3,6 +3,24 @@ from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
 
 
+def test_placeholder_copy_resolves_branch_on_up(
+    workspace_with_placeholder_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_placeholder_copies.dir))
+    target = workspace_with_placeholder_copies.dir / "main" / "template.txt"
+    assert target.read_text() == "branch=main\n"
+
+
+def test_placeholder_copy_resolves_branch_after_reset(
+    workspace_with_placeholder_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_placeholder_copies.dir))
+    target = workspace_with_placeholder_copies.dir / "main" / "template.txt"
+    target.unlink()
+    reset(branch="main", workspace_dir=str(workspace_with_placeholder_copies.dir))
+    assert target.read_text() == "branch=main\n"
+
+
 def test_non_override_copy_creates_file(workspace_with_copies: Workspace) -> None:
     up(branch="main", workspace_dir=str(workspace_with_copies.dir))
     target = workspace_with_copies.dir / "main" / ".dotfile"

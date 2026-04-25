@@ -181,13 +181,33 @@ class Copier(AssetManager[Copy]):
     Unlike links, copies are idempotent: non-override copies silently
     overwrite existing files on reapplication. The only error case is
     attempting to copy over an existing symlink.
+
+    Text files are inspected for ``{{ GIT_WORKSPACE_* }}`` placeholders and
+    values are substituted from the provided environment dict. Binary files
+    are copied as-is.
     """
 
     asset_name = "copy"
     asset_name_plural = "copies"
 
-    def __init__(self, worktree: Worktree, ignore: IgnoreManager) -> None:
+    PLACEHOLDER_RE = re.compile(r"\{\{\s*(GIT_WORKSPACE_\w+)\s*\}\}")
+
+    def __init__(self, worktree: Worktree, ignore: IgnoreManager, env: dict[str, str]) -> None:
         super().__init__(worktree, ignore, worktree.workspace.manifest.copies)
+        self._env = env
+
+    def _resolve_placeholders(self, content: str) -> str:
+        return self.PLACEHOLDER_RE.sub(
+            lambda m: self._env.get(m.group(1), m.group(0)),
+            content,
+        )
+
+    def _copy_with_substitution(self, source: Path, target: Path) -> None:
+        try:
+            content = source.read_text(encoding="utf-8")
+            target.write_text(self._resolve_placeholders(content), encoding="utf-8")
+        except UnicodeDecodeError, ValueError:
+            shutil.copy2(source, target)
 
     def _skip_existing(self, asset: Copy) -> bool:
         target = (self._worktree.dir / asset.target).absolute()
@@ -218,9 +238,13 @@ class Copier(AssetManager[Copy]):
 
         logger.debug("copying (override) %s -> %s", source, target)
         if source.is_dir():
-            shutil.copytree(source, target)
+            shutil.copytree(
+                source,
+                target,
+                copy_function=lambda s, d: self._copy_with_substitution(Path(s), Path(d)),
+            )
         else:
-            shutil.copy2(source, target)
+            self._copy_with_substitution(source, target)
 
     def _apply_without_override(self, source: Path, target: Path) -> None:
         if target.is_symlink():
@@ -231,6 +255,10 @@ class Copier(AssetManager[Copy]):
         if source.is_dir():
             if target.is_dir():
                 shutil.rmtree(target)
-            shutil.copytree(source, target)
+            shutil.copytree(
+                source,
+                target,
+                copy_function=lambda s, d: self._copy_with_substitution(Path(s), Path(d)),
+            )
         else:
-            shutil.copy2(source, target)
+            self._copy_with_substitution(source, target)
