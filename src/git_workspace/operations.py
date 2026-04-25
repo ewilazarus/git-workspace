@@ -46,7 +46,12 @@ def activate_worktree(
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param detached: If ``True``, ``on_attach`` hooks are skipped.
     """
-    logger.debug("activating worktree %r (is_new=%s, detached=%s)", worktree.branch, worktree.is_new, detached)
+    logger.debug(
+        "activating worktree %r (is_new=%s, detached=%s)",
+        worktree.branch,
+        worktree.is_new,
+        detached,
+    )
 
     if worktree.is_new:
         _apply_assets(worktree, env)

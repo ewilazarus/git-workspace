@@ -53,7 +53,6 @@ def test_fingerprint_with_md5_algorithm_and_custom_length(
     assert len(value) == 8
 
 
-
 def test_fingerprint_matches_expected_hash(
     workspace_with_fingerprints: Workspace, tmp_path: Path
 ) -> None:
