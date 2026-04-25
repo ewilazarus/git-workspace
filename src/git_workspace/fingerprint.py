@@ -20,9 +20,7 @@ __all__ = [
 ]
 
 
-def compute_fingerprints(
-    worktree: Worktree, fingerprints: list[Fingerprint]
-) -> dict[str, str]:
+def compute_fingerprints(worktree: Worktree, fingerprints: list[Fingerprint]) -> dict[str, str]:
     """
     Compute one short hash per fingerprint definition, keyed by raw name.
 

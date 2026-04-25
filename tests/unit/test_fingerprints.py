@@ -35,7 +35,9 @@ class TestFingerprintDefaults:
 
 
 class TestComputeFingerprints:
-    def test_all_files_present_produces_stable_hash(self, worktree: MagicMock, tmp_path: Path) -> None:
+    def test_all_files_present_produces_stable_hash(
+        self, worktree: MagicMock, tmp_path: Path
+    ) -> None:
         (tmp_path / "a.txt").write_bytes(b"hello")
         (tmp_path / "b.txt").write_bytes(b"world")
         fps = [Fingerprint(name="test", files=["a.txt", "b.txt"])]
@@ -84,15 +86,21 @@ class TestComputeFingerprints:
 
         assert compute_fingerprints(worktree, fps_a) != compute_fingerprints(worktree, fps_b)
 
-    def test_hash_stable_across_manifest_reordering(self, worktree: MagicMock, tmp_path: Path) -> None:
+    def test_hash_stable_across_manifest_reordering(
+        self, worktree: MagicMock, tmp_path: Path
+    ) -> None:
         (tmp_path / "a.txt").write_bytes(b"aaa")
         (tmp_path / "b.txt").write_bytes(b"bbb")
         fps_ordered = [Fingerprint(name="test", files=["a.txt", "b.txt"])]
         fps_reversed = [Fingerprint(name="test", files=["b.txt", "a.txt"])]
 
-        assert compute_fingerprints(worktree, fps_ordered) == compute_fingerprints(worktree, fps_reversed)
+        assert compute_fingerprints(worktree, fps_ordered) == compute_fingerprints(
+            worktree, fps_reversed
+        )
 
-    def test_sha256_and_md5_produce_different_hashes(self, worktree: MagicMock, tmp_path: Path) -> None:
+    def test_sha256_and_md5_produce_different_hashes(
+        self, worktree: MagicMock, tmp_path: Path
+    ) -> None:
         (tmp_path / "f.txt").write_bytes(b"data")
         fps_sha = [Fingerprint(name="test", files=["f.txt"], algorithm="sha256", length=32)]
         fps_md5 = [Fingerprint(name="test", files=["f.txt"], algorithm="md5", length=32)]
@@ -105,7 +113,9 @@ class TestComputeFingerprints:
         result = compute_fingerprints(worktree, fps)
         assert len(result["test"]) == 4
 
-    def test_length_exceeding_digest_size_returns_full_digest(self, worktree: MagicMock, tmp_path: Path) -> None:
+    def test_length_exceeding_digest_size_returns_full_digest(
+        self, worktree: MagicMock, tmp_path: Path
+    ) -> None:
         (tmp_path / "f.txt").write_bytes(b"data")
         fps = [Fingerprint(name="test", files=["f.txt"], algorithm="md5", length=999)]
         result = compute_fingerprints(worktree, fps)
@@ -117,7 +127,9 @@ class TestComputeFingerprints:
         with pytest.raises(ValueError, match="Unsupported fingerprint algorithm"):
             compute_fingerprints(worktree, fps)
 
-    def test_multiple_fingerprints_keyed_by_raw_name(self, worktree: MagicMock, tmp_path: Path) -> None:
+    def test_multiple_fingerprints_keyed_by_raw_name(
+        self, worktree: MagicMock, tmp_path: Path
+    ) -> None:
         (tmp_path / "a.txt").write_bytes(b"a")
         fps = [
             Fingerprint(name="alpha", files=["a.txt"]),

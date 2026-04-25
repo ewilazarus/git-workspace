@@ -759,9 +759,7 @@ class TestCheckFingerprintFiles:
         assert "package.json" in findings[0].message
 
     def test_returns_error_for_dotdot_escape(self, workspace: MagicMock) -> None:
-        workspace.manifest.fingerprints = [
-            Fingerprint(name="deps", files=["../../etc/passwd"])
-        ]
+        workspace.manifest.fingerprints = [Fingerprint(name="deps", files=["../../etc/passwd"])]
 
         findings = []
         _check_fingerprint_files(workspace, findings)
@@ -769,9 +767,7 @@ class TestCheckFingerprintFiles:
         assert any(f.level == "error" for f in findings)
 
     def test_returns_error_for_absolute_path(self, workspace: MagicMock) -> None:
-        workspace.manifest.fingerprints = [
-            Fingerprint(name="deps", files=["/etc/passwd"])
-        ]
+        workspace.manifest.fingerprints = [Fingerprint(name="deps", files=["/etc/passwd"])]
 
         findings = []
         _check_fingerprint_files(workspace, findings)

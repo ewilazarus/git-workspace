@@ -174,7 +174,12 @@ length = 8
         result = Manifest.load(workspace)
 
         assert result.fingerprints == [
-            Fingerprint(name="docker-deps", files=["package.json", "package-lock.json"], algorithm="md5", length=8)
+            Fingerprint(
+                name="docker-deps",
+                files=["package.json", "package-lock.json"],
+                algorithm="md5",
+                length=8,
+            )
         ]
 
     def test_fingerprint_algorithm_defaults_to_sha256(self, workspace: MagicMock) -> None:

@@ -174,9 +174,7 @@ def _check_fingerprint_empty_name(workspace: Workspace, findings: list[Finding])
 def _check_fingerprint_files(workspace: Workspace, findings: list[Finding]) -> None:
     for fp in workspace.manifest.fingerprints:
         if not fp.files:
-            findings.append(
-                Finding("warning", f"Fingerprint '{fp.name}' has an empty files list")
-            )
+            findings.append(Finding("warning", f"Fingerprint '{fp.name}' has an empty files list"))
             continue
 
         seen: set[str] = set()
@@ -218,7 +216,10 @@ def _check_fingerprint_length(workspace: Workspace, findings: list[Finding]) -> 
     for fp in workspace.manifest.fingerprints:
         if fp.length <= 0:
             findings.append(
-                Finding("error", f"Fingerprint '{fp.name}' has an invalid length {fp.length} (must be > 0)")
+                Finding(
+                    "error",
+                    f"Fingerprint '{fp.name}' has an invalid length {fp.length} (must be > 0)",
+                )
             )
             continue
 
@@ -315,7 +316,10 @@ def _check_base_branch(workspace: Workspace, findings: list[Finding]) -> None:
 def _check_copy_placeholders(workspace: Workspace, findings: list[Finding]) -> None:
     known = (
         BASE_VAR_KEYS
-        | {f"GIT_WORKSPACE_VAR_{normalize_variable_name(k)}" for k in (workspace.manifest.vars or {})}
+        | {
+            f"GIT_WORKSPACE_VAR_{normalize_variable_name(k)}"
+            for k in (workspace.manifest.vars or {})
+        }
         | {
             f"{FINGERPRINT_VAR_PREFIX}{normalize_variable_name(fp.name)}"
             for fp in workspace.manifest.fingerprints
