@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+import tomlkit
+
 from git_workspace import git
 from git_workspace.assets import Copier
 from git_workspace.env import BASE_VAR_KEYS, FINGERPRINT_VAR_PREFIX
@@ -48,6 +50,76 @@ class Finding:
     level: Literal["error", "warning"]
     message: str
     fix: Fix | None = field(default=None, compare=False)
+
+
+def _manifest_remove_hook_empty_entries(manifest_path: Path, event: str) -> None:
+    doc = tomlkit.loads(manifest_path.read_text())
+    for group in doc.get("hooks", {}).get(event, []):
+        group["commands"] = [c for c in group.get("commands", []) if c.strip()]
+    manifest_path.write_text(tomlkit.dumps(doc))
+
+
+def _manifest_deduplicate_hook_commands(manifest_path: Path, event: str) -> None:
+    doc = tomlkit.loads(manifest_path.read_text())
+    seen: set[str] = set()
+    for group in doc.get("hooks", {}).get(event, []):
+        new_cmds: list[str] = []
+        for c in group.get("commands", []):
+            if c not in seen:
+                seen.add(c)
+                new_cmds.append(c)
+        group["commands"] = new_cmds
+    manifest_path.write_text(tomlkit.dumps(doc))
+
+
+def _manifest_remove_hook_empty_groups(manifest_path: Path, event: str) -> None:
+    doc = tomlkit.loads(manifest_path.read_text())
+    hooks = doc.get("hooks", {})
+    if event in hooks:
+        groups = hooks[event]
+        for i in range(len(groups) - 1, -1, -1):
+            if not groups[i].get("commands", []):
+                del groups[i]
+    manifest_path.write_text(tomlkit.dumps(doc))
+
+
+def _manifest_remove_hook_command(manifest_path: Path, event: str, cmd: str) -> None:
+    doc = tomlkit.loads(manifest_path.read_text())
+    for group in doc.get("hooks", {}).get(event, []):
+        group["commands"] = [c for c in group.get("commands", []) if c != cmd]
+    manifest_path.write_text(tomlkit.dumps(doc))
+
+
+def _manifest_deduplicate_fingerprint_files(manifest_path: Path, fp_name: str) -> None:
+    doc = tomlkit.loads(manifest_path.read_text())
+    for fp in doc.get("fingerprint", []):
+        if fp.get("name") == fp_name:
+            seen: set[str] = set()
+            deduped: list[str] = []
+            for f in fp.get("files", []):
+                if f not in seen:
+                    seen.add(f)
+                    deduped.append(f)
+            fp["files"] = deduped
+    manifest_path.write_text(tomlkit.dumps(doc))
+
+
+def _manifest_remove_link(manifest_path: Path, source: str) -> None:
+    doc = tomlkit.loads(manifest_path.read_text())
+    links = doc.get("link", [])
+    for i in range(len(links) - 1, -1, -1):
+        if links[i].get("source") == source:
+            del links[i]
+    manifest_path.write_text(tomlkit.dumps(doc))
+
+
+def _manifest_remove_copy(manifest_path: Path, source: str) -> None:
+    doc = tomlkit.loads(manifest_path.read_text())
+    copies = doc.get("copy", [])
+    for i in range(len(copies) - 1, -1, -1):
+        if copies[i].get("source") == source:
+            del copies[i]
+    manifest_path.write_text(tomlkit.dumps(doc))
 
 
 def _iter_hooks(workspace: Workspace) -> Iterator[tuple[str, list[HookGroup]]]:
@@ -92,13 +164,33 @@ def _check_asset_sources_exist(workspace: Workspace, findings: list[Finding]) ->
     for link in workspace.manifest.links:
         if not (assets_dir / link.source).exists():
             findings.append(
-                Finding("error", f"Link source '{link.source}' does not exist in assets/")
+                Finding(
+                    "error",
+                    f"Link source '{link.source}' does not exist in assets/",
+                    fix=Fix(
+                        label=f"Remove [[link]] entry for '{link.source}'",
+                        kind="interactive",
+                        apply=lambda p=workspace.paths.manifest, s=link.source: (
+                            _manifest_remove_link(p, s)
+                        ),
+                    ),
+                )
             )
 
     for copy in workspace.manifest.copies:
         if not (assets_dir / copy.source).exists():
             findings.append(
-                Finding("error", f"Copy source '{copy.source}' does not exist in assets/")
+                Finding(
+                    "error",
+                    f"Copy source '{copy.source}' does not exist in assets/",
+                    fix=Fix(
+                        label=f"Remove [[copy]] entry for '{copy.source}'",
+                        kind="interactive",
+                        apply=lambda p=workspace.paths.manifest, s=copy.source: (
+                            _manifest_remove_copy(p, s)
+                        ),
+                    ),
+                )
             )
 
 
@@ -204,6 +296,13 @@ def _check_fingerprint_files(workspace: Workspace, findings: list[Finding]) -> N
                     Finding(
                         "warning",
                         f"File '{f}' is listed more than once in fingerprint '{fp.name}'",
+                        fix=Fix(
+                            label=f"Deduplicate files in fingerprint '{fp.name}'",
+                            kind="auto",
+                            apply=lambda p=workspace.paths.manifest, n=fp.name: (
+                                _manifest_deduplicate_fingerprint_files(p, n)
+                            ),
+                        ),
                     )
                 )
             seen.add(f)
@@ -257,7 +356,7 @@ def _check_fingerprint_length(workspace: Workspace, findings: list[Finding]) -> 
 
 def _check_hook_bin_references(workspace: Workspace, findings: list[Finding]) -> None:
     bin_dir = workspace.paths.bin
-    for _, entry in _iter_hook_entries(workspace):
+    for event, entry in _iter_hook_entries(workspace):
         if not entry.strip() or " " in entry or "\t" in entry:
             continue
 
@@ -268,6 +367,13 @@ def _check_hook_bin_references(workspace: Workspace, findings: list[Finding]) ->
                     "warning",
                     f"Hook entry '{entry}' looks like a bin script"
                     f" but 'bin/{entry}' does not exist",
+                    fix=Fix(
+                        label=f"Remove '{entry}' from {event} hook commands",
+                        kind="interactive",
+                        apply=lambda p=workspace.paths.manifest, e=event, cmd=entry: (
+                            _manifest_remove_hook_command(p, e, cmd)
+                        ),
+                    ),
                 )
             )
         elif not os.access(bin_path, os.X_OK):
@@ -287,7 +393,19 @@ def _check_hook_bin_references(workspace: Workspace, findings: list[Finding]) ->
 def _check_hook_empty_entries(workspace: Workspace, findings: list[Finding]) -> None:
     for event, entry in _iter_hook_entries(workspace):
         if not entry.strip():
-            findings.append(Finding("warning", f"Hook '{event}' contains an empty entry"))
+            findings.append(
+                Finding(
+                    "warning",
+                    f"Hook '{event}' contains an empty entry",
+                    fix=Fix(
+                        label=f"Remove empty entries from {event} hook",
+                        kind="auto",
+                        apply=lambda p=workspace.paths.manifest, e=event: (
+                            _manifest_remove_hook_empty_entries(p, e)
+                        ),
+                    ),
+                )
+            )
 
 
 def _check_hook_duplicates(workspace: Workspace, findings: list[Finding]) -> None:
@@ -297,7 +415,17 @@ def _check_hook_duplicates(workspace: Workspace, findings: list[Finding]) -> Non
             for entry in group.commands:
                 if entry in seen:
                     findings.append(
-                        Finding("warning", f"Hook '{event}' has duplicate entry: '{entry}'")
+                        Finding(
+                            "warning",
+                            f"Hook '{event}' has duplicate entry: '{entry}'",
+                            fix=Fix(
+                                label=f"Deduplicate {event} hook commands",
+                                kind="auto",
+                                apply=lambda p=workspace.paths.manifest, e=event: (
+                                    _manifest_deduplicate_hook_commands(p, e)
+                                ),
+                            ),
+                        )
                     )
                 seen.add(entry)
 
@@ -463,7 +591,19 @@ def _check_hook_empty_groups(workspace: Workspace, findings: list[Finding]) -> N
     for event, groups in _iter_hooks(workspace):
         for group in groups:
             if not group.commands:
-                findings.append(Finding("warning", f"Hook '{event}' has a group with no commands"))
+                findings.append(
+                    Finding(
+                        "warning",
+                        f"Hook '{event}' has a group with no commands",
+                        fix=Fix(
+                            label=f"Remove empty group from {event} hook",
+                            kind="auto",
+                            apply=lambda p=workspace.paths.manifest, e=event: (
+                                _manifest_remove_hook_empty_groups(p, e)
+                            ),
+                        ),
+                    )
+                )
 
 
 def run_checks(workspace: Workspace) -> list[Finding]:

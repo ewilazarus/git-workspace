@@ -91,7 +91,7 @@ def doctor(
     if parts:
         console.print("  " + ", ".join(parts))
 
-    remaining = run_checks(workspace)
+    remaining = run_checks(Workspace(workspace.dir))
     if not remaining:
         console.success("Workspace is healthy.")
     elif any(f.level == "error" for f in remaining):

@@ -1,5 +1,6 @@
 import os
 import shutil
+import tomllib
 
 import pytest
 import typer
@@ -405,6 +406,66 @@ class TestDoctorFix:
 
         mock_success.assert_called_once()
         assert "healthy" in mock_success.call_args[0][0].lower()
+
+    def test_auto_fix_removes_empty_hook_entries(self, workspace: Workspace) -> None:
+        workspace.paths.manifest.write_text(
+            'version = 1\nbase_branch = "main"\n\n[[hooks.on_setup]]\ncommands = ["real_cmd", ""]\n'
+        )
+
+        doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        updated = tomllib.loads(workspace.paths.manifest.read_text())
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["real_cmd"]
+
+    def test_auto_fix_deduplicates_hook_commands(self, workspace: Workspace) -> None:
+        workspace.paths.manifest.write_text(
+            'version = 1\nbase_branch = "main"\n\n'
+            "[[hooks.on_setup]]\n"
+            'commands = ["build", "build", "test"]\n'
+        )
+
+        doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        updated = tomllib.loads(workspace.paths.manifest.read_text())
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["build", "test"]
+
+    def test_auto_fix_removes_empty_hook_groups(self, workspace: Workspace) -> None:
+        workspace.paths.manifest.write_text(
+            'version = 1\nbase_branch = "main"\n\n'
+            "[[hooks.on_setup]]\n"
+            'commands = ["real_cmd"]\n\n'
+            "[[hooks.on_setup]]\n"
+            "commands = []\n"
+        )
+
+        doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        updated = tomllib.loads(workspace.paths.manifest.read_text())
+        assert len(updated["hooks"]["on_setup"]) == 1
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["real_cmd"]
+
+    def test_interactive_fix_removes_missing_link_source_when_confirmed(
+        self, workspace_with_links: Workspace, mocker: MockerFixture
+    ) -> None:
+        for f in workspace_with_links.paths.assets.iterdir():
+            f.unlink()
+        mocker.patch("git_workspace.cli.commands.doctor.confirm", return_value=True)
+
+        doctor(workspace_dir=str(workspace_with_links.dir), fix=True)
+
+        updated = tomllib.loads(workspace_with_links.paths.manifest.read_text())
+        assert updated.get("link", []) == []
+
+    def test_interactive_fix_removes_missing_link_source_when_yes(
+        self, workspace_with_links: Workspace
+    ) -> None:
+        for f in workspace_with_links.paths.assets.iterdir():
+            f.unlink()
+
+        doctor(workspace_dir=str(workspace_with_links.dir), yes=True)
+
+        updated = tomllib.loads(workspace_with_links.paths.manifest.read_text())
+        assert updated.get("link", []) == []
 
 
 class TestDoctorClean:

@@ -511,9 +511,7 @@ git workspace doctor --fix --yes
 
 <br/>
 
-> [!NOTE]
-> Not all problems can be fixed automatically. Issues requiring manual judgment (e.g. clashing asset targets, unsupported manifest version, missing asset sources) are reported but left untouched.
-
+**NOTE:** Not all problems can be fixed automatically. Issues requiring manual judgment (e.g. clashing asset targets, unsupported manifest version, missing asset sources) are reported but left untouched.
 </details>
 
 <details>
