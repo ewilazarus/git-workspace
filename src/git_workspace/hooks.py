@@ -2,6 +2,7 @@ import fnmatch
 import logging
 import os
 import subprocess
+from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from types import TracebackType
 
@@ -13,18 +14,82 @@ from git_workspace.worktree import Worktree
 logger = logging.getLogger(__name__)
 
 
-def _matches(group: HookGroup, effective_branch: str) -> bool:
-    if group.conditions is None:
+class HookNamesResolver:
+    """
+    Resolves which hook commands should run for a given branch.
+
+    Evaluates each :class:`~git_workspace.manifest.HookGroup`'s conditions
+    against ``effective_branch`` and returns the flattened list of command
+    strings from all matching groups, skipping empty or whitespace-only entries.
+    """
+
+    def __init__(self, effective_branch: str) -> None:
+        self._effective_branch = effective_branch
+
+    def _matches(self, group: HookGroup) -> bool:
+        if group.conditions is None:
+            return True
+
+        c = group.conditions
+        if c.if_branch_matches and not fnmatch.fnmatchcase(
+            self._effective_branch, c.if_branch_matches
+        ):
+            return False
+
+        if c.if_branch_not_matches and fnmatch.fnmatchcase(
+            self._effective_branch, c.if_branch_not_matches
+        ):
+            return False
+
         return True
 
-    c = group.conditions
-    if c.if_branch_matches and not fnmatch.fnmatchcase(effective_branch, c.if_branch_matches):
-        return False
+    def resolve_hook_names(self, groups: list[HookGroup]) -> list[str]:
+        """
+        Return the commands that should run given the effective branch.
 
-    if c.if_branch_not_matches and fnmatch.fnmatchcase(effective_branch, c.if_branch_not_matches):
-        return False
+        Iterates over ``groups`` in order, evaluates each group's conditions,
+        and collects the commands from every matching group. Empty and
+        whitespace-only command strings are silently dropped.
 
-    return True
+        :param groups: Hook groups to evaluate.
+        :returns: Ordered list of command strings to execute.
+        """
+        names = [cmd for g in groups if self._matches(g) for cmd in g.commands if cmd.strip()]
+        logger.debug(
+            "resolved %d hook name(s) for branch %r: %s",
+            len(names),
+            self._effective_branch,
+            names,
+        )
+        return names
+
+
+class HookCommandResolver:
+    """
+    Resolves a hook name to its executable command.
+
+    If a file matching the hook name exists under ``.workspace/bin/``, its
+    absolute path is returned so the shell runs it directly. Otherwise the hook
+    name is returned unchanged and treated as an inline shell command.
+    """
+
+    def __init__(self, worktree: Worktree) -> None:
+        self._bin_path = worktree.workspace.paths.bin
+
+    def resolve_command(self, hook_name: str) -> str:
+        """
+        Resolve a hook name to its executable command string.
+
+        :param hook_name: The hook entry as declared in the manifest.
+        :returns: Absolute path to the bin script if one exists, otherwise
+            ``hook_name`` unchanged for inline shell execution.
+        """
+        hook_path = self._bin_path / hook_name
+        if hook_path.is_file():
+            logger.debug("resolved hook %r to bin script: %s", hook_name, hook_path)
+            return str(hook_path)
+        logger.debug("no bin script for %r, running as inline shell command", hook_name)
+        return hook_name
 
 
 class HookRunner:
@@ -54,7 +119,8 @@ class HookRunner:
         self._worktree = worktree
         self._worktree_dir = str(worktree.dir)
         self._env = env
-        self._effective_branch = effective_branch
+        self._names_resolver = HookNamesResolver(effective_branch)
+        self._command_resolver = HookCommandResolver(worktree)
         self._hook_display_cm: AbstractContextManager[HookProgress] | None = None
         self._hook_progress: HookProgress | None = None
 
@@ -77,66 +143,47 @@ class HookRunner:
         if self._hook_display_cm is not None:
             self._hook_display_cm.__exit__(exc_type, exc_val, exc_tb)
 
-    def _resolve_command(self, hook_name: str) -> str:
-        bin_path = self._worktree.workspace.paths.bin / hook_name
-        if bin_path.is_file():
-            logger.debug("resolved hook %r to bin script: %s", hook_name, bin_path)
-            return str(bin_path)
-        logger.debug("no bin script for %r, running as inline shell command", hook_name)
-        return hook_name
+    def _execute_hook(self, hook_name: str, cmd: str, env: dict[str, str]) -> Iterator[str]:
+        shell = os.environ.get("SHELL", "sh")
+        with subprocess.Popen(
+            cmd,
+            cwd=self._worktree_dir,
+            env=env,
+            shell=True,
+            executable=shell,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        ) as proc:
+            assert proc.stdout is not None
+            yield from (raw.rstrip() for raw in proc.stdout)
 
-    def _resolve_hook_names(self, groups: list[HookGroup]) -> list[str]:
-        return [
-            cmd
-            for g in groups
-            if _matches(g, self._effective_branch)
-            for cmd in g.commands
-            if cmd.strip()
-        ]
+        if proc.returncode != 0:
+            logger.error("hook %r exited with code %d", hook_name, proc.returncode)
+            raise HookExecutionError(f"Hook {hook_name!r} exited with code {proc.returncode}")
+
+        logger.debug("hook %r completed successfully", hook_name)
 
     def _run_hooks(self, event: str, groups: list[HookGroup]) -> None:
-        hook_names = [
-            cmd
-            for g in groups
-            if _matches(g, self._effective_branch)
-            for cmd in g.commands
-            if cmd.strip()
-        ]
+        hook_names = self._names_resolver.resolve_hook_names(groups)
         if not hook_names:
             return
 
         type_label = event.removeprefix("ON_").capitalize()
         env = {**self._env, "GIT_WORKSPACE_EVENT": event}
         progress = self._ensure_display()
-        shell = os.environ.get("SHELL", "sh")
 
         progress.begin_section(type_label, len(hook_names))
 
         for hook_name in hook_names:
-            progress.on_hook_start(hook_name)
-            cmd = self._resolve_command(hook_name)
+            cmd = self._command_resolver.resolve_command(hook_name)
             logger.debug("running hook %r as %r in %s", hook_name, cmd, self._worktree_dir)
+            progress.on_hook_start(hook_name)
 
-            with subprocess.Popen(
-                cmd,
-                cwd=self._worktree_dir,
-                env=env,
-                shell=True,
-                executable=shell,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-            ) as proc:
-                assert proc.stdout is not None
-                for raw in proc.stdout:
-                    progress.on_output_line(raw.rstrip())
+            for line in self._execute_hook(hook_name, cmd, env):
+                progress.on_output_line(line)
 
-            if proc.returncode != 0:
-                logger.error("hook %r exited with code %d", hook_name, proc.returncode)
-                raise HookExecutionError(f"Hook {hook_name!r} exited with code {proc.returncode}")
-
-            logger.debug("hook %r completed successfully", hook_name)
             progress.on_hook_done()
 
         progress.on_section_done(type_label, hook_names)

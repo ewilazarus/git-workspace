@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.hooks import HookRunner
+from git_workspace.hooks import HookCommandResolver, HookNamesResolver, HookRunner
 from git_workspace.manifest import HookConditions, HookGroup
 
 BRANCH = "feat/GWS-001"
@@ -56,6 +56,82 @@ def mock_popen(mocker: MockerFixture) -> MagicMock:
     mock = mocker.patch("git_workspace.hooks.subprocess.Popen")
     mock.return_value.__enter__.return_value.returncode = 0
     return mock
+
+
+class TestHookNamesResolver:
+    def test_returns_commands_from_unconditional_group(self) -> None:
+        resolver = HookNamesResolver("any/branch")
+        groups = [_group(["setup.sh", "build.sh"])]
+        assert resolver.resolve_hook_names(groups) == ["setup.sh", "build.sh"]
+
+    def test_returns_empty_list_for_no_groups(self) -> None:
+        resolver = HookNamesResolver("any/branch")
+        assert resolver.resolve_hook_names([]) == []
+
+    def test_skips_empty_and_whitespace_only_commands(self) -> None:
+        resolver = HookNamesResolver("any/branch")
+        groups = [_group(["real.sh", "", "   "])]
+        assert resolver.resolve_hook_names(groups) == ["real.sh"]
+
+    def test_flattens_commands_across_multiple_groups(self) -> None:
+        resolver = HookNamesResolver("any/branch")
+        groups = [_group(["first.sh"]), _group(["second.sh"])]
+        assert resolver.resolve_hook_names(groups) == ["first.sh", "second.sh"]
+
+    def test_includes_group_when_if_branch_matches_matches(self) -> None:
+        resolver = HookNamesResolver("gabriel/foo")
+        cond = HookConditions(if_branch_matches="gabriel/*")
+        assert resolver.resolve_hook_names([_group(["cmd.sh"], cond)]) == ["cmd.sh"]
+
+    def test_excludes_group_when_if_branch_matches_does_not_match(self) -> None:
+        resolver = HookNamesResolver("feat/bar")
+        cond = HookConditions(if_branch_matches="gabriel/*")
+        assert resolver.resolve_hook_names([_group(["cmd.sh"], cond)]) == []
+
+    def test_includes_group_when_if_branch_not_matches_does_not_match(self) -> None:
+        resolver = HookNamesResolver("feat/bar")
+        cond = HookConditions(if_branch_not_matches="gabriel/*")
+        assert resolver.resolve_hook_names([_group(["cmd.sh"], cond)]) == ["cmd.sh"]
+
+    def test_excludes_group_when_if_branch_not_matches_matches(self) -> None:
+        resolver = HookNamesResolver("gabriel/foo")
+        cond = HookConditions(if_branch_not_matches="gabriel/*")
+        assert resolver.resolve_hook_names([_group(["cmd.sh"], cond)]) == []
+
+    def test_and_condition_passes_when_both_hold(self) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*", if_branch_not_matches="gabriel/wip-*")
+        resolver = HookNamesResolver("gabriel/feature")
+        assert resolver.resolve_hook_names([_group(["cmd.sh"], cond)]) == ["cmd.sh"]
+
+    def test_and_condition_fails_when_not_matches_blocks(self) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*", if_branch_not_matches="gabriel/wip-*")
+        resolver = HookNamesResolver("gabriel/wip-thing")
+        assert resolver.resolve_hook_names([_group(["cmd.sh"], cond)]) == []
+
+    def test_mixed_groups_only_matching_commands_returned(self) -> None:
+        cond = HookConditions(if_branch_matches="gabriel/*")
+        groups = [_group(["unconditional.sh"]), _group(["conditional.sh"], cond)]
+        assert HookNamesResolver("feat/bar").resolve_hook_names(groups) == ["unconditional.sh"]
+        assert HookNamesResolver("gabriel/foo").resolve_hook_names(groups) == [
+            "unconditional.sh",
+            "conditional.sh",
+        ]
+
+
+class TestHookCommandResolver:
+    def test_returns_bin_path_when_script_exists(self, mocker: MockerFixture) -> None:
+        mocker.patch("pathlib.Path.is_file", return_value=True)
+        worktree = mocker.MagicMock()
+        worktree.workspace.paths.bin = BIN_DIR
+        resolver = HookCommandResolver(worktree)
+        assert resolver.resolve_command("setup.sh") == str(BIN_DIR / "setup.sh")
+
+    def test_returns_hook_name_as_inline_when_no_bin_script(self, mocker: MockerFixture) -> None:
+        mocker.patch("pathlib.Path.is_file", return_value=False)
+        worktree = mocker.MagicMock()
+        worktree.workspace.paths.bin = BIN_DIR
+        resolver = HookCommandResolver(worktree)
+        assert resolver.resolve_command("docker build . -t myapp") == "docker build . -t myapp"
 
 
 class TestResolveCommand:

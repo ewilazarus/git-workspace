@@ -1,4 +1,6 @@
+import os
 import shutil
+import tomllib
 
 import pytest
 import typer
@@ -326,6 +328,144 @@ class TestDoctorCopyPlaceholders:
         doctor(workspace_dir=str(workspace_with_placeholder_copies.dir))
 
         assert not any("placeholder" in msg for msg in _messages(mock_warning))
+
+
+class TestDoctorFix:
+    def test_auto_fix_makes_bin_script_executable(self, workspace_with_hooks: Workspace) -> None:
+        script = workspace_with_hooks.paths.bin / "on_setup"
+        script.chmod(0o644)
+
+        doctor(workspace_dir=str(workspace_with_hooks.dir), fix=True)
+
+        assert os.access(script, os.X_OK)
+
+    def test_auto_fix_prunes_stale_worktree(
+        self, workspace: Workspace, mocker: MockerFixture
+    ) -> None:
+        up(branch="main", workspace_dir=str(workspace.dir))
+        shutil.rmtree(workspace.paths.worktree("main"))
+        prune_mock = mocker.patch("git_workspace.doctor.git.prune_worktrees")
+
+        doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        prune_mock.assert_called()
+
+    def test_interactive_fix_applied_when_yes(self, workspace_with_links: Workspace) -> None:
+        orphan = workspace_with_links.paths.assets / "orphan.txt"
+        orphan.write_text("unused")
+
+        doctor(workspace_dir=str(workspace_with_links.dir), yes=True)
+
+        assert not orphan.exists()
+
+    def test_interactive_fix_skipped_when_declined(
+        self, workspace_with_links: Workspace, mocker: MockerFixture
+    ) -> None:
+        orphan = workspace_with_links.paths.assets / "orphan.txt"
+        orphan.write_text("unused")
+        mocker.patch("git_workspace.cli.commands.doctor.confirm", return_value=False)
+
+        doctor(workspace_dir=str(workspace_with_links.dir), fix=True)
+
+        assert orphan.exists()
+
+    def test_interactive_fix_applied_when_confirmed(
+        self, workspace_with_links: Workspace, mocker: MockerFixture
+    ) -> None:
+        orphan = workspace_with_links.paths.assets / "orphan.txt"
+        orphan.write_text("unused")
+        mocker.patch("git_workspace.cli.commands.doctor.confirm", return_value=True)
+
+        doctor(workspace_dir=str(workspace_with_links.dir), fix=True)
+
+        assert not orphan.exists()
+
+    def test_yes_implies_fix(self, workspace_with_hooks: Workspace) -> None:
+        script = workspace_with_hooks.paths.bin / "on_setup"
+        script.chmod(0o644)
+
+        doctor(workspace_dir=str(workspace_with_hooks.dir), yes=True)
+
+        assert os.access(script, os.X_OK)
+
+    def test_unfixable_error_still_exits_1(self, workspace: Workspace) -> None:
+        workspace.paths.manifest.write_text("!!! not valid toml !!!")
+
+        with pytest.raises(typer.Exit) as exc:
+            doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        assert exc.value.exit_code == 1
+
+    def test_fix_without_findings_reports_healthy(
+        self, workspace: Workspace, mocker: MockerFixture
+    ) -> None:
+        _remove_keep_files(workspace)
+        mock_success = mocker.patch.object(ui.console, "success")
+
+        doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        mock_success.assert_called_once()
+        assert "healthy" in mock_success.call_args[0][0].lower()
+
+    def test_auto_fix_removes_empty_hook_entries(self, workspace: Workspace) -> None:
+        workspace.paths.manifest.write_text(
+            'version = 1\nbase_branch = "main"\n\n[[hooks.on_setup]]\ncommands = ["real_cmd", ""]\n'
+        )
+
+        doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        updated = tomllib.loads(workspace.paths.manifest.read_text())
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["real_cmd"]
+
+    def test_auto_fix_deduplicates_hook_commands(self, workspace: Workspace) -> None:
+        workspace.paths.manifest.write_text(
+            'version = 1\nbase_branch = "main"\n\n'
+            "[[hooks.on_setup]]\n"
+            'commands = ["build", "build", "test"]\n'
+        )
+
+        doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        updated = tomllib.loads(workspace.paths.manifest.read_text())
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["build", "test"]
+
+    def test_auto_fix_removes_empty_hook_groups(self, workspace: Workspace) -> None:
+        workspace.paths.manifest.write_text(
+            'version = 1\nbase_branch = "main"\n\n'
+            "[[hooks.on_setup]]\n"
+            'commands = ["real_cmd"]\n\n'
+            "[[hooks.on_setup]]\n"
+            "commands = []\n"
+        )
+
+        doctor(workspace_dir=str(workspace.dir), fix=True)
+
+        updated = tomllib.loads(workspace.paths.manifest.read_text())
+        assert len(updated["hooks"]["on_setup"]) == 1
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["real_cmd"]
+
+    def test_interactive_fix_removes_missing_link_source_when_confirmed(
+        self, workspace_with_links: Workspace, mocker: MockerFixture
+    ) -> None:
+        for f in workspace_with_links.paths.assets.iterdir():
+            f.unlink()
+        mocker.patch("git_workspace.cli.commands.doctor.confirm", return_value=True)
+
+        doctor(workspace_dir=str(workspace_with_links.dir), fix=True)
+
+        updated = tomllib.loads(workspace_with_links.paths.manifest.read_text())
+        assert updated.get("link", []) == []
+
+    def test_interactive_fix_removes_missing_link_source_when_yes(
+        self, workspace_with_links: Workspace
+    ) -> None:
+        for f in workspace_with_links.paths.assets.iterdir():
+            f.unlink()
+
+        doctor(workspace_dir=str(workspace_with_links.dir), yes=True)
+
+        updated = tomllib.loads(workspace_with_links.paths.manifest.read_text())
+        assert updated.get("link", []) == []
 
 
 class TestDoctorClean:

@@ -53,14 +53,8 @@ class IgnoreManager:
         self._entries.append(entry)
 
     def _compose_ignore_block(self, ignore_entries: list[Path]) -> str:
-        builder = []
-
-        builder.append(self.BEGIN_IGNORE_MARKER)
-        for ignore_entry in ignore_entries:
-            builder.append(str(ignore_entry))
-        builder.append(self.END_IGNORE_MARKER)
-
-        return "\n".join(builder)
+        lines = [self.BEGIN_IGNORE_MARKER, *map(str, ignore_entries), self.END_IGNORE_MARKER]
+        return "\n".join(lines)
 
     def sync(self, ignore_entries: list[Path]) -> None:
         """
@@ -101,15 +95,14 @@ class AssetManager[T: Asset](ABC):
         self._worktree = worktree
         self._ignore = ignore
         self._assets = assets
-        self._substitution_count = 0
 
     @abstractmethod
-    def _apply_with_override(self, source: Path, target: Path) -> None: ...
+    def _apply_with_override(self, source: Path, target: Path) -> int: ...
 
     @abstractmethod
-    def _apply_without_override(self, source: Path, target: Path) -> None: ...
+    def _apply_without_override(self, source: Path, target: Path) -> int: ...
 
-    def _apply(self, asset: T) -> None:
+    def _apply(self, asset: T) -> int:
         source = (self._worktree.workspace.paths.assets / asset.source).absolute()
         target = (self._worktree.dir / asset.target).absolute()
 
@@ -117,10 +110,11 @@ class AssetManager[T: Asset](ABC):
 
         if asset.override:
             git.skip_worktree(target)
-            self._apply_with_override(source, target)
+            return self._apply_with_override(source, target)
         else:
-            self._apply_without_override(source, target)
+            count = self._apply_without_override(source, target)
             self._ignore.collect(Path(asset.target))
+            return count
 
     def apply(self) -> None:
         """
@@ -132,8 +126,8 @@ class AssetManager[T: Asset](ABC):
 
         with console.asset_display(self.asset_name_plural) as progress:
             for asset in self._assets:
-                self._apply(asset)
-                progress.on_asset_applied(asset.source, asset.target, self._substitution_count)
+                count = self._apply(asset)
+                progress.on_asset_applied(asset.source, asset.target, count)
 
 
 class Linker(AssetManager[Link]):
@@ -150,19 +144,20 @@ class Linker(AssetManager[Link]):
     def __init__(self, worktree: Worktree, ignore: IgnoreManager) -> None:
         super().__init__(worktree, ignore, worktree.workspace.manifest.links)
 
-    def _apply_with_override(self, source: Path, target: Path) -> None:
+    def _apply_with_override(self, source: Path, target: Path) -> int:
         if target.exists() or target.is_symlink():
             logger.debug("unlinking existing target before override: %s", target)
             target.unlink()
 
         logger.debug("symlinking (override) %s -> %s", target, source)
         target.symlink_to(source)
+        return 0
 
-    def _apply_without_override(self, source: Path, target: Path) -> None:
+    def _apply_without_override(self, source: Path, target: Path) -> int:
         if target.is_symlink():
             if target.readlink() == source:
                 logger.debug("symlink already correct, skipping: %s", target)
-                return
+                return 0
             logger.warning("target %s is a symlink pointing elsewhere, cannot link", target)
             raise WorkspaceLinkError(
                 f"Cannot link {source!r} -> {target!r}: target is a symlink pointing elsewhere"
@@ -174,6 +169,7 @@ class Linker(AssetManager[Link]):
 
         logger.debug("symlinking %s -> %s", target, source)
         target.symlink_to(source)
+        return 0
 
 
 class Copier(AssetManager[Copy]):
@@ -197,7 +193,6 @@ class Copier(AssetManager[Copy]):
     def __init__(self, worktree: Worktree, ignore: IgnoreManager, env: dict[str, str]) -> None:
         super().__init__(worktree, ignore, worktree.workspace.manifest.copies)
         self._env = env
-        self._substitution_count = 0
 
     def _resolve_placeholders(self, content: str) -> tuple[str, int]:
         count = 0
@@ -214,24 +209,26 @@ class Copier(AssetManager[Copy]):
 
         return self.PLACEHOLDER_RE.sub(replace, content), count
 
-    def _copy_with_substitution(self, source: Path, target: Path) -> None:
+    def _copy_with_substitution(self, source: Path, target: Path) -> int:
         try:
             content = source.read_text(encoding="utf-8")
             new_content, count = self._resolve_placeholders(content)
-
-            self._substitution_count += count
-
             target.write_text(new_content, encoding="utf-8")
+            return count
         except UnicodeDecodeError, ValueError:
             logger.debug("copying %s as binary (not valid UTF-8 text)", source)
             shutil.copy2(source, target)
+            return 0
 
-    def _copy_dir_with_substitution(self, source: Path, target: Path) -> None:
-        shutil.copytree(
-            source,
-            target,
-            copy_function=lambda s, d: self._copy_with_substitution(Path(s), Path(d)),
-        )
+    def _copy_dir_with_substitution(self, source: Path, target: Path) -> int:
+        total = 0
+
+        def copy_fn(s: str, d: str) -> None:
+            nonlocal total
+            total += self._copy_with_substitution(Path(s), Path(d))
+
+        shutil.copytree(source, target, copy_function=copy_fn)
+        return total
 
     def _skip_existing(self, asset: Copy) -> bool:
         target = (self._worktree.dir / asset.target).absolute()
@@ -248,15 +245,12 @@ class Copier(AssetManager[Copy]):
 
         return True
 
-    def _apply(self, asset: Copy) -> None:
-        self._substitution_count = 0
-
+    def _apply(self, asset: Copy) -> int:
         if self._skip_existing(asset):
-            return
+            return 0
+        return super()._apply(asset)
 
-        super()._apply(asset)
-
-    def _apply_with_override(self, source: Path, target: Path) -> None:
+    def _apply_with_override(self, source: Path, target: Path) -> int:
         if target.exists() or target.is_symlink():
             logger.debug("removing existing target before override: %s", target)
             if target.is_dir() and not target.is_symlink():
@@ -266,11 +260,11 @@ class Copier(AssetManager[Copy]):
 
         logger.debug("copying (override) %s -> %s", source, target)
         if source.is_dir():
-            self._copy_dir_with_substitution(source, target)
+            return self._copy_dir_with_substitution(source, target)
         else:
-            self._copy_with_substitution(source, target)
+            return self._copy_with_substitution(source, target)
 
-    def _apply_without_override(self, source: Path, target: Path) -> None:
+    def _apply_without_override(self, source: Path, target: Path) -> int:
         if target.is_symlink():
             logger.warning("target %s is a symlink, cannot copy over it", target)
             raise WorkspaceCopyError(f"Cannot copy {source!r} to {target!r}: target is a symlink")
@@ -279,6 +273,6 @@ class Copier(AssetManager[Copy]):
         if source.is_dir():
             if target.is_dir():
                 shutil.rmtree(target)
-            self._copy_dir_with_substitution(source, target)
+            return self._copy_dir_with_substitution(source, target)
         else:
-            self._copy_with_substitution(source, target)
+            return self._copy_with_substitution(source, target)

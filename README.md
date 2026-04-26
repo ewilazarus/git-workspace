@@ -23,7 +23,9 @@
 
 With `git-workspace`, each branch lives in its own directory. You `up` into it, your environment is ready — dependencies installed, config files in place, hooks executed. You `down` out of it, your teardown scripts run. You come back tomorrow and everything is exactly where you left it.
 
-#### Table of contents
+<details>
+<summary><i>Table of contents</i></summary>
+<br/>
 
 - [Features](#features)
 - [Demo](#demo)
@@ -33,19 +35,21 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - [Commands](#commands)
 - [Workspace manifest](#workspace-manifest)
 - [Lifecycle hooks](#lifecycle-hooks)
+- [Fingerprints](#fingerprints)
 - [Assets: links and copies](#assets-links-and-copies)
 - [Pruning stale worktrees](#pruning-stale-worktrees)
 - [Detached mode](#detached-mode)
 - [Diagnosing a workspace](#diagnosing-a-workspace)
 - [Debugging](#debugging)
 - [Development](#development)
+</details>
 
 ---
 
 ## Features
 
 - 🌳 **Worktree-per-branch** — every branch gets its own directory; no more dirty working trees
-- ⚡ **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
+- 🪝 **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
 - 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree
 - 📋 **File copying** — copy mutable config files that each worktree can edit independently
 - 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
@@ -105,6 +109,8 @@ pip install git-workspace-cli
 
 Once installed, `git workspace` is available as a git subcommand.
 
+<br/>
+
 > [!WARNING]
 > Ensure your `uv`/`pip` install path is in `$PATH`, so Git can locate the `git-workspace` executable.
 
@@ -137,6 +143,8 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 > [!TIP]
 > Use `git workspace --help` to explore all commands and flags in detail.
 
+<br/>
+
 | Command | Description |
 |---|---|
 | `git workspace init` | Initialize a new workspace in the current directory |
@@ -147,32 +155,16 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 | `git workspace rm` | Remove a worktree (branch is preserved) |
 | `git workspace ls` | List all active worktrees with branch, path, and age |
 | `git workspace prune` | Remove stale worktrees by age (dry-run by default) |
-| `git workspace doctor` | Inspect the workspace for inconsistencies |
+| `git workspace doctor` | Inspect the workspace for inconsistencies; `--fix` applies safe remediations |
 | `git workspace edit` | Open the workspace config in your editor |
 
 `[branch]` and `--root` let you operate on a workspace from anywhere in the file system, without needing to be inside it.
-
-### Path output for automation
-
-`init`, `clone`, and `up` accept an `-o` / `--output` flag that prints the resulting path to stdout and suppresses all other output. This makes them composable with shell subexpressions:
-
-```bash
-# jump straight into a new worktree in one command
-cd $(git workspace up feat/my-feature -o)
-
-# clone a repo and land inside it immediately
-cd $(git workspace clone https://github.com/you/your-repo.git -o)
-
-# use in scripts without worrying about hook output polluting the result
-WORKTREE=$(git workspace up feat/experiment --detached -o)
-code "$WORKTREE"
-```
 
 ---
 
 ## Workspace manifest
 
-The manifest lives at `.workspace/manifest.toml` and controls everything:
+The manifest lives at `.workspace/manifest.toml` and controls everything. For example:
 
 ```toml
 version = 1
@@ -198,30 +190,47 @@ commands = ["clean_cache"]
 
 # Symlinks applied to every worktree
 [[link]]
-source = "dotfile"
-target = ".nvmrc"
-
-[[link]]
 source = "vscode-settings.json"
 target = ".vscode/settings.json"
-override = true
 
 # File copies — each worktree gets its own mutable version
 [[copy]]
 source = "config.local.yaml"
 target = "config.local.yaml"
-
-# Automatic cleanup rules
-[prune]
-older_than_days  = 30
-exclude_branches = ["main", "develop"]
 ```
 
 ---
 
 ## Lifecycle hooks
 
-Each hook entry can be a script in `.workspace/bin/` or an inline shell command. If the entry matches a file in `.workspace/bin/`, it runs as a script; otherwise it's executed via `sh -c`. Both forms receive the following environment variables:
+Each hook entry can be a script in `.workspace/bin/` or an inline shell command. If the entry matches a file in `.workspace/bin/`, it runs as a script; otherwise it's executed via the user shell. 
+
+### Hook execution order
+
+Hooks come in two pairs that map to the two lifetimes a worktree has:
+
+- **Worktree lifetime** — `on_setup` and `on_teardown` bracket the full existence of the worktree directory.
+- **Coding Session lifetime** — `on_attach` and `on_detach` bracket each interactive session inside it.
+
+  | Event | When it runs |
+  |---|---|
+  | `on_setup` | After a worktree is first created, or on `reset` |
+  | `on_attach` | On `up` in interactive mode (skipped with `--detached`) |
+  | `on_detach` | On `down` and at the start of `rm` |
+  | `on_teardown` | On `rm`, after `on_detach`, before the directory is deleted |
+
+<br/>
+
+> [!WARNING]
+> Implement `on_attach` and `on_detach` hooks as idempotent operations. `git-workspace` treats these lifecycle events as potentially repeatable rather than strictly linear, accounting for edge cases where a session is interrupted before completion.
+
+<br/>
+
+<details>
+<summary><i>Environment variables</i></summary>
+<br/>
+
+The following environment variables are available during hook execution:
 
 | Variable | Value |
 |---|---|
@@ -233,61 +242,15 @@ Each hook entry can be a script in `.workspace/bin/` or an inline shell command.
 | `GIT_WORKSPACE_VAR_*` | All manifest and runtime variables |
 | `GIT_WORKSPACE_FINGERPRINT_*` | Content hashes computed from `[[fingerprint]]` file sets |
 
-### Hook execution order
+</details>
 
-Hooks come in two pairs that map to the two lifetimes a worktree has:
-
-- **Worktree lifetime** — `on_setup` and `on_teardown` bracket the full existence of the worktree directory.
-- **Session lifetime** — `on_attach` and `on_detach` bracket each interactive session inside it.
-
-| Event | When it runs |
-|---|---|
-| `on_setup` | After a worktree is first created, or on `reset` |
-| `on_attach` | On `up` in interactive mode (skipped with `--detached`) |
-| `on_detach` | On `down` and at the start of `rm` |
-| `on_teardown` | On `rm`, after `on_detach`, before the directory is deleted |
-
-**Example hook** (`.workspace/bin/install_deps`):
-
-```bash
-#!/bin/sh
-# hooks already run from the worktree root — no cd needed
-node_version="$GIT_WORKSPACE_VAR_NODE_VERSION"
-fnm use "$node_version" || fnm install "$node_version"
-npm install
-```
-
-**Mix bin scripts and inline commands** in the same hook list:
-
-```toml
-[[hooks.on_setup]]
-commands = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
-
-[[hooks.on_attach]]
-commands = ["open_editor"]
-
-[[hooks.on_detach]]
-commands = ["save_session"]
-
-[[hooks.on_teardown]]
-commands = ["clean_cache"]
-```
-
-Here `install_deps` runs `.workspace/bin/install_deps`, while `docker build . -t myproj:latest` and `echo ready` run as shell commands.
-
-**Pass runtime variables** at call time with `-v`:
-
-```bash
-git workspace up feature/my-feature -v env=staging -v debug=true
-```
-
----
-
-## Adaptive hooks
+<details>
+<summary><i>Conditional execution</i></summary>
+<br/>
 
 Each hook event can have multiple `[[hooks.<event>]]` groups. A group only runs when its `conditions` block matches the effective branch. Groups with no `conditions` always run. Groups are evaluated top-to-bottom in manifest order.
 
-### Supported conditions
+#### Supported conditions
 
 | Key | Behaviour |
 |---|---|
@@ -319,7 +282,7 @@ conditions = { if_branch_matches = "gabriel/*", if_branch_not_matches = "gabriel
 commands = ["start_long_running_task"]
 ```
 
-### Impersonating a branch with `--as`
+#### Impersonating a branch with `--as`
 
 All hook-running commands (`up`, `down`, `reset`, `rm`) accept `-a`/`--as <branch>` to override which branch is used when evaluating hook conditions. The real `GIT_WORKSPACE_BRANCH` environment variable and git state are **not** affected.
 
@@ -329,6 +292,8 @@ git workspace up feat/my-feature --as gabriel/my-feature
 ```
 
 This is useful when a shared feature branch should trigger the same hooks as a personal branch, or when scripting against a branch that doesn't exist yet.
+
+</details>
 
 ---
 
@@ -354,10 +319,13 @@ Each fingerprint is exposed as `GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>` (sa
 
 Fingerprints are recomputed on every `up`, `reset`, `down`, and `rm` invocation. Files are looked up relative to the worktree root; a missing or unreadable file contributes its path and the literal marker `NULL` to the hash rather than failing.
 
-**Example hook** (`.workspace/bin/install_deps`):
+<details>
+<summary><i>Usage example</i></summary>
+<br/>
 
 ```sh
 #!/bin/sh
+
 state_file="$GIT_WORKSPACE_ROOT/.fingerprint-docker-deps"
 current="$GIT_WORKSPACE_FINGERPRINT_DOCKER_DEPS"
 previous=$(cat "$state_file" 2>/dev/null || echo "")
@@ -368,16 +336,7 @@ if [ "$current" != "$previous" ]; then
 fi
 ```
 
-**Properties:**
-
-| Property | Required | Default | Description |
-|---|---|---|---|
-| `name` | yes | — | Identifier; normalized to `GIT_WORKSPACE_FINGERPRINT_<NAME>` |
-| `files` | yes | — | Paths relative to the worktree root; sorted alphabetically before hashing |
-| `algorithm` | no | `sha256` | Hash algorithm: `sha256` or `md5` |
-| `length` | no | `12` | Prefix length of the hex digest to expose |
-
-Fingerprint placeholders (`{{ GIT_WORKSPACE_FINGERPRINT_* }}`) are also recognized in copy assets (see [Placeholders in copies](#placeholders-in-copies)).
+</details>
 
 ---
 
@@ -405,6 +364,10 @@ source = "config.local.yaml"
 target = "config.local.yaml"
 ```
 
+<details>
+<summary><i>Overwrite control</i></summary>
+<br/>
+
 Set `overwrite = false` to seed the file once and preserve local edits across resets. The file is still created on the first `up`, but subsequent `reset` calls leave it untouched.
 
 ```toml
@@ -414,9 +377,13 @@ target = "config.local.yaml"
 overwrite = false
 ```
 
-### Placeholders in copies
+</details>
 
-Text files in `.workspace/assets/` can contain `{{ GIT_WORKSPACE_* }}` placeholders. When the file is copied, each placeholder is replaced with the corresponding value from the environment — the same variables available to hooks, including manifest and runtime vars.
+<details>
+<summary><i>Placeholders</i></summary>
+<br/>
+
+Text files in `.workspace/assets/` can contain `{{ GIT_WORKSPACE_* }}` placeholders. When the file is copied, each placeholder is replaced with the corresponding value from the environment — the same variables available to hooks, including manifest, runtime, and fingerprint vars.
 
 ```
 # .workspace/assets/config.local.yaml
@@ -435,12 +402,14 @@ env: staging
 
 Unknown placeholders are left verbatim. Binary files are copied as-is without substitution. When the source is a directory, substitution is applied to every text file inside it.
 
+</details>
+
 ### Override mode
 
 By default, asset targets are added to `.git/info/exclude` so they stay invisible to git. Set `override = true` to replace a tracked file instead — the target is marked with `git update-index --skip-worktree` before the asset is applied.
 
 ```toml
-[[link]]
+[[link]]  # or [[copy]]
 source = "vscode-settings.json"
 target = ".vscode/settings.json"
 override = true
@@ -512,41 +481,74 @@ Otherwise it lists findings by severity:
 
 The command exits 1 if any errors are found, 0 if the workspace is clean or has warnings only.
 
-### What it checks
+<details>
+<summary><i>Automatic fixes</i></summary>
+<br/>
 
-**Errors:**
+Pass `--fix` to apply remediations alongside the findings:
 
-| Check | Description |
-|---|---|
-| Manifest not readable / invalid TOML | The manifest file cannot be opened or parsed |
-| Unsupported manifest version | `version` is higher than this tool supports |
-| Missing asset source | A `[[link]]` or `[[copy]]` source file does not exist in `assets/` |
-| Clashing asset targets | Two entries share the same `target` path |
-| Escaping asset target | A `target` path traverses outside the worktree root (e.g. `../../`) |
-| Variable name collision | Two `[vars]` keys normalize to the same `GIT_WORKSPACE_VAR_*` name |
-| Fingerprint name collision | Two `[[fingerprint]]` names normalize to the same `GIT_WORKSPACE_FINGERPRINT_*` name |
-| Empty fingerprint name | A `[[fingerprint]]` has an empty or whitespace-only `name` |
-| Escaping fingerprint file | A `files` entry traverses outside the worktree root (e.g. `../../`) |
-| Unsupported fingerprint algorithm | `algorithm` is not `sha256` or `md5` |
-| Invalid fingerprint length | `length` is zero or negative |
+```bash
+git workspace doctor --fix
+```
 
-**Warnings:**
+Safe fixes are applied silently. Destructive fixes (deleting files) prompt for confirmation first:
 
-| Check | Description |
-|---|---|
-| Missing bin script | A whitespace-free hook entry has no matching file in `bin/` |
-| Non-executable bin script | A matching `bin/` file exists but is not executable |
-| Empty hook entry | A hook list contains an empty or whitespace-only string |
-| Duplicate hook entry | The same entry appears more than once in the same hook event |
-| Orphaned bin script | A file in `bin/` is not referenced by any hook |
-| Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` |
-| Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable, manifest var, or fingerprint |
-| Unknown base branch | `base_branch` does not resolve to any local or remote ref |
-| Stale worktree | A git-registered worktree's directory no longer exists on disk |
-| Fingerprint/var name overlap | A `[[fingerprint]]` name and a `[vars]` key normalize the same (they use different env prefixes, but may be confusing in templates) |
-| Empty fingerprint files list | A `[[fingerprint]]` has no entries in `files` |
-| Duplicate fingerprint file | The same file path appears more than once within one `[[fingerprint]]` |
-| Fingerprint length exceeds digest | `length` is larger than the algorithm's full digest size; the full digest is used |
+```
+⚠  Hook script 'bin/on_setup' exists but is not executable
+   → Fixed: Make bin/on_setup executable
+⚠  Asset 'old_config.json' is not referenced by any link or copy
+   → Delete unreferenced asset old_config.json? [y/N] y
+   → Fixed: Delete unreferenced asset old_config.json
+⚠  base_branch 'develop' does not resolve to any local or remote ref
+✓  1 fixed, 0 skipped → 1 remaining
+```
+
+Pass `--yes` (or `-y`) to skip all prompts — useful in CI:
+
+```bash
+git workspace doctor --fix --yes
+```
+
+<br/>
+
+**NOTE:** Not all problems can be fixed automatically. Issues requiring manual judgment (e.g. clashing asset targets, unsupported manifest version, missing asset sources) are reported but left untouched.
+</details>
+
+<details>
+<summary><i>Checks</i></summary>
+<br/>
+
+| Level | Check | Description | `--fix` |
+|---|---|---|---|
+| error | Manifest not readable / invalid TOML | The manifest file cannot be opened or parsed | — |
+| error | Unsupported manifest version | `version` is higher than this tool supports | — |
+| error | Missing asset source | A `[[link]]` or `[[copy]]` source file does not exist in `assets/` | prompt |
+| error | Clashing asset targets | Two entries share the same `target` path | — |
+| error | Escaping asset target | A `target` path traverses outside the worktree root (e.g. `../../`) | — |
+| error | Variable name collision | Two `[vars]` keys normalize to the same `GIT_WORKSPACE_VAR_*` name | — |
+| error | Fingerprint name collision | Two `[[fingerprint]]` names normalize to the same `GIT_WORKSPACE_FINGERPRINT_*` name | — |
+| error | Empty fingerprint name | A `[[fingerprint]]` has an empty or whitespace-only `name` | — |
+| error | Escaping fingerprint file | A `files` entry traverses outside the worktree root (e.g. `../../`) | — |
+| error | Unsupported fingerprint algorithm | `algorithm` is not `sha256` or `md5` | — |
+| error | Invalid fingerprint length | `length` is zero or negative | — |
+| warning | Missing bin script | A whitespace-free hook entry has no matching file in `bin/` | prompt |
+| warning | Non-executable bin script | A matching `bin/` file exists but is not executable | auto |
+| warning | Empty hook entry | A hook list contains an empty or whitespace-only string | auto |
+| warning | Duplicate hook entry | The same entry appears more than once in the same hook event | auto |
+| warning | Empty hook group | A `[[hooks.X]]` block has no commands | auto |
+| warning | Orphaned bin script | A file in `bin/` is not referenced by any hook | prompt |
+| warning | Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` | prompt |
+| warning | Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable, manifest var, or fingerprint | — |
+| warning | Unknown base branch | `base_branch` does not resolve to any local or remote ref | — |
+| warning | Stale worktree | A git-registered worktree's directory no longer exists on disk | auto |
+| warning | Fingerprint/var name overlap | A `[[fingerprint]]` name and a `[vars]` key normalize the same (different env prefixes, but may be confusing in templates) | — |
+| warning | Empty fingerprint files list | A `[[fingerprint]]` has no entries in `files` | — |
+| warning | Duplicate fingerprint file | The same file path appears more than once within one `[[fingerprint]]` | auto |
+| warning | Fingerprint length exceeds digest | `length` is larger than the algorithm's full digest size; the full digest is used | — |
+
+`auto` = applied silently; `prompt` = asks for confirmation (`--yes` skips the prompt); `—` = no automatic fix available.
+
+</details>
 
 ---
 
@@ -581,7 +583,9 @@ uv run pytest
 
 The test suite includes both unit tests and integration tests. Integration tests spin up real git repositories in temporary directories — no mocking.
 
-**Lint and type check:**
+<details>
+<summary><i>Lint and type check</i></summary>
+<br/>
 
 ```bash
 uv run ruff check src/ tests/
@@ -589,7 +593,11 @@ uv run ruff format --check src/ tests/
 uv run ty check src/
 ```
 
-**Project layout:**
+</details>
+
+<details>
+<summary><i>Project layout</i></summary>
+<br/>
 
 ```
 src/git_workspace/
@@ -609,6 +617,8 @@ src/git_workspace/
 └── worktree.py     ← worktree model
 ```
 
+</details>
+
 ---
 
 ## Disclaimer
@@ -616,6 +626,8 @@ src/git_workspace/
 I built `git-workspace` because it fits *my* way of working. The worktree-per-branch model, the hook lifecycle, the asset injection — these are the exact primitives I was missing.
 
 If it turns out to be useful to you too, [consider supporting the project](https://buymeacoffee.com/simiosoft). Contributions and feedback are welcome!
+
+<br/>
 
 > [!NOTE]
 > Developed and verified on macOS. Linux support is expected but untested. Windows is not supported.

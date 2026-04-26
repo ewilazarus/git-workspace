@@ -291,6 +291,16 @@ def get_worktree_branch(cwd: str) -> str:
     return branch
 
 
+def prune_worktrees(cwd: Path) -> None:
+    """
+    Removes stale worktree administrative files via `git worktree prune`.
+
+    :param cwd: The git repository directory.
+    """
+    logger.debug("pruning stale worktrees in %s", cwd)
+    subprocess.run(["git", "worktree", "prune"], cwd=cwd, capture_output=True, text=True)
+
+
 def remove_worktree(worktree_dir: Path, force: bool = False, *, cwd: Path) -> None:
     """
     Removes a git worktree without deleting the branch.

@@ -1,3 +1,6 @@
+import os
+import textwrap
+import tomllib
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -139,6 +142,72 @@ class TestCheckAssetSourcesExist:
         assert len(findings) == 1
         assert findings[0].level == "error"
         assert "config" in findings[0].message
+
+    def test_attaches_interactive_fix_for_missing_link_source(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets_dir = tmp_path / "assets"
+        assets_dir.mkdir()
+        manifest = tmp_path / "manifest.toml"
+        manifest.write_text(
+            textwrap.dedent("""
+                version = 1
+                base_branch = "main"
+
+                [[link]]
+                source = "missing"
+                target = ".missing"
+            """).strip()
+        )
+        workspace.paths.assets = assets_dir
+        workspace.paths.manifest = manifest
+        workspace.manifest.links = [Link(source="missing", target=".missing")]
+        workspace.manifest.copies = []
+
+        findings = []
+        _check_asset_sources_exist(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "interactive"
+
+        findings[0].fix.apply()
+
+        updated = tomllib.loads(manifest.read_text())
+        assert updated.get("link", []) == []
+
+    def test_attaches_interactive_fix_for_missing_copy_source(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets_dir = tmp_path / "assets"
+        assets_dir.mkdir()
+        manifest = tmp_path / "manifest.toml"
+        manifest.write_text(
+            textwrap.dedent("""
+                version = 1
+                base_branch = "main"
+
+                [[copy]]
+                source = "config"
+                target = "config.yaml"
+            """).strip()
+        )
+        workspace.paths.assets = assets_dir
+        workspace.paths.manifest = manifest
+        workspace.manifest.links = []
+        workspace.manifest.copies = [Copy(source="config", target="config.yaml")]
+
+        findings = []
+        _check_asset_sources_exist(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "interactive"
+
+        findings[0].fix.apply()
+
+        updated = tomllib.loads(manifest.read_text())
+        assert updated.get("copy", []) == []
 
 
 class TestCheckAssetTargetClashes:
@@ -304,6 +373,59 @@ class TestCheckHookBinReferences:
         _check_hook_bin_references(workspace, findings)
         assert findings == []
 
+    def test_attaches_interactive_fix_for_missing_bin_script(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        manifest = tmp_path / "manifest.toml"
+        manifest.write_text(
+            textwrap.dedent("""
+                version = 1
+                base_branch = "main"
+
+                [[hooks.on_setup]]
+                commands = ["missing_script"]
+            """).strip()
+        )
+        workspace.paths.bin = bin_dir
+        workspace.paths.manifest = manifest
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["missing_script"])])
+
+        findings = []
+        _check_hook_bin_references(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "interactive"
+
+        findings[0].fix.apply()
+
+        updated = tomllib.loads(manifest.read_text())
+        assert updated["hooks"]["on_setup"][0]["commands"] == []
+
+    def test_attaches_auto_fix_for_non_executable_bin_script(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        script = bin_dir / "setup.sh"
+        script.write_text("#!/bin/sh\necho hello")
+        script.chmod(0o644)
+
+        workspace.paths.bin = bin_dir
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["setup.sh"])])
+
+        findings = []
+        _check_hook_bin_references(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "auto"
+
+        findings[0].fix.apply()
+        assert os.access(script, os.X_OK)
+
 
 class TestCheckHookEmptyEntries:
     def test_returns_no_findings_for_non_empty_hooks(self, workspace: MagicMock) -> None:
@@ -332,6 +454,33 @@ class TestCheckHookEmptyEntries:
         assert len(findings) == 1
         assert findings[0].level == "warning"
         assert "on_detach" in findings[0].message
+
+    def test_attaches_auto_fix_that_removes_empty_entries(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        manifest = tmp_path / "manifest.toml"
+        manifest.write_text(
+            textwrap.dedent("""
+                version = 1
+                base_branch = "main"
+
+                [[hooks.on_setup]]
+                commands = ["real_cmd", "", "  "]
+            """).strip()
+        )
+        workspace.paths.manifest = manifest
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["real_cmd", "", "  "])])
+
+        findings = []
+        _check_hook_empty_entries(workspace, findings)
+
+        assert len(findings) == 2
+        assert all(f.fix is not None and f.fix.kind == "auto" for f in findings)
+
+        findings[0].fix.apply()
+
+        updated = tomllib.loads(manifest.read_text())
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["real_cmd"]
 
 
 class TestCheckHookDuplicates:
@@ -362,6 +511,36 @@ class TestCheckHookDuplicates:
         findings = []
         _check_hook_duplicates(workspace, findings)
         assert findings == []
+
+    def test_attaches_auto_fix_that_deduplicates_commands(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        manifest = tmp_path / "manifest.toml"
+        manifest.write_text(
+            textwrap.dedent("""
+                version = 1
+                base_branch = "main"
+
+                [[hooks.on_setup]]
+                commands = ["install", "install", "build"]
+            """).strip()
+        )
+        workspace.paths.manifest = manifest
+        workspace.manifest.hooks = Hooks(
+            on_setup=[HookGroup(commands=["install", "install", "build"])]
+        )
+
+        findings = []
+        _check_hook_duplicates(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "auto"
+
+        findings[0].fix.apply()
+
+        updated = tomllib.loads(manifest.read_text())
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["install", "build"]
 
 
 class TestCheckOrphanedBinScripts:
@@ -402,6 +581,26 @@ class TestCheckOrphanedBinScripts:
         assert len(findings) == 1
         assert findings[0].level == "warning"
         assert "unused.sh" in findings[0].message
+
+    def test_attaches_interactive_fix_for_unreferenced_script(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        script = bin_dir / "unused.sh"
+        script.write_text("#!/bin/sh")
+        workspace.paths.bin = bin_dir
+        workspace.manifest.hooks = Hooks()
+
+        findings = []
+        _check_orphaned_bin_scripts(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "interactive"
+
+        findings[0].fix.apply()
+        assert not script.exists()
 
 
 class TestCheckOrphanedAssets:
@@ -444,6 +643,27 @@ class TestCheckOrphanedAssets:
         assert len(findings) == 1
         assert findings[0].level == "warning"
         assert "orphan.txt" in findings[0].message
+
+    def test_attaches_interactive_fix_for_unreferenced_asset(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets_dir = tmp_path / "assets"
+        assets_dir.mkdir()
+        asset = assets_dir / "orphan.txt"
+        asset.write_text("content")
+        workspace.paths.assets = assets_dir
+        workspace.manifest.links = []
+        workspace.manifest.copies = []
+
+        findings = []
+        _check_orphaned_assets(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "interactive"
+
+        findings[0].fix.apply()
+        assert not asset.exists()
 
 
 class TestCheckBaseBranch:
@@ -528,6 +748,26 @@ class TestCheckStaleWorktrees:
         findings = []
         _check_stale_worktrees(workspace, findings)
         assert findings == []
+
+    def test_attaches_auto_fix_for_stale_worktree(
+        self, workspace: MagicMock, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        wt_dir = tmp_path / "gone"
+        mocker.patch(
+            "git_workspace.doctor.git.list_worktrees",
+            return_value=[{"directory": str(wt_dir), "branch": "feature/gone", "head": "abc123"}],
+        )
+        prune_mock = mocker.patch("git_workspace.doctor.git.prune_worktrees")
+
+        findings = []
+        _check_stale_worktrees(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "auto"
+
+        findings[0].fix.apply()
+        prune_mock.assert_called_once()
 
 
 class TestCheckCopyPlaceholders:
@@ -788,6 +1028,37 @@ class TestCheckFingerprintFiles:
 
         assert any(f.level == "error" for f in findings)
 
+    def test_attaches_auto_fix_that_deduplicates_fingerprint_files(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        manifest = tmp_path / "manifest.toml"
+        manifest.write_text(
+            textwrap.dedent("""
+                version = 1
+                base_branch = "main"
+
+                [[fingerprint]]
+                name = "deps"
+                files = ["package.json", "package.json", "uv.lock"]
+            """).strip()
+        )
+        workspace.paths.manifest = manifest
+        workspace.manifest.fingerprints = [
+            Fingerprint(name="deps", files=["package.json", "package.json", "uv.lock"])
+        ]
+
+        findings = []
+        _check_fingerprint_files(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "auto"
+
+        findings[0].fix.apply()
+
+        updated = tomllib.loads(manifest.read_text())
+        assert updated["fingerprint"][0]["files"] == ["package.json", "uv.lock"]
+
 
 class TestCheckFingerprintAlgorithm:
     def test_returns_no_findings_for_sha256(self, workspace: MagicMock) -> None:
@@ -958,3 +1229,37 @@ class TestCheckHookEmptyGroups:
         _check_hook_empty_groups(workspace, findings)
 
         assert len(findings) == 2
+
+    def test_attaches_auto_fix_that_removes_empty_groups(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        manifest = tmp_path / "manifest.toml"
+        manifest.write_text(
+            textwrap.dedent("""
+                version = 1
+                base_branch = "main"
+
+                [[hooks.on_setup]]
+                commands = ["real_cmd"]
+
+                [[hooks.on_setup]]
+                commands = []
+            """).strip()
+        )
+        workspace.paths.manifest = manifest
+        workspace.manifest.hooks = Hooks(
+            on_setup=[HookGroup(commands=["real_cmd"]), HookGroup(commands=[])]
+        )
+
+        findings = []
+        _check_hook_empty_groups(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "auto"
+
+        findings[0].fix.apply()
+
+        updated = tomllib.loads(manifest.read_text())
+        assert len(updated["hooks"]["on_setup"]) == 1
+        assert updated["hooks"]["on_setup"][0]["commands"] == ["real_cmd"]
