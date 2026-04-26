@@ -91,6 +91,8 @@ def doctor(
     if parts:
         console.print("  " + ", ".join(parts))
 
+    # Manifest fixes write to disk but don't update the in-memory workspace object,
+    # so a fresh instance is needed to pick up the on-disk changes.
     remaining = run_checks(Workspace(workspace.dir))
     if not remaining:
         console.success("Workspace is healthy.")

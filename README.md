@@ -518,39 +518,33 @@ git workspace doctor --fix --yes
 <summary><i>Checks</i></summary>
 <br/>
 
-**Errors:**
-
-| Check | Description |
-|---|---|
-| Manifest not readable / invalid TOML | The manifest file cannot be opened or parsed |
-| Unsupported manifest version | `version` is higher than this tool supports |
-| Missing asset source | A `[[link]]` or `[[copy]]` source file does not exist in `assets/` |
-| Clashing asset targets | Two entries share the same `target` path |
-| Escaping asset target | A `target` path traverses outside the worktree root (e.g. `../../`) |
-| Variable name collision | Two `[vars]` keys normalize to the same `GIT_WORKSPACE_VAR_*` name |
-| Fingerprint name collision | Two `[[fingerprint]]` names normalize to the same `GIT_WORKSPACE_FINGERPRINT_*` name |
-| Empty fingerprint name | A `[[fingerprint]]` has an empty or whitespace-only `name` |
-| Escaping fingerprint file | A `files` entry traverses outside the worktree root (e.g. `../../`) |
-| Unsupported fingerprint algorithm | `algorithm` is not `sha256` or `md5` |
-| Invalid fingerprint length | `length` is zero or negative |
-
-**Warnings:**
-
-| Check | Description | `--fix` |
-|---|---|---|
-| Missing bin script | A whitespace-free hook entry has no matching file in `bin/` | — |
-| Non-executable bin script | A matching `bin/` file exists but is not executable | auto |
-| Empty hook entry | A hook list contains an empty or whitespace-only string | — |
-| Duplicate hook entry | The same entry appears more than once in the same hook event | — |
-| Orphaned bin script | A file in `bin/` is not referenced by any hook | prompt |
-| Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` | prompt |
-| Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable, manifest var, or fingerprint | — |
-| Unknown base branch | `base_branch` does not resolve to any local or remote ref | — |
-| Stale worktree | A git-registered worktree's directory no longer exists on disk | auto |
-| Fingerprint/var name overlap | A `[[fingerprint]]` name and a `[vars]` key normalize the same (they use different env prefixes, but may be confusing in templates) | — |
-| Empty fingerprint files list | A `[[fingerprint]]` has no entries in `files` | — |
-| Duplicate fingerprint file | The same file path appears more than once within one `[[fingerprint]]` | — |
-| Fingerprint length exceeds digest | `length` is larger than the algorithm's full digest size; the full digest is used | — |
+| Level | Check | Description | `--fix` |
+|---|---|---|---|
+| error | Manifest not readable / invalid TOML | The manifest file cannot be opened or parsed | — |
+| error | Unsupported manifest version | `version` is higher than this tool supports | — |
+| error | Missing asset source | A `[[link]]` or `[[copy]]` source file does not exist in `assets/` | prompt |
+| error | Clashing asset targets | Two entries share the same `target` path | — |
+| error | Escaping asset target | A `target` path traverses outside the worktree root (e.g. `../../`) | — |
+| error | Variable name collision | Two `[vars]` keys normalize to the same `GIT_WORKSPACE_VAR_*` name | — |
+| error | Fingerprint name collision | Two `[[fingerprint]]` names normalize to the same `GIT_WORKSPACE_FINGERPRINT_*` name | — |
+| error | Empty fingerprint name | A `[[fingerprint]]` has an empty or whitespace-only `name` | — |
+| error | Escaping fingerprint file | A `files` entry traverses outside the worktree root (e.g. `../../`) | — |
+| error | Unsupported fingerprint algorithm | `algorithm` is not `sha256` or `md5` | — |
+| error | Invalid fingerprint length | `length` is zero or negative | — |
+| warning | Missing bin script | A whitespace-free hook entry has no matching file in `bin/` | prompt |
+| warning | Non-executable bin script | A matching `bin/` file exists but is not executable | auto |
+| warning | Empty hook entry | A hook list contains an empty or whitespace-only string | auto |
+| warning | Duplicate hook entry | The same entry appears more than once in the same hook event | auto |
+| warning | Empty hook group | A `[[hooks.X]]` block has no commands | auto |
+| warning | Orphaned bin script | A file in `bin/` is not referenced by any hook | prompt |
+| warning | Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` | prompt |
+| warning | Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable, manifest var, or fingerprint | — |
+| warning | Unknown base branch | `base_branch` does not resolve to any local or remote ref | — |
+| warning | Stale worktree | A git-registered worktree's directory no longer exists on disk | auto |
+| warning | Fingerprint/var name overlap | A `[[fingerprint]]` name and a `[vars]` key normalize the same (different env prefixes, but may be confusing in templates) | — |
+| warning | Empty fingerprint files list | A `[[fingerprint]]` has no entries in `files` | — |
+| warning | Duplicate fingerprint file | The same file path appears more than once within one `[[fingerprint]]` | auto |
+| warning | Fingerprint length exceeds digest | `length` is larger than the algorithm's full digest size; the full digest is used | — |
 
 `auto` = applied silently; `prompt` = asks for confirmation (`--yes` skips the prompt); `—` = no automatic fix available.
 
