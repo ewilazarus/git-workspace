@@ -35,6 +35,7 @@ def activate_worktree(
     env: dict[str, str],
     *,
     detached: bool,
+    effective_branch: str | None = None,
 ) -> None:
     """
     Apply assets and run setup/attach hooks when entering a worktree.
@@ -45,6 +46,8 @@ def activate_worktree(
     :param worktree: The worktree being activated.
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param detached: If ``True``, ``on_attach`` hooks are skipped.
+    :param effective_branch: Branch name used to evaluate hook conditions. Defaults
+        to the worktree's real branch when not provided.
     """
     logger.debug(
         "activating worktree %r (is_new=%s, detached=%s)",
@@ -56,7 +59,8 @@ def activate_worktree(
     if worktree.is_new:
         _apply_assets(worktree, env)
 
-    with HookRunner(worktree, env=env) as hook_runner:
+    effective = effective_branch or worktree.branch
+    with HookRunner(worktree, env=env, effective_branch=effective) as hook_runner:
         if worktree.is_new:
             hook_runner.run_on_setup_hooks()
 
@@ -69,17 +73,22 @@ def reset_worktree(
     worktree: Worktree,
     runtime_vars: dict[str, str],
     env: dict[str, str],
+    *,
+    effective_branch: str | None = None,
 ) -> None:
     """
     Re-apply assets and re-run ``on_setup`` hooks for an existing worktree.
 
     :param worktree: The worktree being reset.
     :param runtime_vars: Extra variables to inject into the hook environment.
+    :param effective_branch: Branch name used to evaluate hook conditions. Defaults
+        to the worktree's real branch when not provided.
     """
     logger.debug("resetting worktree %r", worktree.branch)
     _apply_assets(worktree, env)
 
-    with HookRunner(worktree, env=env) as hook_runner:
+    effective = effective_branch or worktree.branch
+    with HookRunner(worktree, env=env, effective_branch=effective) as hook_runner:
         hook_runner.run_on_setup_hooks()
 
 
@@ -88,15 +97,20 @@ def deactivate_worktree(
     worktree: Worktree,
     runtime_vars: dict[str, str],
     env: dict[str, str],
+    *,
+    effective_branch: str | None = None,
 ) -> None:
     """
     Run ``on_detach`` hooks when leaving a worktree without removing it.
 
     :param worktree: The worktree being deactivated.
     :param runtime_vars: Extra variables to inject into the hook environment.
+    :param effective_branch: Branch name used to evaluate hook conditions. Defaults
+        to the worktree's real branch when not provided.
     """
     logger.debug("deactivating worktree %r", worktree.branch)
-    with HookRunner(worktree, env=env) as hook_runner:
+    effective = effective_branch or worktree.branch
+    with HookRunner(worktree, env=env, effective_branch=effective) as hook_runner:
         hook_runner.run_on_detach_hooks()
 
 
@@ -107,6 +121,7 @@ def remove_worktree(
     env: dict[str, str],
     *,
     force: bool,
+    effective_branch: str | None = None,
 ) -> None:
     """
     Run detach and teardown hooks, then delete the worktree.
@@ -117,9 +132,12 @@ def remove_worktree(
     :param worktree: The worktree to remove.
     :param runtime_vars: Extra variables to inject into the hook environment.
     :param force: If ``True``, passes ``--force`` to the underlying ``git worktree remove`` call.
+    :param effective_branch: Branch name used to evaluate hook conditions. Defaults
+        to the worktree's real branch when not provided.
     """
     logger.debug("removing worktree %r (force=%s)", worktree.branch, force)
-    with HookRunner(worktree, env=env) as hook_runner:
+    effective = effective_branch or worktree.branch
+    with HookRunner(worktree, env=env, effective_branch=effective) as hook_runner:
         hook_runner.run_on_detach_hooks()
         hook_runner.run_on_teardown_hooks()
 

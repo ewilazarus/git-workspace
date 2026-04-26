@@ -1,0 +1,26 @@
+version = 1
+
+base_branch = "main"
+
+# Group 1: unconditional — always runs
+[[hooks.on_setup]]
+commands = ["on_setup_unconditional"]
+
+# Group 2: only when branch matches "gabriel/*"
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "gabriel/*" }
+commands = ["on_setup_gabriel"]
+
+# Group 3: only when branch does NOT match "gabriel/*"
+[[hooks.on_setup]]
+conditions = { if_branch_not_matches = "gabriel/*" }
+commands = ["on_setup_not_gabriel"]
+
+# Group 4: both conditions (AND) — matches gabriel/* but not gabriel/wip-*
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "gabriel/*", if_branch_not_matches = "gabriel/wip-*" }
+commands = ["on_setup_gabriel_not_wip"]
+
+# Hook that writes actual GIT_WORKSPACE_BRANCH to a file (for verifying --as doesn't bleed)
+[[hooks.on_attach]]
+commands = ["on_attach_record_branch"]

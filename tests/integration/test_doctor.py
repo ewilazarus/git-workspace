@@ -221,8 +221,8 @@ class TestDoctorHookEmptyEntries:
 version = 1
 base_branch = "main"
 
-[hooks]
-on_setup = [""]
+[[hooks.on_setup]]
+commands = [""]
 """)
 
         mock_warning = _warnings(mocker)
@@ -240,8 +240,8 @@ class TestDoctorHookDuplicates:
 version = 1
 base_branch = "main"
 
-[hooks]
-on_setup = ["echo hello", "echo hello"]
+[[hooks.on_setup]]
+commands = ["echo hello", "echo hello"]
 """)
 
         mock_warning = _warnings(mocker)

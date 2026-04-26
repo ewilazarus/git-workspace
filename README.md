@@ -47,10 +47,10 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - 🌳 **Worktree-per-branch** — every branch gets its own directory; no more dirty working trees
 - ⚡ **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
 - 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree
-- 📋 **File copying** — copy mutable config files that each worktree can edit independently, with placeholder substitution
+- 📋 **File copying** — copy mutable config files that each worktree can edit independently
 - 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
 - 📦 **Variables** — pass manifest-level and runtime variables into hooks as environment variables
-- 🔏 **Fingerprints** — hash worktree files and expose the digest as an env var so hooks can skip work when inputs haven't changed
+- 🔏 **Fingerprints** — hash worktree files and expose the digest for further processing
 - 🧭 **CWD-aware** — detects when you're already inside a workspace or worktree
 - 🏗️ **Detached mode** — skip interactive hooks for headless, CI, or agent workflows
 - 🧹 **Stale worktree pruning** — clean up old worktrees by age with dry-run preview
@@ -184,11 +184,17 @@ node-version = "22"
 registry     = "https://registry.npmjs.org"
 
 # Lifecycle hooks (.workspace/bin/ scripts and inline commands)
-[hooks]
-on_setup    = ["install_deps", "docker build . -t myproj:latest"]
-on_attach   = ["open_editor"]
-on_detach   = ["save_state"]
-on_teardown = ["clean_cache"]
+[[hooks.on_setup]]
+commands = ["install_deps", "docker build . -t myproj:latest"]
+
+[[hooks.on_attach]]
+commands = ["open_editor"]
+
+[[hooks.on_detach]]
+commands = ["save_state"]
+
+[[hooks.on_teardown]]
+commands = ["clean_cache"]
 
 # Symlinks applied to every worktree
 [[link]]
@@ -225,7 +231,7 @@ Each hook entry can be a script in `.workspace/bin/` or an inline shell command.
 | `GIT_WORKSPACE_BRANCH` | Current branch name |
 | `GIT_WORKSPACE_EVENT` | The lifecycle event that triggered the hook |
 | `GIT_WORKSPACE_VAR_*` | All manifest and runtime variables |
-| `GIT_WORKSPACE_FINGERPRINT_*` | Fingerprints declared in `[[fingerprint]]` blocks |
+| `GIT_WORKSPACE_FINGERPRINT_*` | Content hashes computed from `[[fingerprint]]` file sets |
 
 ### Hook execution order
 
@@ -254,11 +260,17 @@ npm install
 **Mix bin scripts and inline commands** in the same hook list:
 
 ```toml
-[hooks]
-on_setup    = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
-on_attach   = ["open_editor"]
-on_detach   = ["save_session"]
-on_teardown = ["clean_cache"]
+[[hooks.on_setup]]
+commands = ["install_deps", "docker build . -t myproj:latest", "echo ready"]
+
+[[hooks.on_attach]]
+commands = ["open_editor"]
+
+[[hooks.on_detach]]
+commands = ["save_session"]
+
+[[hooks.on_teardown]]
+commands = ["clean_cache"]
 ```
 
 Here `install_deps` runs `.workspace/bin/install_deps`, while `docker build . -t myproj:latest` and `echo ready` run as shell commands.
@@ -268,6 +280,55 @@ Here `install_deps` runs `.workspace/bin/install_deps`, while `docker build . -t
 ```bash
 git workspace up feature/my-feature -v env=staging -v debug=true
 ```
+
+---
+
+## Adaptive hooks
+
+Each hook event can have multiple `[[hooks.<event>]]` groups. A group only runs when its `conditions` block matches the effective branch. Groups with no `conditions` always run. Groups are evaluated top-to-bottom in manifest order.
+
+### Supported conditions
+
+| Key | Behaviour |
+|---|---|
+| `if_branch_matches` | Run only when the branch matches the glob pattern |
+| `if_branch_not_matches` | Run only when the branch does **not** match the glob pattern |
+
+Both conditions use POSIX glob syntax (`*`, `?`, `[...]`). When both keys are present they are AND-ed: the group runs only when both hold.
+
+**Example:**
+
+```toml
+# Always runs — no conditions
+[[hooks.on_setup]]
+commands = ["npm install"]
+
+# Only on your own branches
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "gabriel/*" }
+commands = ["tmux attach -t MYSESSION"]
+
+# Only on other branches
+[[hooks.on_setup]]
+conditions = { if_branch_not_matches = "gabriel/*" }
+commands = ["echo not my branch"]
+
+# Only on gabriel/* but not wip branches (AND)
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "gabriel/*", if_branch_not_matches = "gabriel/wip-*" }
+commands = ["start_long_running_task"]
+```
+
+### Impersonating a branch with `--as`
+
+All hook-running commands (`up`, `down`, `reset`, `rm`) accept `-a`/`--as <branch>` to override which branch is used when evaluating hook conditions. The real `GIT_WORKSPACE_BRANCH` environment variable and git state are **not** affected.
+
+```bash
+# Run hooks as if this were a gabriel/* branch, even though the real branch is feat/my-feature
+git workspace up feat/my-feature --as gabriel/my-feature
+```
+
+This is useful when a shared feature branch should trigger the same hooks as a personal branch, or when scripting against a branch that doesn't exist yet.
 
 ---
 

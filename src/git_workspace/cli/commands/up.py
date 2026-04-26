@@ -54,6 +54,14 @@ def up(
             is_flag=True,
         ),
     ] = False,
+    effective_branch: Annotated[
+        str | None,
+        typer.Option(
+            "-a",
+            "--as",
+            help="Treat the worktree as if it were on this branch when evaluating hook conditions. Does not change the actual branch or GIT_WORKSPACE_BRANCH.",
+        ),
+    ] = None,
     output: Annotated[
         bool,
         typer.Option(
@@ -80,6 +88,7 @@ def up(
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         detached=detached,
+        effective_branch=effective_branch,
     )
 
     console.success(f"Worktree ready at {styled_path(worktree.dir)}")

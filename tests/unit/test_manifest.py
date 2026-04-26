@@ -4,7 +4,14 @@ import pytest
 from pytest_mock import MockerFixture
 
 from git_workspace.fingerprint import DEFAULT_ALGORITHM, DEFAULT_LENGTH
-from git_workspace.manifest import Fingerprint, Hooks, Link, Manifest, Prune
+from git_workspace.manifest import (
+    Fingerprint,
+    HookGroup,
+    Hooks,
+    Link,
+    Manifest,
+    Prune,
+)
 
 
 @pytest.fixture
@@ -118,20 +125,26 @@ DEBUG = true
 
     def test_parses_hooks_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = """
-[hooks]
-on_setup = ["setup.sh"]
-on_attach = ["attach.sh"]
-on_detach = ["detach.sh"]
-on_teardown = ["teardown.sh"]
+[[hooks.on_setup]]
+commands = ["setup.sh"]
+
+[[hooks.on_attach]]
+commands = ["attach.sh"]
+
+[[hooks.on_detach]]
+commands = ["detach.sh"]
+
+[[hooks.on_teardown]]
+commands = ["teardown.sh"]
 """
 
         result = Manifest.load(workspace)
 
         assert result.hooks == Hooks(
-            on_setup=["setup.sh"],
-            on_attach=["attach.sh"],
-            on_detach=["detach.sh"],
-            on_teardown=["teardown.sh"],
+            on_setup=[HookGroup(commands=["setup.sh"])],
+            on_attach=[HookGroup(commands=["attach.sh"])],
+            on_detach=[HookGroup(commands=["detach.sh"])],
+            on_teardown=[HookGroup(commands=["teardown.sh"])],
         )
 
     def test_returns_default_hooks_when_absent_from_toml(self, workspace: MagicMock) -> None:
@@ -140,6 +153,106 @@ on_teardown = ["teardown.sh"]
         result = Manifest.load(workspace)
 
         assert result.hooks == Hooks()
+
+
+class TestParseHooks:
+    @pytest.fixture
+    def workspace(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.MagicMock()
+
+    def test_missing_commands_defaults_to_empty(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[hooks.on_setup]]
+"""
+
+        result = Manifest.load(workspace)
+
+        assert result.hooks.on_setup == [HookGroup(commands=[])]
+
+    def test_missing_conditions_is_none(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[hooks.on_setup]]
+commands = ["setup.sh"]
+"""
+
+        result = Manifest.load(workspace)
+
+        assert result.hooks.on_setup[0].conditions is None
+
+    def test_if_branch_matches_condition(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "gabriel/*" }
+commands = ["setup.sh"]
+"""
+
+        result = Manifest.load(workspace)
+
+        cond = result.hooks.on_setup[0].conditions
+        assert cond is not None
+        assert cond.if_branch_matches == "gabriel/*"
+        assert cond.if_branch_not_matches is None
+
+    def test_if_branch_not_matches_condition(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[hooks.on_setup]]
+conditions = { if_branch_not_matches = "feat/wip-*" }
+commands = ["setup.sh"]
+"""
+
+        result = Manifest.load(workspace)
+
+        cond = result.hooks.on_setup[0].conditions
+        assert cond is not None
+        assert cond.if_branch_not_matches == "feat/wip-*"
+        assert cond.if_branch_matches is None
+
+    def test_both_condition_keys_present(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "gabriel/*", if_branch_not_matches = "gabriel/wip-*" }
+commands = ["setup.sh"]
+"""
+
+        result = Manifest.load(workspace)
+
+        cond = result.hooks.on_setup[0].conditions
+        assert cond is not None
+        assert cond.if_branch_matches == "gabriel/*"
+        assert cond.if_branch_not_matches == "gabriel/wip-*"
+
+    def test_unknown_condition_keys_captured(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[hooks.on_setup]]
+conditions = { if_branch_match = "typo/*" }
+commands = ["setup.sh"]
+"""
+
+        result = Manifest.load(workspace)
+
+        cond = result.hooks.on_setup[0].conditions
+        assert cond is not None
+        assert "if_branch_match" in cond.unknown_keys
+
+    def test_multiple_groups_preserve_order(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[[hooks.on_setup]]
+commands = ["first.sh"]
+
+[[hooks.on_setup]]
+conditions = { if_branch_matches = "feat/*" }
+commands = ["second.sh"]
+
+[[hooks.on_setup]]
+commands = ["third.sh"]
+"""
+
+        result = Manifest.load(workspace)
+
+        assert len(result.hooks.on_setup) == 3
+        assert result.hooks.on_setup[0].commands == ["first.sh"]
+        assert result.hooks.on_setup[1].commands == ["second.sh"]
+        assert result.hooks.on_setup[2].commands == ["third.sh"]
 
     def test_parses_prune_from_toml(self, workspace: MagicMock) -> None:
         workspace.paths.manifest.read_text.return_value = """

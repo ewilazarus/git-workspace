@@ -38,7 +38,9 @@ class TestDown:
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
         mock_deactivate_worktree.assert_called_once_with(
-            worktree, runtime_vars={"MY_VAR": "my_value"}
+            worktree,
+            runtime_vars={"MY_VAR": "my_value"},
+            effective_branch=None,
         )
 
     def test_deactivates_worktree_with_empty_runtime_vars_when_none(
@@ -49,4 +51,22 @@ class TestDown:
         down()
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
-        mock_deactivate_worktree.assert_called_once_with(worktree, runtime_vars={})
+        mock_deactivate_worktree.assert_called_once_with(
+            worktree,
+            runtime_vars={},
+            effective_branch=None,
+        )
+
+    def test_passes_effective_branch_to_deactivate(
+        self,
+        mock_workspace_resolve: MagicMock,
+        mock_deactivate_worktree: MagicMock,
+    ) -> None:
+        down(effective_branch="gabriel/impersonated")
+        workspace = mock_workspace_resolve.return_value
+        worktree = workspace.resolve_worktree.return_value
+        mock_deactivate_worktree.assert_called_once_with(
+            worktree,
+            runtime_vars={},
+            effective_branch="gabriel/impersonated",
+        )

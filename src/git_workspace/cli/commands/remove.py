@@ -43,6 +43,14 @@ def remove(
             callback=parse_vars,
         ),
     ] = None,
+    effective_branch: Annotated[
+        str | None,
+        typer.Option(
+            "-a",
+            "--as",
+            help="Treat the worktree as if it were on this branch when evaluating hook conditions. Does not change the actual branch or GIT_WORKSPACE_BRANCH.",
+        ),
+    ] = None,
 ) -> None:
     """
     Remove a workspace worktree.
@@ -62,6 +70,7 @@ def remove(
         worktree,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         force=force,
+        effective_branch=effective_branch,
     )
 
     console.success("Done")
