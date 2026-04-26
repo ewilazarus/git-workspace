@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from rich.console import Console, Group
 from rich.live import Live
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn
+from rich.prompt import Confirm
 from rich.spinner import Spinner
 from rich.text import Text
 from rich.theme import Theme
@@ -381,6 +382,21 @@ class _UIProxy:
 
 
 console = _UIProxy()
+
+
+def confirm(question: str, default: bool = False) -> bool:
+    """
+    Prompt the user for a yes/no answer.
+
+    Returns ``default`` immediately if stdin is not a TTY (non-interactive context).
+
+    :param question: The question to display.
+    :param default: The value to return when no TTY is available.
+    :returns: True if the user confirmed, False otherwise.
+    """
+    if not sys.stdin.isatty():
+        return default
+    return Confirm.ask(question, console=_console, default=default)
 
 
 def _substitution_suffix(count: int) -> str:

@@ -155,7 +155,7 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 | `git workspace rm` | Remove a worktree (branch is preserved) |
 | `git workspace ls` | List all active worktrees with branch, path, and age |
 | `git workspace prune` | Remove stale worktrees by age (dry-run by default) |
-| `git workspace doctor` | Inspect the workspace for inconsistencies |
+| `git workspace doctor` | Inspect the workspace for inconsistencies; `--fix` applies safe remediations |
 | `git workspace edit` | Open the workspace config in your editor |
 
 `[branch]` and `--root` let you operate on a workspace from anywhere in the file system, without needing to be inside it.
@@ -482,6 +482,41 @@ Otherwise it lists findings by severity:
 The command exits 1 if any errors are found, 0 if the workspace is clean or has warnings only.
 
 <details>
+<summary><i>Automatic fixes</i></summary>
+<br/>
+
+Pass `--fix` to apply remediations alongside the findings:
+
+```bash
+git workspace doctor --fix
+```
+
+Safe fixes are applied silently. Destructive fixes (deleting files) prompt for confirmation first:
+
+```
+⚠  Hook script 'bin/on_setup' exists but is not executable
+   → Fixed: Make bin/on_setup executable
+⚠  Asset 'old_config.json' is not referenced by any link or copy
+   → Delete unreferenced asset old_config.json? [y/N] y
+   → Fixed: Delete unreferenced asset old_config.json
+⚠  base_branch 'develop' does not resolve to any local or remote ref
+✓  1 fixed, 0 skipped → 1 remaining
+```
+
+Pass `--yes` (or `-y`) to skip all prompts — useful in CI:
+
+```bash
+git workspace doctor --fix --yes
+```
+
+<br/>
+
+> [!NOTE]
+> Not all problems can be fixed automatically. Issues requiring manual judgment (e.g. clashing asset targets, unsupported manifest version, missing asset sources) are reported but left untouched.
+
+</details>
+
+<details>
 <summary><i>Checks</i></summary>
 <br/>
 
@@ -503,21 +538,23 @@ The command exits 1 if any errors are found, 0 if the workspace is clean or has 
 
 **Warnings:**
 
-| Check | Description |
-|---|---|
-| Missing bin script | A whitespace-free hook entry has no matching file in `bin/` |
-| Non-executable bin script | A matching `bin/` file exists but is not executable |
-| Empty hook entry | A hook list contains an empty or whitespace-only string |
-| Duplicate hook entry | The same entry appears more than once in the same hook event |
-| Orphaned bin script | A file in `bin/` is not referenced by any hook |
-| Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` |
-| Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable, manifest var, or fingerprint |
-| Unknown base branch | `base_branch` does not resolve to any local or remote ref |
-| Stale worktree | A git-registered worktree's directory no longer exists on disk |
-| Fingerprint/var name overlap | A `[[fingerprint]]` name and a `[vars]` key normalize the same (they use different env prefixes, but may be confusing in templates) |
-| Empty fingerprint files list | A `[[fingerprint]]` has no entries in `files` |
-| Duplicate fingerprint file | The same file path appears more than once within one `[[fingerprint]]` |
-| Fingerprint length exceeds digest | `length` is larger than the algorithm's full digest size; the full digest is used |
+| Check | Description | `--fix` |
+|---|---|---|
+| Missing bin script | A whitespace-free hook entry has no matching file in `bin/` | — |
+| Non-executable bin script | A matching `bin/` file exists but is not executable | auto |
+| Empty hook entry | A hook list contains an empty or whitespace-only string | — |
+| Duplicate hook entry | The same entry appears more than once in the same hook event | — |
+| Orphaned bin script | A file in `bin/` is not referenced by any hook | prompt |
+| Orphaned asset | A file in `assets/` is not referenced by any `[[link]]` or `[[copy]]` | prompt |
+| Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable, manifest var, or fingerprint | — |
+| Unknown base branch | `base_branch` does not resolve to any local or remote ref | — |
+| Stale worktree | A git-registered worktree's directory no longer exists on disk | auto |
+| Fingerprint/var name overlap | A `[[fingerprint]]` name and a `[vars]` key normalize the same (they use different env prefixes, but may be confusing in templates) | — |
+| Empty fingerprint files list | A `[[fingerprint]]` has no entries in `files` | — |
+| Duplicate fingerprint file | The same file path appears more than once within one `[[fingerprint]]` | — |
+| Fingerprint length exceeds digest | `length` is larger than the algorithm's full digest size; the full digest is used | — |
+
+`auto` = applied silently; `prompt` = asks for confirmation (`--yes` skips the prompt); `—` = no automatic fix available.
 
 </details>
 

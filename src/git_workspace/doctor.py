@@ -2,8 +2,8 @@ import fnmatch
 import os
 import posixpath
 import tomllib
-from collections.abc import Iterator
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -20,16 +20,34 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class Fix:
+    """
+    A remediation attached to a diagnostic finding.
+
+    :param label: One-line description of what the fix does.
+    :param kind: ``"auto"`` fixes are applied without prompting; ``"interactive"``
+        fixes require user confirmation.
+    :param apply: Callable that performs the fix when invoked.
+    """
+
+    label: str
+    kind: Literal["auto", "interactive"]
+    apply: Callable[[], None]
+
+
+@dataclass
 class Finding:
     """
     A diagnostic finding produced by a workspace health check.
 
     :param level: Severity of the finding; either ``"error"`` or ``"warning"``.
     :param message: Human-readable description of the issue.
+    :param fix: Optional remediation; ``None`` if the issue cannot be fixed automatically.
     """
 
     level: Literal["error", "warning"]
     message: str
+    fix: Fix | None = field(default=None, compare=False)
 
 
 def _iter_hooks(workspace: Workspace) -> Iterator[tuple[str, list[HookGroup]]]:
@@ -254,7 +272,15 @@ def _check_hook_bin_references(workspace: Workspace, findings: list[Finding]) ->
             )
         elif not os.access(bin_path, os.X_OK):
             findings.append(
-                Finding("warning", f"Hook script 'bin/{entry}' exists but is not executable")
+                Finding(
+                    "warning",
+                    f"Hook script 'bin/{entry}' exists but is not executable",
+                    fix=Fix(
+                        label=f"Make bin/{entry} executable",
+                        kind="auto",
+                        apply=lambda p=bin_path: p.chmod(p.stat().st_mode | 0o111),
+                    ),
+                )
             )
 
 
@@ -285,7 +311,15 @@ def _check_orphaned_bin_scripts(workspace: Workspace, findings: list[Finding]) -
     for script in sorted(bin_dir.iterdir()):
         if script.is_file() and script.name not in referenced:
             findings.append(
-                Finding("warning", f"Script 'bin/{script.name}' is not referenced by any hook")
+                Finding(
+                    "warning",
+                    f"Script 'bin/{script.name}' is not referenced by any hook",
+                    fix=Fix(
+                        label=f"Delete unreferenced script bin/{script.name}",
+                        kind="interactive",
+                        apply=lambda p=script: p.unlink(),
+                    ),
+                )
             )
 
 
@@ -298,7 +332,15 @@ def _check_orphaned_assets(workspace: Workspace, findings: list[Finding]) -> Non
     for asset in sorted(assets_dir.iterdir()):
         if asset.is_file() and asset.name not in referenced:
             findings.append(
-                Finding("warning", f"Asset '{asset.name}' is not referenced by any link or copy")
+                Finding(
+                    "warning",
+                    f"Asset '{asset.name}' is not referenced by any link or copy",
+                    fix=Fix(
+                        label=f"Delete unreferenced asset {asset.name}",
+                        kind="interactive",
+                        apply=lambda p=asset: p.unlink(),
+                    ),
+                )
             )
 
 
@@ -373,6 +415,11 @@ def _check_stale_worktrees(workspace: Workspace, findings: list[Finding]) -> Non
                     "warning",
                     f"Worktree for branch '{wt['branch']}' is registered"
                     f" but its directory '{wt_dir}' no longer exists",
+                    fix=Fix(
+                        label=f"Prune stale worktree registration for '{wt['branch']}'",
+                        kind="auto",
+                        apply=lambda: git.prune_worktrees(workspace.dir),
+                    ),
                 )
             )
 

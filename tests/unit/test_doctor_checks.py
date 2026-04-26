@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -304,6 +305,39 @@ class TestCheckHookBinReferences:
         _check_hook_bin_references(workspace, findings)
         assert findings == []
 
+    def test_no_fix_for_missing_bin_script(self, workspace: MagicMock, tmp_path: Path) -> None:
+        workspace.paths.bin = tmp_path / "bin"
+        workspace.paths.bin.mkdir()
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["missing_script"])])
+
+        findings = []
+        _check_hook_bin_references(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is None
+
+    def test_attaches_auto_fix_for_non_executable_bin_script(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        script = bin_dir / "setup.sh"
+        script.write_text("#!/bin/sh\necho hello")
+        script.chmod(0o644)
+
+        workspace.paths.bin = bin_dir
+        workspace.manifest.hooks = Hooks(on_setup=[HookGroup(commands=["setup.sh"])])
+
+        findings = []
+        _check_hook_bin_references(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "auto"
+
+        findings[0].fix.apply()
+        assert os.access(script, os.X_OK)
+
 
 class TestCheckHookEmptyEntries:
     def test_returns_no_findings_for_non_empty_hooks(self, workspace: MagicMock) -> None:
@@ -403,6 +437,26 @@ class TestCheckOrphanedBinScripts:
         assert findings[0].level == "warning"
         assert "unused.sh" in findings[0].message
 
+    def test_attaches_interactive_fix_for_unreferenced_script(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        script = bin_dir / "unused.sh"
+        script.write_text("#!/bin/sh")
+        workspace.paths.bin = bin_dir
+        workspace.manifest.hooks = Hooks()
+
+        findings = []
+        _check_orphaned_bin_scripts(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "interactive"
+
+        findings[0].fix.apply()
+        assert not script.exists()
+
 
 class TestCheckOrphanedAssets:
     def test_returns_no_findings_when_assets_dir_absent(
@@ -444,6 +498,27 @@ class TestCheckOrphanedAssets:
         assert len(findings) == 1
         assert findings[0].level == "warning"
         assert "orphan.txt" in findings[0].message
+
+    def test_attaches_interactive_fix_for_unreferenced_asset(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets_dir = tmp_path / "assets"
+        assets_dir.mkdir()
+        asset = assets_dir / "orphan.txt"
+        asset.write_text("content")
+        workspace.paths.assets = assets_dir
+        workspace.manifest.links = []
+        workspace.manifest.copies = []
+
+        findings = []
+        _check_orphaned_assets(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "interactive"
+
+        findings[0].fix.apply()
+        assert not asset.exists()
 
 
 class TestCheckBaseBranch:
@@ -528,6 +603,26 @@ class TestCheckStaleWorktrees:
         findings = []
         _check_stale_worktrees(workspace, findings)
         assert findings == []
+
+    def test_attaches_auto_fix_for_stale_worktree(
+        self, workspace: MagicMock, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        wt_dir = tmp_path / "gone"
+        mocker.patch(
+            "git_workspace.doctor.git.list_worktrees",
+            return_value=[{"directory": str(wt_dir), "branch": "feature/gone", "head": "abc123"}],
+        )
+        prune_mock = mocker.patch("git_workspace.doctor.git.prune_worktrees")
+
+        findings = []
+        _check_stale_worktrees(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        assert findings[0].fix.kind == "auto"
+
+        findings[0].fix.apply()
+        prune_mock.assert_called_once()
 
 
 class TestCheckCopyPlaceholders:
