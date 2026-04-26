@@ -7,6 +7,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-26
+
 ### Added
 - Reproducible VHS demo — `.github/demo/` contains a `demo.tape` script and a `setup.sh` that builds a throwaway workspace from scratch; re-render the gif at any time by running `vhs demo.tape` from that directory
 - `git workspace doctor --fix` — automatically applies safe fixes (making non-executable hook scripts executable, pruning stale worktree registrations) and interactively prompts before destructive ones (deleting unreferenced assets and bin scripts); `--yes` / `-y` skips all prompts for CI use

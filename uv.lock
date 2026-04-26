@@ -61,7 +61,7 @@ wheels = [
 
 [[package]]
 name = "git-workspace-cli"
-version = "0.6.0b3"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "tomlkit" },
