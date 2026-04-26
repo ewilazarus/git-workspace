@@ -16,11 +16,14 @@ logger = logging.getLogger(__name__)
 def _matches(group: HookGroup, effective_branch: str) -> bool:
     if group.conditions is None:
         return True
+
     c = group.conditions
     if c.if_branch_matches and not fnmatch.fnmatchcase(effective_branch, c.if_branch_matches):
         return False
+
     if c.if_branch_not_matches and fnmatch.fnmatchcase(effective_branch, c.if_branch_not_matches):
         return False
+
     return True
 
 
@@ -81,6 +84,15 @@ class HookRunner:
             return str(bin_path)
         logger.debug("no bin script for %r, running as inline shell command", hook_name)
         return hook_name
+
+    def _resolve_hook_names(self, groups: list[HookGroup]) -> list[str]:
+        return [
+            cmd
+            for g in groups
+            if _matches(g, self._effective_branch)
+            for cmd in g.commands
+            if cmd.strip()
+        ]
 
     def _run_hooks(self, event: str, groups: list[HookGroup]) -> None:
         hook_names = [
