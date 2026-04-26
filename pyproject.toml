@@ -1,6 +1,6 @@
 [project]
 name = "git-workspace-cli"
-version = "0.6.0b2"
+version = "0.6.0b3"
 description = "An opinionated git plugin that wraps git worktrees with a lifecycle system"
 readme = "README.md"
 license = "MIT"
