@@ -2,6 +2,7 @@ import fnmatch
 import logging
 import os
 import subprocess
+from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from types import TracebackType
 
@@ -142,6 +143,28 @@ class HookRunner:
         if self._hook_display_cm is not None:
             self._hook_display_cm.__exit__(exc_type, exc_val, exc_tb)
 
+    def _execute_hook(self, hook_name: str, cmd: str, env: dict[str, str]) -> Iterator[str]:
+        shell = os.environ.get("SHELL", "sh")
+        with subprocess.Popen(
+            cmd,
+            cwd=self._worktree_dir,
+            env=env,
+            shell=True,
+            executable=shell,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        ) as proc:
+            assert proc.stdout is not None
+            yield from (raw.rstrip() for raw in proc.stdout)
+
+        if proc.returncode != 0:
+            logger.error("hook %r exited with code %d", hook_name, proc.returncode)
+            raise HookExecutionError(f"Hook {hook_name!r} exited with code {proc.returncode}")
+
+        logger.debug("hook %r completed successfully", hook_name)
+
     def _run_hooks(self, event: str, groups: list[HookGroup]) -> None:
         hook_names = self._names_resolver.resolve_hook_names(groups)
         if not hook_names:
@@ -150,35 +173,17 @@ class HookRunner:
         type_label = event.removeprefix("ON_").capitalize()
         env = {**self._env, "GIT_WORKSPACE_EVENT": event}
         progress = self._ensure_display()
-        shell = os.environ.get("SHELL", "sh")
 
         progress.begin_section(type_label, len(hook_names))
 
         for hook_name in hook_names:
-            progress.on_hook_start(hook_name)
             cmd = self._command_resolver.resolve_command(hook_name)
             logger.debug("running hook %r as %r in %s", hook_name, cmd, self._worktree_dir)
+            progress.on_hook_start(hook_name)
 
-            with subprocess.Popen(
-                cmd,
-                cwd=self._worktree_dir,
-                env=env,
-                shell=True,
-                executable=shell,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-            ) as proc:
-                assert proc.stdout is not None
-                for raw in proc.stdout:
-                    progress.on_output_line(raw.rstrip())
+            for line in self._execute_hook(hook_name, cmd, env):
+                progress.on_output_line(line)
 
-            if proc.returncode != 0:
-                logger.error("hook %r exited with code %d", hook_name, proc.returncode)
-                raise HookExecutionError(f"Hook {hook_name!r} exited with code {proc.returncode}")
-
-            logger.debug("hook %r completed successfully", hook_name)
             progress.on_hook_done()
 
         progress.on_section_done(type_label, hook_names)
