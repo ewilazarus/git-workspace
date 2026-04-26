@@ -101,34 +101,98 @@ base_branch = "main"
 # env_file = ".env.local"
 
 # =============================================================================
+# Fingerprints
+# =============================================================================
+#
+# Named content hashes computed from a set of files at the worktree root.
+# Each fingerprint is exposed as GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>
+# in hook and exec environments, letting hooks skip expensive steps when the
+# relevant files have not changed (e.g. only rebuild a Docker image when the
+# Dockerfile changes).
+#
+# Options:
+#   name      — identifier; normalized the same way as variable names.
+#   files     — paths relative to the worktree root; sorted before hashing.
+#   algorithm — "sha256" (default) or "md5".
+#   length    — number of hex characters to expose; defaults to 12.
+#
+# Examples:
+
+# [[fingerprint]]
+# name  = "deps"
+# files = ["package.json", "package-lock.json"]
+#
+# [[fingerprint]]
+# name      = "docker"
+# files     = ["Dockerfile", "docker-compose.yml"]
+# algorithm = "md5"
+# length    = 8
+
+# =============================================================================
 # Hooks
 # =============================================================================
 #
 # Lifecycle scripts executed at specific points during workspace operations.
-# Each entry is either a filename in `.workspace/bin/` or an inline shell
-# command. If the entry matches a file in `.workspace/bin/`, it runs as a
-# script; otherwise it is executed via `sh -c`. You can mix both freely.
+# Each hook event can have multiple groups defined with [[hooks.<event>]].
+# A group runs only when its `conditions` block matches the effective branch,
+# or unconditionally when no conditions are specified. Groups are evaluated
+# top-to-bottom in the order they appear in the manifest.
+#
+# Each command in a group is either a filename in `.workspace/bin/` or an
+# inline shell command. If the entry matches a file in `.workspace/bin/`, it
+# runs as a script; otherwise it is executed via `$SHELL`. You can mix both.
 #
 # All hooks receive GIT_WORKSPACE_* and GIT_WORKSPACE_VAR_* environment
-# variables (see the Variables section above).
+# variables (see the Variables section above), plus any fingerprints defined
+# in [[fingerprint]] blocks.
 #
-# Available hooks:
+# Available events:
 #   on_setup    — runs after a worktree is first created or reset.
 #                 Use for installing dependencies, generating configs, etc.
 #   on_attach   — runs on `up` in interactive mode only.
-#                 Skipped when `--detached` is passed. Not run by `exec`.
+#                 Skipped when `--detached` is passed.
 #   on_detach   — runs on `down` and at the start of `rm`.
 #                 Counterpart to on_attach; use for session teardown.
 #   on_teardown — runs on `rm`, after on_detach, before the worktree is
 #                 deleted. Use for final cleanup.
 #
+# Conditions (optional):
+#   if_branch_matches     — run only when the branch matches the glob pattern.
+#   if_branch_not_matches — run only when the branch does NOT match the glob.
+#   Both keys are AND-ed when present in the same group.
+#
+# Use `-a/--as <branch>` on any hook-running command to override which branch
+# is used when evaluating conditions, without affecting the real branch.
+#
 # Examples:
 
-# [hooks]
-# on_setup    = ["01-on-setup.sh"]
-# on_attach   = ["02-on-attach.sh"]
-# on_detach   = ["03-on-detach.sh"]
-# on_teardown = ["04-on-teardown.sh"]
+# # Unconditional group — always runs
+# [[hooks.on_setup]]
+# commands = ["01-on-setup.sh"]
+#
+# # Only runs on your personal branches
+# [[hooks.on_setup]]
+# conditions = { if_branch_matches = "gabriel/*" }
+# commands = ["open-tmux-session"]
+#
+# # Only runs on branches that are not your personal ones
+# [[hooks.on_setup]]
+# conditions = { if_branch_not_matches = "gabriel/*" }
+# commands = ["echo 'not my branch'"]
+#
+# # AND — gabriel/* but not wip branches
+# [[hooks.on_setup]]
+# conditions = { if_branch_matches = "gabriel/*", if_branch_not_matches = "gabriel/wip-*" }
+# commands = ["start-long-running-task"]
+#
+# [[hooks.on_attach]]
+# commands = ["02-on-attach.sh"]
+#
+# [[hooks.on_detach]]
+# commands = ["03-on-detach.sh"]
+#
+# [[hooks.on_teardown]]
+# commands = ["04-on-teardown.sh"]
 
 # =============================================================================
 # Prune
