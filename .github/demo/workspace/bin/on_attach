@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "👋  on_attach — session opened on $GIT_WORKSPACE_BRANCH"
+sleep 2

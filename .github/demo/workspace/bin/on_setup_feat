@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "🌿  adaptive hook — branch matches feat/* → running feature scaffolding"
+sleep 3
