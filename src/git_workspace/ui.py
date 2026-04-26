@@ -61,6 +61,15 @@ class UI(Protocol):
     def asset_display(self, label: str) -> AbstractContextManager[AssetProgress]: ...
 
 
+def _build_type_row(type_label: str, hook_names: list[str]) -> Text:
+    row = Text.assemble(("✓", "bold green"), f"    {type_label}: ")
+    for i, name in enumerate(hook_names):
+        if i > 0:
+            row.append(", ")
+        row.append(name, style="name")
+    return row
+
+
 class _RichHookProgress:
     def __init__(self) -> None:
         self._live: Live | None = None
@@ -74,12 +83,7 @@ class _RichHookProgress:
     def _make_renderable(self) -> Group:
         rows: list = [self._section_spinner]
         for type_label, hook_names in self._completed_types:
-            row = Text.assemble(("✓", "bold green"), f"    {type_label}: ")
-            for i, name in enumerate(hook_names):
-                if i > 0:
-                    row.append(", ")
-                row.append(name, style="name")
-            rows.append(row)
+            rows.append(_build_type_row(type_label, hook_names))
         if self._current_type_progress is not None:
             rows.append(self._current_type_progress)
             rows.extend(self._output_lines[-6:])
@@ -141,12 +145,7 @@ class _RichHookProgress:
 
     def _print_type_rows(self) -> None:
         for type_label, hook_names in self._completed_types:
-            row = Text.assemble(("✓", "bold green"), f"    {type_label}: ")
-            for i, name in enumerate(hook_names):
-                if i > 0:
-                    row.append(", ")
-                row.append(name, style="name")
-            _console.print(row)
+            _console.print(_build_type_row(type_label, hook_names))
 
     def _finalize(self, success: bool) -> None:
         if self._live is None:
@@ -166,11 +165,8 @@ class _RichHookProgress:
 class _RichAssetProgress:
     def __init__(self, label: str) -> None:
         self._label = label
-        self._live: Live | None = None
         self._applied: list[tuple[str, str, int]] = []
-
-    def _start(self) -> None:
-        spinner = Spinner("dots", text=f" Applying {self._label}")
+        spinner = Spinner("dots", text=f" Applying {label}")
         self._live = Live(spinner, console=_console, refresh_per_second=15, transient=True)
         self._live.start()
 
@@ -178,9 +174,7 @@ class _RichAssetProgress:
         self._applied.append((src, dst, substitutions))
 
     def _finalize(self, success: bool) -> None:
-        if self._live is not None:
-            self._live.stop()
-            self._live = None
+        self._live.stop()
         if success:
             _console.print(f"[success]✓[/success]  Applying {self._label}")
             for src, dst, substitutions in self._applied:
@@ -190,6 +184,23 @@ class _RichAssetProgress:
                 )
         else:
             _console.print(f"[error]✗[/error]  Applying {self._label}")
+
+
+class _Finalizable(Protocol):
+    def _finalize(self, success: bool) -> None: ...
+
+
+@contextmanager
+def _finalize_on_exit[T: _Finalizable](progress: T) -> Iterator[T]:
+    try:
+        yield progress
+    except GeneratorExit:
+        raise
+    except BaseException:
+        progress._finalize(success=False)
+        raise
+    else:
+        progress._finalize(success=True)
 
 
 class RichUI:
@@ -217,30 +228,13 @@ class RichUI:
 
     @contextmanager
     def hook_display(self) -> Iterator[HookProgress]:
-        progress = _RichHookProgress()
-        try:
+        with _finalize_on_exit(_RichHookProgress()) as progress:
             yield progress
-        except GeneratorExit:
-            raise
-        except BaseException:
-            progress._finalize(success=False)
-            raise
-        else:
-            progress._finalize(success=True)
 
     @contextmanager
     def asset_display(self, label: str) -> Iterator[AssetProgress]:
-        progress = _RichAssetProgress(label)
-        progress._start()
-        try:
+        with _finalize_on_exit(_RichAssetProgress(label)) as progress:
             yield progress
-        except GeneratorExit:
-            raise
-        except BaseException:
-            progress._finalize(success=False)
-            raise
-        else:
-            progress._finalize(success=True)
 
 
 class _PlainHookProgress:
@@ -317,29 +311,13 @@ class PlainUI:
 
     @contextmanager
     def hook_display(self) -> Iterator[HookProgress]:
-        progress = _PlainHookProgress()
-        try:
+        with _finalize_on_exit(_PlainHookProgress()) as progress:
             yield progress
-        except GeneratorExit:
-            raise
-        except BaseException:
-            progress._finalize(success=False)
-            raise
-        else:
-            progress._finalize(success=True)
 
     @contextmanager
     def asset_display(self, label: str) -> Iterator[AssetProgress]:
-        progress = _PlainAssetProgress(label)
-        try:
+        with _finalize_on_exit(_PlainAssetProgress(label)) as progress:
             yield progress
-        except GeneratorExit:
-            raise
-        except BaseException:
-            progress._finalize(success=False)
-            raise
-        else:
-            progress._finalize(success=True)
 
 
 class _UIProxy:
