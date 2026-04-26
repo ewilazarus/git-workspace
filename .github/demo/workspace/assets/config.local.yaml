@@ -1,0 +1,7 @@
+# Copied (not linked) — each worktree gets its own version.
+# {{ GIT_WORKSPACE_* }} placeholders are substituted at copy time.
+branch:      {{ GIT_WORKSPACE_BRANCH }}
+worktree:    {{ GIT_WORKSPACE_WORKTREE }}
+environment: {{ GIT_WORKSPACE_VAR_ENVIRONMENT }}
+service:     {{ GIT_WORKSPACE_VAR_SERVICE }}
+deps_hash:   {{ GIT_WORKSPACE_FINGERPRINT_DEPS }}

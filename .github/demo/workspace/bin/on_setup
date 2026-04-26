@@ -1,0 +1,10 @@
+#!/bin/sh
+echo ""
+echo "🪝  on_setup — preparing worktree for $GIT_WORKSPACE_BRANCH"
+sleep 1
+echo "    environment   = $GIT_WORKSPACE_VAR_ENVIRONMENT  (from manifest vars)"
+sleep 1
+echo "    service       = $GIT_WORKSPACE_VAR_SERVICE"
+sleep 2
+echo "    deps fingerprint = $GIT_WORKSPACE_FINGERPRINT_DEPS"
+sleep 2

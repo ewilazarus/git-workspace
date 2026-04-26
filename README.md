@@ -66,7 +66,7 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 
 ## Demo
 
-https://github.com/user-attachments/assets/27bf0e6e-ac8c-424e-b899-8601ac4d54b7
+<img src=".github/demo/demo.gif" width="800" />
 
 ---
 
