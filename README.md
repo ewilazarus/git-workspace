@@ -45,7 +45,7 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 ## Features
 
 - 🌳 **Worktree-per-branch** — every branch gets its own directory; no more dirty working trees
-- ⚡ **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
+- 🪝 **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
 - 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree
 - 📋 **File copying** — copy mutable config files that each worktree can edit independently
 - 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
@@ -416,7 +416,7 @@ overwrite = false
 
 ### Placeholders in copies
 
-Text files in `.workspace/assets/` can contain `{{ GIT_WORKSPACE_* }}` placeholders. When the file is copied, each placeholder is replaced with the corresponding value from the environment — the same variables available to hooks, including manifest and runtime vars.
+Text files in `.workspace/assets/` can contain `{{ GIT_WORKSPACE_* }}` placeholders. When the file is copied, each placeholder is replaced with the corresponding value from the environment — the same variables available to hooks, including manifest, runtime, and fingerprint vars.
 
 ```
 # .workspace/assets/config.local.yaml
