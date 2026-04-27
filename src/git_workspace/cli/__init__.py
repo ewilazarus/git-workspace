@@ -2,6 +2,7 @@ import typer
 
 from git_workspace.cli.callbacks import callback
 from git_workspace.cli.commands import (
+    cache_command,
     clone_command,
     doctor_command,
     down_command,
@@ -28,6 +29,7 @@ app = typer.Typer(
     """,
 )
 
+app.add_typer(cache_command, name="cache")
 app.add_typer(clone_command)
 app.add_typer(doctor_command)
 app.add_typer(down_command)

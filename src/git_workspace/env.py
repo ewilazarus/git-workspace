@@ -15,6 +15,7 @@ _BASE_VAR_BUILDERS: tuple[tuple[str, Callable[[Worktree], str]], ...] = (
     ("GIT_WORKSPACE_BIN", lambda wt: str(wt.workspace.paths.bin)),
     ("GIT_WORKSPACE_ASSETS", lambda wt: str(wt.workspace.paths.assets)),
     ("GIT_WORKSPACE_WORKTREE", lambda wt: str(wt.dir)),
+    ("GIT_WORKSPACE_CACHE_DIR", lambda wt: str(wt.workspace.paths.cache)),
 )
 
 BASE_VAR_KEYS: frozenset[str] = frozenset(key for key, _ in _BASE_VAR_BUILDERS)

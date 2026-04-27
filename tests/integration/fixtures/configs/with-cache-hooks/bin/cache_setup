@@ -1,0 +1,17 @@
+#!/bin/sh
+# Probe that the cache CLI plumbing works end-to-end:
+#  - GIT_WORKSPACE_CACHE_NAMESPACE is auto-injected by the hook runner
+#  - GIT_WORKSPACE_CACHE_DIR points at the cache root
+#  - `git workspace cache set/exists/get` operate within that namespace
+set -e
+
+if git workspace cache exists "marker"; then
+    echo "cache hit"
+else
+    echo "cache miss"
+    git workspace cache set "marker" "ran"
+fi
+
+# Echo the env vars so the test can capture them
+echo "ns=$GIT_WORKSPACE_CACHE_NAMESPACE"
+echo "dir=$GIT_WORKSPACE_CACHE_DIR"

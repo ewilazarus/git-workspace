@@ -12,6 +12,7 @@ WORKSPACE_NAME = "workspace"
 WORKTREE_DIR = Path("/workspace/feat/GWS-001")
 BIN_DIR = Path("/workspace/.workspace/bin")
 ASSETS_DIR = Path("/workspace/.workspace/assets")
+CACHE_DIR = Path("/workspace/.workspace/.cache")
 
 
 @pytest.fixture
@@ -22,6 +23,7 @@ def worktree(mocker: MockerFixture) -> MagicMock:
     mock.workspace.dir = WORKSPACE_DIR
     mock.workspace.paths.bin = BIN_DIR
     mock.workspace.paths.assets = ASSETS_DIR
+    mock.workspace.paths.cache = CACHE_DIR
     return mock
 
 
@@ -53,6 +55,10 @@ class TestBuildEnv:
     def test_sets_worktree(self, worktree: MagicMock) -> None:
         env = build_env(worktree)
         assert env["GIT_WORKSPACE_WORKTREE"] == str(WORKTREE_DIR)
+
+    def test_sets_cache_dir(self, worktree: MagicMock) -> None:
+        env = build_env(worktree)
+        assert env["GIT_WORKSPACE_CACHE_DIR"] == str(CACHE_DIR)
 
     def test_includes_extra_vars(self, worktree: MagicMock) -> None:
         env = build_env(worktree, runtime_vars={"FOO": "bar"})
