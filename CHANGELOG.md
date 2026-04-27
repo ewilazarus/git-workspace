@@ -15,9 +15,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Adaptive hooks — each hook event now supports multiple `[[hooks.<event>]]` groups with an optional `conditions` block; groups can be gated on `if_branch_matches` and/or `if_branch_not_matches` (POSIX glob, AND-ed when both are set); groups without conditions always run; groups are evaluated top-to-bottom in manifest order
 - `-a`/`--as <branch>` flag on `up`, `down`, `reset`, and `rm` — overrides the branch used to evaluate hook conditions without affecting the real branch or `GIT_WORKSPACE_BRANCH`; useful for impersonating a branch pattern in scripted or CI workflows
 - `git workspace doctor` now warns on unknown condition keys, invalid glob patterns, and hook groups with no commands
-- Fingerprint support — declare `[[fingerprint]]` blocks in `manifest.toml` to hash a set of files at the worktree root and expose the result as `GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>` in hook and `exec` environments; supports `sha256` (default) and `md5` algorithms with configurable digest prefix length; `git workspace doctor` validates fingerprint config (name clashes, unsupported algorithms, path escapes, etc.)
+- Fingerprint support — declare `[[fingerprint]]` blocks in `manifest.toml` to hash a set of files at the worktree root and expose the result as `GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>` in hook environments; supports `sha256` (default) and `md5` algorithms with configurable digest prefix length; `git workspace doctor` validates fingerprint config (name clashes, unsupported algorithms, path escapes, etc.)
 - Placeholder substitution in copied assets — `{{ GIT_WORKSPACE_* }}` tokens are replaced with their environment variable values at copy time
-- `git workspace exec <branch> -- <command>` — runs an arbitrary command inside a worktree; prompts to create the worktree first if it doesn't exist (`--force` skips the prompt); propagates the command's exit code
 - `git workspace doctor` command — inspects the workspace for inconsistencies (missing asset sources, clashing targets, broken hook references, orphaned files, stale worktrees, and more); exits 1 on errors, 0 on warnings or clean
 - `--version` global flag to print the installed version and exit
 - PyPI publish workflow now triggers on PEP 440 pre-release tags (`a`, `b`, `rc`)
@@ -25,7 +24,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `--plain` global flag and automatic TTY detection to fall back to plain text output in non-interactive terminals
 
 ### Removed
-- `git workspace exec` command — removed; use shell subexpressions with `git workspace up --detached -o` to run commands inside a worktree
 - `git workspace root` command — removed; use `git workspace up --output` or check `GIT_WORKSPACE_ROOT` from within a hook instead
 
 ### Changed
@@ -47,7 +45,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `GIT_WORKSPACE_EVENT` values are now `ON_SETUP`, `ON_ATTACH`, `ON_DETACH`, and `ON_TEARDOWN`
   - **How to migrate:** rename `on_activate` entries into `on_attach` (if they need a terminal) or `on_setup` (if they are one-time setup); rename `on_deactivate` to `on_detach`; rename `on_remove` to `on_teardown`
 - `git workspace up` no longer runs `on_activate`; it runs `on_setup` (first time only) and `on_attach` (unless `--detached`)
-- `git workspace exec` provisions a missing worktree (runs `on_setup`) but does not run `on_attach` or `on_detach`
 - Worktree lifecycle logic extracted into a dedicated `operations` module; CLI commands now delegate to named operations instead of inlining asset and hook orchestration
 - `git workspace prune` no longer runs hooks — worktrees are force-removed directly
 - Inline shell commands in hooks now run via the user's shell (`$SHELL`, defaulting to `sh`) instead of the system `sh`
