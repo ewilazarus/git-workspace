@@ -76,20 +76,21 @@ class HookCommandResolver:
     def __init__(self, worktree: Worktree) -> None:
         self._bin_path = worktree.workspace.paths.bin
 
-    def resolve_command(self, hook_name: str) -> str:
+    def resolve_command(self, hook_name: str) -> tuple[str, bool]:
         """
         Resolve a hook name to its executable command string.
 
         :param hook_name: The hook entry as declared in the manifest.
-        :returns: Absolute path to the bin script if one exists, otherwise
-            ``hook_name`` unchanged for inline shell execution.
+        :returns: ``(cmd, is_bin_script)`` — the executable command string, and
+            a flag indicating whether it resolved to a bin script (``True``) or
+            an inline shell command (``False``).
         """
         hook_path = self._bin_path / hook_name
         if hook_path.is_file():
             logger.debug("resolved hook %r to bin script: %s", hook_name, hook_path)
-            return str(hook_path)
+            return str(hook_path), True
         logger.debug("no bin script for %r, running as inline shell command", hook_name)
-        return hook_name
+        return hook_name, False
 
 
 class HookRunner:
@@ -177,11 +178,18 @@ class HookRunner:
         progress.begin_section(type_label, len(hook_names))
 
         for hook_name in hook_names:
-            cmd = self._command_resolver.resolve_command(hook_name)
+            cmd, is_bin_script = self._command_resolver.resolve_command(hook_name)
             logger.debug("running hook %r as %r in %s", hook_name, cmd, self._worktree_dir)
             progress.on_hook_start(hook_name)
 
-            for line in self._execute_hook(hook_name, cmd, env):
+            hook_env = env
+            if is_bin_script:
+                # Inline commands aren't bin scripts; their hook_name is the
+                # whole shell string, which would yield a namespace full of
+                # spaces and metachars. Restrict cache namespacing to bin scripts.
+                hook_env = {**env, "GIT_WORKSPACE_CACHE_NAMESPACE": f"hooks/{hook_name}"}
+
+            for line in self._execute_hook(hook_name, cmd, hook_env):
                 progress.on_output_line(line)
 
             progress.on_hook_done()

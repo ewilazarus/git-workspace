@@ -56,3 +56,11 @@ class WorktreeListingError(GitWorkspaceError):
 
 class WorktreeResolutionError(GitWorkspaceError):
     """Raised when a worktree cannot be resolved from the given branch or working directory."""
+
+
+class CacheError(GitWorkspaceError):
+    """Base class for errors raised by the cache subsystem."""
+
+
+class InvalidCacheKeyError(CacheError):
+    """Raised when a cache namespace or key fails path-safety validation."""

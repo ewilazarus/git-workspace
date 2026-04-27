@@ -48,6 +48,11 @@ class WorkspacePaths:
     def manifest(self) -> Path:
         return self.config / "manifest.toml"
 
+    # <ROOT>/.workspace/.cache
+    @property
+    def cache(self) -> Path:
+        return self.config / ".cache"
+
     # <ROOT>/.git
     @property
     def git(self) -> Path:

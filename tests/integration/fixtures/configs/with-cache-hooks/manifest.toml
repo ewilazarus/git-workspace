@@ -1,0 +1,6 @@
+version = 1
+
+base_branch = "main"
+
+[[hooks.on_setup]]
+commands = ["cache_setup"]

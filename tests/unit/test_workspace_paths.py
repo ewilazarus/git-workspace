@@ -36,6 +36,12 @@ def test_composes_correct_manifest_path(workspace_paths: WorkspacePaths) -> None
     assert actual == expected
 
 
+def test_composes_correct_cache_path(workspace_paths: WorkspacePaths) -> None:
+    expected = ROOT / ".workspace" / ".cache"
+    actual = workspace_paths.cache
+    assert actual == expected
+
+
 def test_composes_correct_git_path(workspace_paths: WorkspacePaths) -> None:
     expected = ROOT / ".git"
     actual = workspace_paths.git

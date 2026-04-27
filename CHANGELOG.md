@@ -7,6 +7,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- `git workspace cache get|set|exists <key>` — file-based cache scoped by the `GIT_WORKSPACE_CACHE_NAMESPACE` env var; intended for use inside hook scripts to skip already-completed work (e.g. paired with `GIT_WORKSPACE_FINGERPRINT_*` to gate `uv sync`). Cache lives at `<root>/.workspace/.cache/<namespace>/<key>` with a self-managed `.gitignore`. The hook runner injects `GIT_WORKSPACE_CACHE_NAMESPACE=hooks/<hook_name>` for bin-script hooks.
+- `GIT_WORKSPACE_CACHE_DIR` environment variable injected into hook execution environments — points to `<root>/.workspace/.cache`, useful for direct cache manipulation (e.g. invalidation via `rm -rf "$GIT_WORKSPACE_CACHE_DIR"`).
+
 ## [0.6.0] - 2026-04-26
 
 ### Added

@@ -124,14 +124,17 @@ class TestHookCommandResolver:
         worktree = mocker.MagicMock()
         worktree.workspace.paths.bin = BIN_DIR
         resolver = HookCommandResolver(worktree)
-        assert resolver.resolve_command("setup.sh") == str(BIN_DIR / "setup.sh")
+        assert resolver.resolve_command("setup.sh") == (str(BIN_DIR / "setup.sh"), True)
 
     def test_returns_hook_name_as_inline_when_no_bin_script(self, mocker: MockerFixture) -> None:
         mocker.patch("pathlib.Path.is_file", return_value=False)
         worktree = mocker.MagicMock()
         worktree.workspace.paths.bin = BIN_DIR
         resolver = HookCommandResolver(worktree)
-        assert resolver.resolve_command("docker build . -t myapp") == "docker build . -t myapp"
+        assert resolver.resolve_command("docker build . -t myapp") == (
+            "docker build . -t myapp",
+            False,
+        )
 
 
 class TestResolveCommand:
@@ -178,6 +181,41 @@ class TestResolveCommand:
         hook_runner.run_on_setup_hooks()
 
         assert mock_popen.call_args.kwargs["executable"] == "sh"
+
+
+class TestCacheNamespaceInjection:
+    def test_sets_namespace_for_bin_script_hooks(
+        self, hook_runner: HookRunner, mock_popen: MagicMock
+    ) -> None:
+        hook_runner.run_on_setup_hooks()
+
+        env = mock_popen.call_args.kwargs["env"]
+        assert env["GIT_WORKSPACE_CACHE_NAMESPACE"] == "hooks/setup.sh"
+
+    def test_does_not_set_namespace_for_inline_hooks(
+        self,
+        hook_runner: HookRunner,
+        mock_bin_is_file: MagicMock,
+        mock_popen: MagicMock,
+    ) -> None:
+        mock_bin_is_file.return_value = False
+
+        hook_runner.run_on_setup_hooks()
+
+        env = mock_popen.call_args.kwargs["env"]
+        assert "GIT_WORKSPACE_CACHE_NAMESPACE" not in env
+
+    def test_namespace_does_not_leak_between_hooks(
+        self, worktree: MagicMock, mock_popen: MagicMock
+    ) -> None:
+        worktree.workspace.manifest.hooks.on_setup = [_group(["first.sh", "second.sh"])]
+        runner = HookRunner(worktree, {}, effective_branch=BRANCH)
+
+        runner.run_on_setup_hooks()
+
+        envs = [call.kwargs["env"] for call in mock_popen.call_args_list]
+        assert envs[0]["GIT_WORKSPACE_CACHE_NAMESPACE"] == "hooks/first.sh"
+        assert envs[1]["GIT_WORKSPACE_CACHE_NAMESPACE"] == "hooks/second.sh"
 
 
 class TestRunOnSetupHooks:
