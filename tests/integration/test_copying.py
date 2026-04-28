@@ -176,3 +176,23 @@ def test_copy_is_independent_of_source(workspace_with_copies: Workspace) -> None
     original_content = source.read_text()
     target.write_text("modified")
     assert source.read_text() == original_content
+
+
+def test_jinja_if_block_renders_branch_main(
+    workspace_with_jinja_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_jinja_copies.dir))
+    target = workspace_with_jinja_copies.dir / "main" / "template.txt"
+    assert target.read_text() == "env=prod\n"
+
+
+def test_jinja_if_block_renders_other_branch(
+    workspace_with_jinja_copies: Workspace,
+) -> None:
+    up(
+        branch="feature/x",
+        base_branch="main",
+        workspace_dir=str(workspace_with_jinja_copies.dir),
+    )
+    target = workspace_with_jinja_copies.dir / "feature" / "x" / "template.txt"
+    assert target.read_text() == "env=dev\n"

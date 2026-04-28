@@ -906,6 +906,40 @@ class TestCheckCopyPlaceholders:
         assert len(findings) == 1
         assert "GIT_WORKSPACE_FINGERPRINT_DEPS" in findings[0].message
 
+    def test_returns_error_for_invalid_template_syntax(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "template.txt").write_text("{% if GIT_WORKSPACE_BRANCH %}oops")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+        assert "template.txt" in findings[0].message
+        assert "invalid template syntax" in findings[0].message
+
+    def test_skips_placeholder_check_when_template_invalid(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "template.txt").write_text("{% if %}{{ GIT_WORKSPACE_TYPO }}")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].level == "error"
+
 
 class TestCheckFingerprintNameClashes:
     def test_returns_no_findings_for_unique_names(self, workspace: MagicMock) -> None:

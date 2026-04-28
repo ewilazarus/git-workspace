@@ -137,6 +137,16 @@ def workspace_with_placeholder_copies(setup: Setup, tmp_path: Path) -> Workspace
 
 
 @pytest.fixture
+def workspace_with_jinja_copies(setup: Setup, tmp_path: Path) -> Workspace:
+    setup(config="with-jinja-copies")
+    return Workspace.clone(
+        workspace_dir=str(tmp_path / "workspace"),
+        url=str(tmp_path / "repo"),
+        config_url=str(tmp_path / "configs" / "with-jinja-copies"),
+    )
+
+
+@pytest.fixture
 def workspace_with_prune(setup: Setup, tmp_path: Path) -> Workspace:
     setup(config="with-prune")
     return Workspace.clone(

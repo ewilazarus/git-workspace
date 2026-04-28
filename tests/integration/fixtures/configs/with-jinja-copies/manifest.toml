@@ -1,0 +1,7 @@
+version = 1
+
+base_branch = "main"
+
+[[copy]]
+source = "template.txt"
+target = "template.txt"

@@ -1,0 +1,1 @@
+{% if GIT_WORKSPACE_BRANCH == "main" %}env=prod{% else %}env=dev{% endif %}
