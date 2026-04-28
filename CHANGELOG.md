@@ -11,6 +11,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `git workspace cache get|set|exists <key>` — file-based cache scoped by the `GIT_WORKSPACE_CACHE_NAMESPACE` env var; intended for use inside hook scripts to skip already-completed work (e.g. paired with `GIT_WORKSPACE_FINGERPRINT_*` to gate `uv sync`). Cache lives at `<root>/.workspace/.cache/<namespace>/<key>` with a self-managed `.gitignore`. The hook runner injects `GIT_WORKSPACE_CACHE_NAMESPACE=hooks/<hook_name>` for bin-script hooks.
 - `GIT_WORKSPACE_CACHE_DIR` environment variable injected into hook execution environments — points to `<root>/.workspace/.cache`, useful for direct cache manipulation (e.g. invalidation via `rm -rf "$GIT_WORKSPACE_CACHE_DIR"`).
 
+### Changed
+- Copy assets are now rendered as [Jinja2](https://jinja.palletsprojects.com/) templates instead of regex placeholder substitution; existing `{{ GIT_WORKSPACE_* }}` files render identically, but `{% if %}` / `{% for %}` / filters are now supported for richer control over the output. Unknown variables still render verbatim; only `GIT_WORKSPACE_*` keys are exposed to templates. `git workspace doctor` flags malformed templates as errors.
+
 ## [0.6.0] - 2026-04-26
 
 ### Added

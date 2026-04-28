@@ -521,3 +521,116 @@ class TestCopyWithSubstitution:
         copy = Copy(source="template.txt", target="template.txt", overwrite=False)
 
         assert copier._apply(copy) == 0
+
+
+class TestJinjaTemplating:
+    ASSETS_DIR = Path("/workspace/.workspace/assets")
+    WORKTREE_DIR = Path("/workspace/feat/GWS-001")
+    ENV = {
+        "GIT_WORKSPACE_BRANCH": "main",
+        "GIT_WORKSPACE_VAR_ENV": "staging",
+        "PATH": "/usr/bin",  # non-prefixed env should not be exposed to templates
+    }
+
+    @pytest.fixture
+    def copier(self, mocker: MockerFixture) -> Copier:
+        worktree = mocker.MagicMock()
+        worktree.dir = self.WORKTREE_DIR
+        worktree.workspace.paths.assets = self.ASSETS_DIR
+        worktree.workspace.manifest.copies = []
+        ignore = mocker.MagicMock(spec=IgnoreManager)
+        return Copier(worktree, ignore, env=self.ENV)
+
+    def test_renders_if_block_when_condition_true(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(
+            str(source),
+            contents='{% if GIT_WORKSPACE_BRANCH == "main" %}prod{% else %}dev{% endif %}',
+        )
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "prod"
+
+    def test_renders_if_block_when_condition_false(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(
+            str(source),
+            contents='{% if GIT_WORKSPACE_BRANCH == "release" %}prod{% else %}dev{% endif %}',
+        )
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "dev"
+
+    def test_supports_filters(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH | upper }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "MAIN"
+
+    def test_supports_for_loop(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(
+            str(source),
+            contents="{% for c in GIT_WORKSPACE_BRANCH %}{{ c }}-{% endfor %}",
+        )
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "m-a-i-n-"
+
+    def test_unknown_variable_renders_verbatim(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_TYPO }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "{{ GIT_WORKSPACE_TYPO }}"
+
+    def test_does_not_expose_non_prefixed_env_to_templates(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{{ PATH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "{{ PATH }}"
+
+    def test_preserves_trailing_newline(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="branch={{ GIT_WORKSPACE_BRANCH }}\n")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "branch=main\n"
+
+    def test_template_syntax_error_is_wrapped(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "template.txt"
+        target = self.WORKTREE_DIR / "template.txt"
+        fs.create_file(str(source), contents="{% if GIT_WORKSPACE_BRANCH %}oops")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        with pytest.raises(WorkspaceCopyError) as exc:
+            copier._copy_with_substitution(source, target)
+
+        assert "template.txt" in str(exc.value)

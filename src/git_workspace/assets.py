@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from types import TracebackType
 
+from jinja2 import DebugUndefined, Environment, TemplateError
+
 from git_workspace import git
 from git_workspace.errors import WorkspaceCopyError, WorkspaceLinkError
 from git_workspace.manifest import Asset, Copy, Link
@@ -180,9 +182,11 @@ class Copier(AssetManager[Copy]):
     overwrite existing files on reapplication. The only error case is
     attempting to copy over an existing symlink.
 
-    Text files are inspected for ``{{ GIT_WORKSPACE_* }}`` placeholders and
-    values are substituted from the provided environment dict. Binary files
-    are copied as-is.
+    Text files are rendered as Jinja2 templates with ``GIT_WORKSPACE_*``
+    variables from the provided environment dict; this supports
+    ``{{ var }}`` substitution as well as ``{% if %}`` / ``{% for %}`` and
+    filters. Undefined variables render verbatim as ``{{ name }}``.
+    Binary files are copied as-is.
     """
 
     asset_name = "copy"
@@ -192,33 +196,37 @@ class Copier(AssetManager[Copy]):
 
     def __init__(self, worktree: Worktree, ignore: IgnoreManager, env: dict[str, str]) -> None:
         super().__init__(worktree, ignore, worktree.workspace.manifest.copies)
-        self._env = env
+        self._template_vars = {k: v for k, v in env.items() if k.startswith("GIT_WORKSPACE_")}
+        self._jinja_env = Environment(
+            undefined=DebugUndefined,
+            autoescape=False,
+            keep_trailing_newline=True,
+        )
 
-    def _resolve_placeholders(self, content: str) -> tuple[str, int]:
-        count = 0
+    def _count_resolved(self, content: str) -> int:
+        return sum(
+            1 for m in self.PLACEHOLDER_RE.finditer(content) if m.group(1) in self._template_vars
+        )
 
-        def replace(m: re.Match) -> str:
-            nonlocal count
-
-            value = self._env.get(m.group(1))
-            if value is not None:
-                count += 1
-                return value
-
-            return m.group(0)
-
-        return self.PLACEHOLDER_RE.sub(replace, content), count
+    def _render(self, source: Path, content: str) -> tuple[str, int]:
+        try:
+            template = self._jinja_env.from_string(content)
+            rendered = template.render(self._template_vars)
+        except TemplateError as e:
+            raise WorkspaceCopyError(f"Failed to render template {source!r}: {e}") from e
+        return rendered, self._count_resolved(content)
 
     def _copy_with_substitution(self, source: Path, target: Path) -> int:
         try:
             content = source.read_text(encoding="utf-8")
-            new_content, count = self._resolve_placeholders(content)
-            target.write_text(new_content, encoding="utf-8")
-            return count
         except UnicodeDecodeError, ValueError:
             logger.debug("copying %s as binary (not valid UTF-8 text)", source)
             shutil.copy2(source, target)
             return 0
+
+        new_content, count = self._render(source, content)
+        target.write_text(new_content, encoding="utf-8")
+        return count
 
     def _copy_dir_with_substitution(self, source: Path, target: Path) -> int:
         total = 0

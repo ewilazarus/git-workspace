@@ -380,10 +380,10 @@ overwrite = false
 </details>
 
 <details>
-<summary><i>Placeholders</i></summary>
+<summary><i>Templating</i></summary>
 <br/>
 
-Text files in `.workspace/assets/` can contain `{{ GIT_WORKSPACE_* }}` placeholders. When the file is copied, each placeholder is replaced with the corresponding value from the environment — the same variables available to hooks, including manifest, runtime, and fingerprint vars.
+Text files in `.workspace/assets/` are rendered as [Jinja2](https://jinja.palletsprojects.com/) templates. Every `GIT_WORKSPACE_*` variable available to hooks — base, manifest, runtime, and fingerprint vars — is exposed by name, so `{{ GIT_WORKSPACE_BRANCH }}` substitution works exactly as it always has.
 
 ```
 # .workspace/assets/config.local.yaml
@@ -400,7 +400,17 @@ worktree: /path/to/workspace/feature/my-feature
 env: staging
 ```
 
-Unknown placeholders are left verbatim. Binary files are copied as-is without substitution. When the source is a directory, substitution is applied to every text file inside it.
+Beyond simple substitution, you also get conditionals, loops, and filters — useful when a single asset needs to differ across branches:
+
+```
+{% if GIT_WORKSPACE_BRANCH == "main" %}
+log_level: warn
+{% else %}
+log_level: debug
+{% endif %}
+```
+
+Unknown variables are left verbatim (e.g. `{{ GIT_WORKSPACE_TYPO }}` is written as-is so typos are obvious). Only `GIT_WORKSPACE_*` keys are exposed — the host process environment is not. Binary files are copied as-is without rendering. When the source is a directory, every text file inside it is rendered. `git workspace doctor` flags both unknown variables and template syntax errors.
 
 </details>
 
@@ -634,4 +644,4 @@ If it turns out to be useful to you too, [consider supporting the project](https
 
 ---
 
-*Built with [Typer](https://typer.tiangolo.com), [Rich](https://rich.readthedocs.io), and a deep appreciation for git worktrees.*
+*Built with [Typer](https://typer.tiangolo.com), [Rich](https://rich.readthedocs.io), [Jinja2](https://jinja.palletsprojects.com), and a deep appreciation for git worktrees.*

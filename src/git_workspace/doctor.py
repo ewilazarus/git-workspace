@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import tomlkit
+from jinja2 import Environment, TemplateSyntaxError
 
 from git_workspace import git
 from git_workspace.assets import Copier
@@ -499,6 +500,7 @@ def _check_copy_placeholders(workspace: Workspace, findings: list[Finding]) -> N
         }
     )
     assets_dir = workspace.paths.assets
+    jinja_env = Environment()
 
     for copy in workspace.manifest.copies:
         source = assets_dir / copy.source
@@ -513,12 +515,26 @@ def _check_copy_placeholders(workspace: Workspace, findings: list[Finding]) -> N
                 content = file.read_text(encoding="utf-8")
             except UnicodeDecodeError, OSError:
                 continue
+
+            rel = file.relative_to(assets_dir)
+
+            try:
+                jinja_env.parse(content)
+            except TemplateSyntaxError as e:
+                findings.append(
+                    Finding(
+                        "error",
+                        f"Copy asset '{rel}' has invalid template syntax"
+                        f" on line {e.lineno}: {e.message}",
+                    )
+                )
+                continue
+
             seen: set[str] = set()
             for match in Copier.PLACEHOLDER_RE.finditer(content):
                 key = match.group(1)
                 if key not in known and key not in seen:
                     seen.add(key)
-                    rel = file.relative_to(assets_dir)
                     findings.append(
                         Finding(
                             "warning",
