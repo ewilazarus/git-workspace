@@ -10,9 +10,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 - `git workspace cache get|set|exists <key>` — file-based cache scoped by the `GIT_WORKSPACE_CACHE_NAMESPACE` env var; intended for use inside hook scripts to skip already-completed work (e.g. paired with `GIT_WORKSPACE_FINGERPRINT_*` to gate `uv sync`). Cache lives at `<root>/.workspace/.cache/<namespace>/<key>` with a self-managed `.gitignore`. The hook runner injects `GIT_WORKSPACE_CACHE_NAMESPACE=hooks/<hook_name>` for bin-script hooks.
 - `GIT_WORKSPACE_CACHE_DIR` environment variable injected into hook execution environments — points to `<root>/.workspace/.cache`, useful for direct cache manipulation (e.g. invalidation via `rm -rf "$GIT_WORKSPACE_CACHE_DIR"`).
+- `GIT_WORKSPACE_BRANCH_SLUG` environment variable — branch name lowercased with non-alphanumeric runs collapsed to `-` (e.g. `feat/GWS-001` → `feat-gws-001`); useful for URL-safe identifiers like container or namespace names.
 
 ### Changed
 - Copy assets are now rendered as [Jinja2](https://jinja.palletsprojects.com/) templates instead of regex placeholder substitution; existing `{{ GIT_WORKSPACE_* }}` files render identically, but `{% if %}` / `{% for %}` / filters are now supported for richer control over the output. Unknown variables still render verbatim; only `GIT_WORKSPACE_*` keys are exposed to templates. `git workspace doctor` flags malformed templates as errors.
+- **Breaking:** `GIT_WORKSPACE_BRANCH_NO_SLASH` renamed to `GIT_WORKSPACE_BRANCH_SNAKE` and now produces true snake_case — lowercased with non-alphanumeric runs collapsed to `_` (e.g. `feat/GWS-001` → `feat_gws_001`). Previously it preserved case and only replaced `/` with `_`. Migrate by renaming references and updating any consumers that depended on the original casing or characters being preserved.
 
 ## [0.6.0] - 2026-04-26
 

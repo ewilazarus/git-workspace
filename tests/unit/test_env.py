@@ -32,9 +32,13 @@ class TestBuildEnv:
         env = build_env(worktree)
         assert env["GIT_WORKSPACE_BRANCH"] == BRANCH
 
-    def test_sets_branch_no_slash(self, worktree: MagicMock) -> None:
+    def test_sets_branch_snake(self, worktree: MagicMock) -> None:
         env = build_env(worktree)
-        assert env["GIT_WORKSPACE_BRANCH_NO_SLASH"] == BRANCH.replace("/", "_")
+        assert env["GIT_WORKSPACE_BRANCH_SNAKE"] == "feat_gws_001"
+
+    def test_sets_branch_slug(self, worktree: MagicMock) -> None:
+        env = build_env(worktree)
+        assert env["GIT_WORKSPACE_BRANCH_SLUG"] == "feat-gws-001"
 
     def test_sets_root(self, worktree: MagicMock) -> None:
         env = build_env(worktree)
