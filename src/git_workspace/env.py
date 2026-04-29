@@ -1,4 +1,5 @@
 import os
+import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -9,7 +10,14 @@ if TYPE_CHECKING:
 
 _BASE_VAR_BUILDERS: tuple[tuple[str, Callable[[Worktree], str]], ...] = (
     ("GIT_WORKSPACE_BRANCH", lambda wt: wt.branch),
-    ("GIT_WORKSPACE_BRANCH_NO_SLASH", lambda wt: wt.branch.replace("/", "_")),
+    (
+        "GIT_WORKSPACE_BRANCH_SNAKE",
+        lambda wt: re.sub(r"[^a-z0-9]+", "_", wt.branch.lower()).strip("_"),
+    ),
+    (
+        "GIT_WORKSPACE_BRANCH_SLUG",
+        lambda wt: re.sub(r"[^a-z0-9]+", "-", wt.branch.lower()).strip("-"),
+    ),
     ("GIT_WORKSPACE_ROOT", lambda wt: str(wt.workspace.dir)),
     ("GIT_WORKSPACE_NAME", lambda wt: wt.workspace.dir.name),
     ("GIT_WORKSPACE_BIN", lambda wt: str(wt.workspace.paths.bin)),
