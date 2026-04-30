@@ -1,5 +1,3 @@
-from typing import Annotated
-
 import click
 import typer
 
@@ -9,16 +7,7 @@ app = typer.Typer()
 
 
 @app.command()
-def edit(
-    workspace_dir: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--root",
-            help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
-        ),
-    ] = None,
-) -> None:
+def edit(ctx: typer.Context) -> None:
     """
     Open the repository's `.workspace` directory in the configured editor.
 
@@ -26,7 +15,7 @@ def edit(
 
     The editor is resolved using standard environment variables (e.g. VISUAL or EDITOR). The command does not modify any files—it only launches the editor.
     """
-    workspace = Workspace.resolve(workspace_dir)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
 
     click.edit(
         filename=str(workspace.paths.config),

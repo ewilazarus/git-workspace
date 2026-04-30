@@ -4,6 +4,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from git_workspace.cli.commands.up import up
+from tests.helpers import make_context
 
 BRANCH = "feature/my-branch"
 BASE_BRANCH = "main"
@@ -23,11 +24,11 @@ def mock_activate_worktree(mocker: MockerFixture) -> MagicMock:
 
 class TestUp:
     def test_resolves_workspace(self, mock_workspace_resolve: MagicMock) -> None:
-        up(workspace_dir=WORKSPACE_DIR)
+        up(ctx=make_context(WORKSPACE_DIR))
         mock_workspace_resolve.assert_called_once_with(WORKSPACE_DIR)
 
     def test_resolves_or_creates_worktree(self, mock_workspace_resolve: MagicMock) -> None:
-        up(branch=BRANCH, base_branch=BASE_BRANCH)
+        up(ctx=make_context(), branch=BRANCH, base_branch=BASE_BRANCH)
         mock_workspace_resolve.return_value.resolve_or_create_worktree.assert_called_once_with(
             BRANCH, BASE_BRANCH
         )
@@ -37,7 +38,7 @@ class TestUp:
         mock_workspace_resolve: MagicMock,
         mock_activate_worktree: MagicMock,
     ) -> None:
-        up(runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
+        up(ctx=make_context(), runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
         mock_activate_worktree.assert_called_once_with(
@@ -52,7 +53,7 @@ class TestUp:
         mock_workspace_resolve: MagicMock,
         mock_activate_worktree: MagicMock,
     ) -> None:
-        up()
+        up(ctx=make_context())
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
         mock_activate_worktree.assert_called_once_with(
@@ -67,7 +68,7 @@ class TestUp:
         mock_workspace_resolve: MagicMock,
         mock_activate_worktree: MagicMock,
     ) -> None:
-        up(detached=True)
+        up(ctx=make_context(), detached=True)
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
         mock_activate_worktree.assert_called_once_with(
@@ -82,7 +83,7 @@ class TestUp:
         mock_workspace_resolve: MagicMock,
         mock_activate_worktree: MagicMock,
     ) -> None:
-        up(effective_branch="gabriel/impersonated")
+        up(ctx=make_context(), effective_branch="gabriel/impersonated")
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_or_create_worktree.return_value
         mock_activate_worktree.assert_called_once_with(

@@ -5,36 +5,37 @@ from conftest import _GIT_ENV, Setup
 
 from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
+from tests.helpers import make_context
 
 
 def test_creates_worktree_directory_for_existing_branch(workspace: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     assert (workspace.dir / "main").is_dir()
 
 
 def test_worktree_is_on_correct_branch(workspace: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     branch_file = workspace.dir / "main" / ".git"
     assert branch_file.exists()
 
 
 def test_creates_worktree_for_new_branch(workspace: Workspace) -> None:
-    up(branch="feature/new", base_branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="feature/new", base_branch="main")
     assert (workspace.dir / "feature" / "new").is_dir()
 
 
 def test_up_is_idempotent(workspace: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     assert (workspace.dir / "main").is_dir()
 
 
 def test_multiple_worktrees_can_coexist(workspace: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     up(
+        ctx=make_context(str(workspace.dir)),
         branch="feature/second",
         base_branch="main",
-        workspace_dir=str(workspace.dir),
     )
     assert (workspace.dir / "main").is_dir()
     assert (workspace.dir / "feature" / "second").is_dir()
@@ -72,7 +73,7 @@ def test_up_checks_out_remote_only_branch(setup: Setup, tmp_path: Path) -> None:
     subprocess.run(["git", "checkout", "main"], cwd=repo_path, capture_output=True, env=_GIT_ENV)
 
     # Run up on the colleague's branch — it only exists on the remote at this point
-    up(branch="feature/colleague", workspace_dir=str(workspace_dir))
+    up(ctx=make_context(str(workspace_dir)), branch="feature/colleague")
 
     worktree_path = workspace_dir / "feature" / "colleague"
     assert worktree_path.is_dir()
@@ -92,7 +93,7 @@ def test_new_branch_forks_from_latest_remote_main(setup: Setup, tmp_path: Path) 
     )
 
     # Check out main worktree so that refs/heads/main is locked inside the workspace
-    up(branch="main", workspace_dir=str(workspace_dir))
+    up(ctx=make_context(str(workspace_dir)), branch="main")
 
     # Add a new commit to the remote's main AFTER the workspace was created
     (repo_path / "new_remote_file.txt").write_text("new remote work")
@@ -107,7 +108,7 @@ def test_new_branch_forks_from_latest_remote_main(setup: Setup, tmp_path: Path) 
     )
 
     # Create a brand-new branch — it must fork from the latest remote main
-    up(branch="feature/new", workspace_dir=str(workspace_dir))
+    up(ctx=make_context(str(workspace_dir)), branch="feature/new")
 
     worktree_path = workspace_dir / "feature" / "new"
     assert worktree_path.is_dir()

@@ -12,18 +12,11 @@ app = typer.Typer()
 
 @app.command()
 def down(
+    ctx: typer.Context,
     branch: Annotated[
         str | None,
         typer.Argument(
             help="The branch whose workspace should be deactivated. If omitted, the branch will be inferred from the current working directory.",
-        ),
-    ] = None,
-    workspace_dir: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--root",
-            help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
         ),
     ] = None,
     runtime_vars: Annotated[
@@ -49,7 +42,7 @@ def down(
 
     Intended for use when leaving a workspace session cleanly, allowing any session-specific state to be torn down.
     """
-    workspace = Workspace.resolve(workspace_dir)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
     worktree = workspace.resolve_worktree(branch)
 
     console.print(f"Deactivating {styled_branch(worktree.branch)}")

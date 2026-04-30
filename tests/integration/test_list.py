@@ -7,6 +7,7 @@ from git_workspace import ui
 from git_workspace.cli.commands.list import list
 from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
+from tests.helpers import make_context
 
 
 def _render(renderable) -> str:
@@ -20,18 +21,18 @@ def test_returns_empty_before_any_up(workspace: Workspace) -> None:
 
 
 def test_lists_worktree_after_up(workspace: Workspace, mocker: MockerFixture) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     mock_print = mocker.patch.object(ui.console, "print")
-    list(workspace_dir=str(workspace.dir))
+    list(ctx=make_context(str(workspace.dir)))
     output = _render(mock_print.call_args[0][0])
     assert "main" in output
 
 
 def test_lists_multiple_worktrees(workspace: Workspace, mocker: MockerFixture) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
-    up(branch="feature/second", base_branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
+    up(ctx=make_context(str(workspace.dir)), branch="feature/second", base_branch="main")
     mock_print = mocker.patch.object(ui.console, "print")
-    list(workspace_dir=str(workspace.dir))
+    list(ctx=make_context(str(workspace.dir)))
     output = _render(mock_print.call_args[0][0])
     assert "main" in output
     assert "feature/second" in output

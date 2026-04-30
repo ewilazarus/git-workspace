@@ -11,14 +11,7 @@ app = typer.Typer()
 
 @app.command("prune")
 def prune(
-    root: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--root",
-            help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
-        ),
-    ] = None,
+    ctx: typer.Context,
     older_than_days: Annotated[
         int | None,
         typer.Option(
@@ -41,7 +34,7 @@ def prune(
 
     Runs in dry-run mode by default. Pass --apply to actually remove worktrees.
     """
-    workspace = Workspace.resolve(root)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
 
     threshold = older_than_days
     if threshold is None:

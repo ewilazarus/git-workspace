@@ -4,6 +4,7 @@ import typer
 from git_workspace.cli.commands.cache import exists, get, set
 from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
+from tests.helpers import make_context
 
 
 @pytest.fixture
@@ -75,7 +76,7 @@ def test_path_traversal_writes_no_file(in_workspace: Workspace) -> None:
 def test_hook_invokes_cache_cli_with_injected_namespace(
     workspace_with_cache_hooks: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_cache_hooks.dir))
+    up(ctx=make_context(str(workspace_with_cache_hooks.dir)), branch="main")
 
     # cache_setup hook called: git workspace cache set "marker" "ran"
     expected = workspace_with_cache_hooks.paths.cache / "hooks" / "cache_setup" / "marker"

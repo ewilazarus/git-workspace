@@ -1,5 +1,3 @@
-from typing import Annotated
-
 import typer
 from rich.table import Table
 
@@ -10,16 +8,7 @@ app = typer.Typer()
 
 
 @app.command("ls")
-def list(
-    workspace_dir: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--root",
-            help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
-        ),
-    ] = None,
-) -> None:
+def list(ctx: typer.Context) -> None:
     """
     List workspace worktrees.
 
@@ -27,7 +16,7 @@ def list(
 
     Use this to inspect the current state of the workspace.
     """
-    workspace = Workspace.resolve(workspace_dir)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
     worktrees = workspace.list_worktrees()
 
     table = Table(show_header=True, header_style="bold")

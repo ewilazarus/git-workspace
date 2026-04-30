@@ -12,18 +12,11 @@ app = typer.Typer()
 
 @app.command()
 def reset(
+    ctx: typer.Context,
     branch: Annotated[
         str | None,
         typer.Argument(
             help="The branch whose workspace should be reset. If omitted, the branch will be inferred from the current working directory.",
-        ),
-    ] = None,
-    workspace_dir: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--root",
-            help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
         ),
     ] = None,
     runtime_vars: Annotated[
@@ -51,7 +44,7 @@ def reset(
 
     Intended for repairing or refreshing an existing workspace when its state has drifted (e.g. missing dependencies, removed files, or updated configuration). Does not modify Git history, switch branches, or discard uncommitted changes.
     """
-    workspace = Workspace.resolve(workspace_dir)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
     worktree = workspace.resolve_worktree(branch)
 
     console.print(f"Resetting {styled_branch(worktree.branch)}")
