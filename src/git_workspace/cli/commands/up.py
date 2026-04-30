@@ -39,12 +39,11 @@ def up(
     detached: Annotated[
         bool,
         typer.Option(
-            "--detached",
+            "--detached/--no-detached",
             "-d",
             help=(
                 "Skip on_attach hooks after activation. Suitable for headless or agent workflows."
             ),
-            is_flag=True,
         ),
     ] = False,
     effective_branch: Annotated[
@@ -58,9 +57,8 @@ def up(
     output: Annotated[
         bool,
         typer.Option(
+            "--output/--no-output",
             "-o",
-            "--output",
-            is_flag=True,
             help="Print the worktree path to stdout and suppress all other output.",
         ),
     ] = False,

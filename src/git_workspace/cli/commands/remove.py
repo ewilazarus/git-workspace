@@ -22,9 +22,8 @@ def remove(
     force: Annotated[
         bool,
         typer.Option(
-            "--force",
+            "--force/--no-force",
             help="Remove the worktree even if it has uncommitted changes",
-            is_flag=True,
         ),
     ] = False,
     runtime_vars: Annotated[
