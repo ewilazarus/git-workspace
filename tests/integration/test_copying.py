@@ -196,3 +196,21 @@ def test_jinja_if_block_renders_other_branch(
     )
     target = workspace_with_jinja_copies.dir / "feature" / "x" / "template.txt"
     assert target.read_text() == "env=dev\n"
+
+
+def test_non_j2_file_is_copied_verbatim(
+    workspace_with_jinja_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_jinja_copies.dir))
+    target = workspace_with_jinja_copies.dir / "main" / "literal.txt"
+    assert target.read_text() == "branch={{ GIT_WORKSPACE_BRANCH }}\n"
+
+
+def test_j2_target_path_is_honoured_verbatim(
+    workspace_with_jinja_copies: Workspace,
+) -> None:
+    up(branch="main", workspace_dir=str(workspace_with_jinja_copies.dir))
+    rendered = workspace_with_jinja_copies.dir / "main" / "template.txt"
+    assert rendered.exists()
+    j2_path = workspace_with_jinja_copies.dir / "main" / "template.txt.j2"
+    assert not j2_path.exists()

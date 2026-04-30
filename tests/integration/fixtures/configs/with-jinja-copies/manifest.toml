@@ -3,5 +3,9 @@ version = 1
 base_branch = "main"
 
 [[copy]]
-source = "template.txt"
+source = "template.txt.j2"
 target = "template.txt"
+
+[[copy]]
+source = "literal.txt"
+target = "literal.txt"

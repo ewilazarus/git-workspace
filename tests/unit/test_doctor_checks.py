@@ -776,9 +776,9 @@ class TestCheckCopyPlaceholders:
     ) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
-        (assets / "template.txt").write_text("branch={{ GIT_WORKSPACE_BRANCH }}")
+        (assets / "template.txt.j2").write_text("branch={{ GIT_WORKSPACE_BRANCH }}")
         workspace.paths.assets = assets
-        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.copies = [Copy(source="template.txt.j2", target="template.txt")]
         workspace.manifest.vars = {}
 
         findings = []
@@ -790,9 +790,9 @@ class TestCheckCopyPlaceholders:
     ) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
-        (assets / "template.txt").write_text("env={{ GIT_WORKSPACE_VAR_ENV }}")
+        (assets / "template.txt.j2").write_text("env={{ GIT_WORKSPACE_VAR_ENV }}")
         workspace.paths.assets = assets
-        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.copies = [Copy(source="template.txt.j2", target="template.txt")]
         workspace.manifest.vars = {"env": "staging"}
 
         findings = []
@@ -804,9 +804,9 @@ class TestCheckCopyPlaceholders:
     ) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
-        (assets / "template.txt").write_text("x={{ GIT_WORKSPACE_TYPO }}")
+        (assets / "template.txt.j2").write_text("x={{ GIT_WORKSPACE_TYPO }}")
         workspace.paths.assets = assets
-        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.copies = [Copy(source="template.txt.j2", target="template.txt")]
         workspace.manifest.vars = {}
 
         findings = []
@@ -821,11 +821,11 @@ class TestCheckCopyPlaceholders:
     ) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
-        (assets / "template.txt").write_text(
+        (assets / "template.txt.j2").write_text(
             "{{ GIT_WORKSPACE_TYPO }} and {{ GIT_WORKSPACE_TYPO }}"
         )
         workspace.paths.assets = assets
-        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.copies = [Copy(source="template.txt.j2", target="template.txt")]
         workspace.manifest.vars = {}
 
         findings = []
@@ -844,6 +844,22 @@ class TestCheckCopyPlaceholders:
         _check_copy_placeholders(workspace, findings)
         assert findings == []
 
+    def test_skips_non_j2_files(self, workspace: MagicMock, tmp_path: Path) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        (assets / "config.yaml").write_text("{{ GIT_WORKSPACE_TYPO }}")
+        (assets / "script.sh").write_text("{% if GIT_WORKSPACE_BRANCH %}oops")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [
+            Copy(source="config.yaml", target="config.yaml"),
+            Copy(source="script.sh", target="script.sh"),
+        ]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+        assert findings == []
+
     def test_skips_binary_files(self, workspace: MagicMock, tmp_path: Path) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
@@ -856,7 +872,25 @@ class TestCheckCopyPlaceholders:
         _check_copy_placeholders(workspace, findings)
         assert findings == []
 
-    def test_checks_files_inside_directory_source(
+    def test_checks_j2_files_inside_directory_source(
+        self, workspace: MagicMock, tmp_path: Path
+    ) -> None:
+        assets = tmp_path / "assets"
+        assets.mkdir()
+        subdir = assets / "config"
+        subdir.mkdir()
+        (subdir / "app.yaml.j2").write_text("key={{ GIT_WORKSPACE_UNKNOWN }}")
+        workspace.paths.assets = assets
+        workspace.manifest.copies = [Copy(source="config", target="config")]
+        workspace.manifest.vars = {}
+
+        findings = []
+        _check_copy_placeholders(workspace, findings)
+
+        assert len(findings) == 1
+        assert "GIT_WORKSPACE_UNKNOWN" in findings[0].message
+
+    def test_skips_non_j2_files_inside_directory_source(
         self, workspace: MagicMock, tmp_path: Path
     ) -> None:
         assets = tmp_path / "assets"
@@ -870,18 +904,16 @@ class TestCheckCopyPlaceholders:
 
         findings = []
         _check_copy_placeholders(workspace, findings)
-
-        assert len(findings) == 1
-        assert "GIT_WORKSPACE_UNKNOWN" in findings[0].message
+        assert findings == []
 
     def test_returns_no_findings_for_fingerprint_placeholder(
         self, workspace: MagicMock, tmp_path: Path
     ) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
-        (assets / "template.txt").write_text("hash={{ GIT_WORKSPACE_FINGERPRINT_DEPS }}")
+        (assets / "template.txt.j2").write_text("hash={{ GIT_WORKSPACE_FINGERPRINT_DEPS }}")
         workspace.paths.assets = assets
-        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.copies = [Copy(source="template.txt.j2", target="template.txt")]
         workspace.manifest.vars = {}
         workspace.manifest.fingerprints = [Fingerprint(name="deps", files=["package.json"])]
 
@@ -894,9 +926,9 @@ class TestCheckCopyPlaceholders:
     ) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
-        (assets / "template.txt").write_text("hash={{ GIT_WORKSPACE_FINGERPRINT_DEPS }}")
+        (assets / "template.txt.j2").write_text("hash={{ GIT_WORKSPACE_FINGERPRINT_DEPS }}")
         workspace.paths.assets = assets
-        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.copies = [Copy(source="template.txt.j2", target="template.txt")]
         workspace.manifest.vars = {}
         workspace.manifest.fingerprints = []
 
@@ -911,9 +943,9 @@ class TestCheckCopyPlaceholders:
     ) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
-        (assets / "template.txt").write_text("{% if GIT_WORKSPACE_BRANCH %}oops")
+        (assets / "template.txt.j2").write_text("{% if GIT_WORKSPACE_BRANCH %}oops")
         workspace.paths.assets = assets
-        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.copies = [Copy(source="template.txt.j2", target="template.txt")]
         workspace.manifest.vars = {}
 
         findings = []
@@ -921,7 +953,7 @@ class TestCheckCopyPlaceholders:
 
         assert len(findings) == 1
         assert findings[0].level == "error"
-        assert "template.txt" in findings[0].message
+        assert "template.txt.j2" in findings[0].message
         assert "invalid template syntax" in findings[0].message
 
     def test_skips_placeholder_check_when_template_invalid(
@@ -929,9 +961,9 @@ class TestCheckCopyPlaceholders:
     ) -> None:
         assets = tmp_path / "assets"
         assets.mkdir()
-        (assets / "template.txt").write_text("{% if %}{{ GIT_WORKSPACE_TYPO }}")
+        (assets / "template.txt.j2").write_text("{% if %}{{ GIT_WORKSPACE_TYPO }}")
         workspace.paths.assets = assets
-        workspace.manifest.copies = [Copy(source="template.txt", target="template.txt")]
+        workspace.manifest.copies = [Copy(source="template.txt.j2", target="template.txt")]
         workspace.manifest.vars = {}
 
         findings = []

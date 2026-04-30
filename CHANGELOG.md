@@ -10,6 +10,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 - `git workspace compose <args>` — shells out to `docker compose` with a compose file auto-discovered under `<root>/.workspace/` (one of compose.yaml, compose.yml, docker-compose.yaml, docker-compose.yml) and the workspace directory name passed as `-p <project-name>` (slugified to match docker compose naming rules). Intended for shared services (DB, cache, etc.) that span all worktrees of a workspace. All extra arguments are forwarded verbatim, so `git workspace compose up -d`, `logs -f`, `exec`, etc. all work. Supports `-r/--root` to invoke from outside the workspace.
 
+### Changed
+- **Breaking:** Copy assets are now rendered as Jinja2 templates only when their source filename ends in `.j2`. Files without `.j2` are copied verbatim, so assets that incidentally contain `{{ … }}` or `{% … %}` (shell scripts, dockerfiles using Bash `${VAR}`, etc.) are no longer silently rewritten. The target path is taken verbatim from the manifest — the `.j2` suffix is **not** stripped automatically; if you want the rendered file to be `docker-compose.override.yml`, write `source = "docker-compose.override.yml.j2"` and `target = "docker-compose.override.yml"`. Migrate by renaming any asset that relies on Jinja substitution from `<name>` to `<name>.j2` and updating the matching `[[copy]]` `source` field.
+
 ## [0.7.0] - 2026-04-30
 
 ### Added
