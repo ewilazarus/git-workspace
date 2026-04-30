@@ -11,10 +11,7 @@ app = typer.Typer()
 
 @app.command()
 def doctor(
-    workspace_dir: Annotated[
-        str | None,
-        typer.Option("--root", "-r", help="Workspace root path"),
-    ] = None,
+    ctx: typer.Context,
     fix: Annotated[
         bool,
         typer.Option("--fix", "-f", help="Apply auto fixes silently; prompt for interactive ones"),
@@ -34,7 +31,7 @@ def doctor(
     if yes:
         fix = True
 
-    workspace = Workspace.resolve(workspace_dir)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
     findings = run_checks(workspace)
 
     if not findings:

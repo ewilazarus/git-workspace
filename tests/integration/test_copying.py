@@ -1,12 +1,13 @@
 from git_workspace.cli.commands.reset import reset
 from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
+from tests.helpers import make_context
 
 
 def test_placeholder_copy_resolves_branch_on_up(
     workspace_with_placeholder_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_placeholder_copies.dir))
+    up(ctx=make_context(str(workspace_with_placeholder_copies.dir)), branch="main")
     target = workspace_with_placeholder_copies.dir / "main" / "template.txt"
     assert target.read_text() == "branch=main\n"
 
@@ -14,36 +15,36 @@ def test_placeholder_copy_resolves_branch_on_up(
 def test_placeholder_copy_resolves_branch_after_reset(
     workspace_with_placeholder_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_placeholder_copies.dir))
+    up(ctx=make_context(str(workspace_with_placeholder_copies.dir)), branch="main")
     target = workspace_with_placeholder_copies.dir / "main" / "template.txt"
     target.unlink()
-    reset(branch="main", workspace_dir=str(workspace_with_placeholder_copies.dir))
+    reset(ctx=make_context(str(workspace_with_placeholder_copies.dir)), branch="main")
     assert target.read_text() == "branch=main\n"
 
 
 def test_non_override_copy_creates_file(workspace_with_copies: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     target = workspace_with_copies.dir / "main" / ".dotfile"
     assert target.exists()
     assert not target.is_symlink()
 
 
 def test_non_override_copy_has_correct_content(workspace_with_copies: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     target = workspace_with_copies.dir / "main" / ".dotfile"
     source = workspace_with_copies.paths.assets / "dotfile"
     assert target.read_text() == source.read_text()
 
 
 def test_override_copy_creates_file(workspace_with_copies: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     target = workspace_with_copies.dir / "main" / "settings.json"
     assert target.exists()
     assert not target.is_symlink()
 
 
 def test_override_copy_has_correct_content(workspace_with_copies: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     target = workspace_with_copies.dir / "main" / "settings.json"
     source = workspace_with_copies.paths.assets / "settings.json"
     assert target.read_text() == source.read_text()
@@ -52,7 +53,7 @@ def test_override_copy_has_correct_content(workspace_with_copies: Workspace) -> 
 def test_non_override_copy_is_added_to_exclude_file(
     workspace_with_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     exclude_content = workspace_with_copies.paths.ignore_file.read_text()
     assert ".dotfile" in exclude_content
 
@@ -60,7 +61,7 @@ def test_non_override_copy_is_added_to_exclude_file(
 def test_override_copy_is_not_added_to_exclude_file(
     workspace_with_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     exclude_content = workspace_with_copies.paths.ignore_file.read_text()
     settings_path = str((workspace_with_copies.dir / "main" / "settings.json").absolute())
     assert settings_path not in exclude_content
@@ -69,49 +70,49 @@ def test_override_copy_is_not_added_to_exclude_file(
 def test_copies_applied_across_multiple_worktrees(
     workspace_with_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     up(
+        ctx=make_context(str(workspace_with_copies.dir)),
         branch="feature/other",
         base_branch="main",
-        workspace_dir=str(workspace_with_copies.dir),
     )
     assert (workspace_with_copies.dir / "main" / ".dotfile").exists()
     assert (workspace_with_copies.dir / "feature" / "other" / ".dotfile").exists()
 
 
 def test_reset_reapplies_non_override_copy(workspace_with_copies: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     target = workspace_with_copies.dir / "main" / ".dotfile"
     target.unlink()
     assert not target.exists()
-    reset(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    reset(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     assert target.exists()
 
 
 def test_reset_reapplies_override_copy(workspace_with_copies: Workspace) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     target = workspace_with_copies.dir / "main" / "settings.json"
     target.unlink()
     assert not target.exists()
-    reset(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    reset(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     assert target.exists()
 
 
 def test_reset_overwrites_modified_copy(
     workspace_with_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     target = workspace_with_copies.dir / "main" / ".dotfile"
     source = workspace_with_copies.paths.assets / "dotfile"
     target.write_text("modified by user")
-    reset(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    reset(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     assert target.read_text() == source.read_text()
 
 
 def test_non_overwrite_copy_creates_file_on_up(
     workspace_with_non_overwrite_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    up(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     target = workspace_with_non_overwrite_copies.dir / "main" / ".dotfile"
     assert target.exists()
     assert not target.is_symlink()
@@ -120,7 +121,7 @@ def test_non_overwrite_copy_creates_file_on_up(
 def test_non_overwrite_copy_has_correct_initial_content(
     workspace_with_non_overwrite_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    up(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     target = workspace_with_non_overwrite_copies.dir / "main" / ".dotfile"
     source = workspace_with_non_overwrite_copies.paths.assets / "dotfile"
     assert target.read_text() == source.read_text()
@@ -129,22 +130,22 @@ def test_non_overwrite_copy_has_correct_initial_content(
 def test_reset_preserves_user_modified_copy_when_overwrite_false(
     workspace_with_non_overwrite_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    up(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     target = workspace_with_non_overwrite_copies.dir / "main" / ".dotfile"
     target.write_text("modified by user")
-    reset(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    reset(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     assert target.read_text() == "modified by user"
 
 
 def test_reset_recreates_non_overwrite_copy_when_deleted(
     workspace_with_non_overwrite_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    up(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     target = workspace_with_non_overwrite_copies.dir / "main" / ".dotfile"
     source = workspace_with_non_overwrite_copies.paths.assets / "dotfile"
     target.unlink()
     assert not target.exists()
-    reset(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    reset(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     assert target.exists()
     assert target.read_text() == source.read_text()
 
@@ -152,7 +153,7 @@ def test_reset_recreates_non_overwrite_copy_when_deleted(
 def test_non_overwrite_override_copy_creates_file_on_up(
     workspace_with_non_overwrite_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    up(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     target = workspace_with_non_overwrite_copies.dir / "main" / "settings.json"
     assert target.exists()
     assert not target.is_symlink()
@@ -161,16 +162,16 @@ def test_non_overwrite_override_copy_creates_file_on_up(
 def test_reset_preserves_user_modified_override_copy_when_overwrite_false(
     workspace_with_non_overwrite_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    up(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     target = workspace_with_non_overwrite_copies.dir / "main" / "settings.json"
     target.write_text("modified by user")
-    reset(branch="main", workspace_dir=str(workspace_with_non_overwrite_copies.dir))
+    reset(ctx=make_context(str(workspace_with_non_overwrite_copies.dir)), branch="main")
     assert target.read_text() == "modified by user"
 
 
 def test_copy_is_independent_of_source(workspace_with_copies: Workspace) -> None:
     """Modifying the copied file does not affect the source asset."""
-    up(branch="main", workspace_dir=str(workspace_with_copies.dir))
+    up(ctx=make_context(str(workspace_with_copies.dir)), branch="main")
     target = workspace_with_copies.dir / "main" / ".dotfile"
     source = workspace_with_copies.paths.assets / "dotfile"
     original_content = source.read_text()
@@ -181,7 +182,7 @@ def test_copy_is_independent_of_source(workspace_with_copies: Workspace) -> None
 def test_jinja_if_block_renders_branch_main(
     workspace_with_jinja_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_jinja_copies.dir))
+    up(ctx=make_context(str(workspace_with_jinja_copies.dir)), branch="main")
     target = workspace_with_jinja_copies.dir / "main" / "template.txt"
     assert target.read_text() == "env=prod\n"
 
@@ -190,9 +191,9 @@ def test_jinja_if_block_renders_other_branch(
     workspace_with_jinja_copies: Workspace,
 ) -> None:
     up(
+        ctx=make_context(str(workspace_with_jinja_copies.dir)),
         branch="feature/x",
         base_branch="main",
-        workspace_dir=str(workspace_with_jinja_copies.dir),
     )
     target = workspace_with_jinja_copies.dir / "feature" / "x" / "template.txt"
     assert target.read_text() == "env=dev\n"
@@ -201,7 +202,7 @@ def test_jinja_if_block_renders_other_branch(
 def test_non_j2_file_is_copied_verbatim(
     workspace_with_jinja_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_jinja_copies.dir))
+    up(ctx=make_context(str(workspace_with_jinja_copies.dir)), branch="main")
     target = workspace_with_jinja_copies.dir / "main" / "literal.txt"
     assert target.read_text() == "branch={{ GIT_WORKSPACE_BRANCH }}\n"
 
@@ -209,7 +210,7 @@ def test_non_j2_file_is_copied_verbatim(
 def test_j2_target_path_is_honoured_verbatim(
     workspace_with_jinja_copies: Workspace,
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace_with_jinja_copies.dir))
+    up(ctx=make_context(str(workspace_with_jinja_copies.dir)), branch="main")
     rendered = workspace_with_jinja_copies.dir / "main" / "template.txt"
     assert rendered.exists()
     j2_path = workspace_with_jinja_copies.dir / "main" / "template.txt.j2"

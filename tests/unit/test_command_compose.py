@@ -10,6 +10,7 @@ from git_workspace.cli.commands.compose import (
     _slugify_project_name,
     compose,
 )
+from tests.helpers import make_context
 
 WORKSPACE_DIR = "/workspace"
 COMPOSE_FILE = Path("/workspace/.workspace/compose.yml")
@@ -41,15 +42,13 @@ def mock_subprocess_run(mocker: MockerFixture) -> MagicMock:
 
 class TestResolveWorkspace:
     def test_resolves_workspace_with_root(self, mock_workspace_resolve: MagicMock) -> None:
-        ctx = MagicMock()
-        ctx.args = []
-        compose(ctx=ctx, workspace_dir=WORKSPACE_DIR)
+        ctx = make_context(WORKSPACE_DIR)
+        compose(ctx=ctx)
         mock_workspace_resolve.assert_called_once_with(WORKSPACE_DIR)
 
     def test_resolves_workspace_without_root(self, mock_workspace_resolve: MagicMock) -> None:
-        ctx = MagicMock()
-        ctx.args = []
-        compose(ctx=ctx, workspace_dir=None)
+        ctx = make_context()
+        compose(ctx=ctx)
         mock_workspace_resolve.assert_called_once_with(None)
 
 
@@ -58,8 +57,7 @@ class TestDockerInvocation:
         self,
         mock_subprocess_run: MagicMock,
     ) -> None:
-        ctx = MagicMock()
-        ctx.args = []
+        ctx = make_context()
         compose(ctx=ctx)
         cmd = mock_subprocess_run.call_args[0][0]
         assert cmd[:6] == ["docker", "compose", "-p", "workspace", "-f", str(COMPOSE_FILE)]
@@ -68,7 +66,7 @@ class TestDockerInvocation:
         self,
         mock_subprocess_run: MagicMock,
     ) -> None:
-        ctx = MagicMock()
+        ctx = make_context()
         ctx.args = ["up", "-d", "--build"]
         compose(ctx=ctx)
         cmd = mock_subprocess_run.call_args[0][0]
@@ -78,8 +76,7 @@ class TestDockerInvocation:
         self,
         mock_subprocess_run: MagicMock,
     ) -> None:
-        ctx = MagicMock()
-        ctx.args = []
+        ctx = make_context()
         compose(ctx=ctx)
         assert mock_subprocess_run.call_args[1]["cwd"] == CONFIG_DIR
 
@@ -89,8 +86,7 @@ class TestDockerInvocation:
         mock_subprocess_run: MagicMock,
     ) -> None:
         mock_workspace_resolve.return_value.dir.name = "My Workspace"
-        ctx = MagicMock()
-        ctx.args = []
+        ctx = make_context()
         compose(ctx=ctx)
         cmd = mock_subprocess_run.call_args[0][0]
         assert cmd[3] == "my-workspace"
@@ -102,8 +98,7 @@ class TestExitCodes:
         mock_subprocess_run: MagicMock,
     ) -> None:
         mock_subprocess_run.return_value.returncode = 2
-        ctx = MagicMock()
-        ctx.args = []
+        ctx = make_context()
         with pytest.raises(typer.Exit) as exc:
             compose(ctx=ctx)
         assert exc.value.exit_code == 2
@@ -113,8 +108,7 @@ class TestExitCodes:
         mock_subprocess_run: MagicMock,
     ) -> None:
         mock_subprocess_run.side_effect = FileNotFoundError
-        ctx = MagicMock()
-        ctx.args = []
+        ctx = make_context()
         with pytest.raises(typer.Exit) as exc:
             compose(ctx=ctx)
         assert exc.value.exit_code == 1
@@ -126,8 +120,7 @@ class TestNoComposeFile:
         mock_find_compose_file: MagicMock,
     ) -> None:
         mock_find_compose_file.return_value = None
-        ctx = MagicMock()
-        ctx.args = []
+        ctx = make_context()
         with pytest.raises(typer.Exit) as exc:
             compose(ctx=ctx)
         assert exc.value.exit_code == 1

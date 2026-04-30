@@ -4,6 +4,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from git_workspace.cli.commands.down import down
+from tests.helpers import make_context
 
 BRANCH = "feature/my-branch"
 WORKSPACE_DIR = "/workspace"
@@ -22,11 +23,11 @@ def mock_deactivate_worktree(mocker: MockerFixture) -> MagicMock:
 
 class TestDown:
     def test_resolves_workspace(self, mock_workspace_resolve: MagicMock) -> None:
-        down(workspace_dir=WORKSPACE_DIR)
+        down(ctx=make_context(WORKSPACE_DIR))
         mock_workspace_resolve.assert_called_once_with(WORKSPACE_DIR)
 
     def test_resolves_worktree(self, mock_workspace_resolve: MagicMock) -> None:
-        down(branch=BRANCH)
+        down(ctx=make_context(), branch=BRANCH)
         mock_workspace_resolve.return_value.resolve_worktree.assert_called_once_with(BRANCH)
 
     def test_deactivates_worktree_with_runtime_vars(
@@ -34,7 +35,7 @@ class TestDown:
         mock_workspace_resolve: MagicMock,
         mock_deactivate_worktree: MagicMock,
     ) -> None:
-        down(runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
+        down(ctx=make_context(), runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
         mock_deactivate_worktree.assert_called_once_with(
@@ -48,7 +49,7 @@ class TestDown:
         mock_workspace_resolve: MagicMock,
         mock_deactivate_worktree: MagicMock,
     ) -> None:
-        down()
+        down(ctx=make_context())
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
         mock_deactivate_worktree.assert_called_once_with(
@@ -62,7 +63,7 @@ class TestDown:
         mock_workspace_resolve: MagicMock,
         mock_deactivate_worktree: MagicMock,
     ) -> None:
-        down(effective_branch="gabriel/impersonated")
+        down(ctx=make_context(), effective_branch="gabriel/impersonated")
         workspace = mock_workspace_resolve.return_value
         worktree = workspace.resolve_worktree.return_value
         mock_deactivate_worktree.assert_called_once_with(

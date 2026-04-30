@@ -12,6 +12,7 @@ app = typer.Typer()
 
 @app.command()
 def up(
+    ctx: typer.Context,
     branch: Annotated[
         str | None,
         typer.Argument(
@@ -26,14 +27,6 @@ def up(
             help="The base branch to use when creating a new branch. If omitted, defaults to the base branch defined in the workspace manifest",
         ),
     ] = None,
-    workspace_dir: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--root",
-            help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
-        ),
-    ] = None,
     runtime_vars: Annotated[
         list[str] | None,
         typer.Option(
@@ -46,12 +39,11 @@ def up(
     detached: Annotated[
         bool,
         typer.Option(
-            "--detached",
+            "--detached/--no-detached",
             "-d",
             help=(
                 "Skip on_attach hooks after activation. Suitable for headless or agent workflows."
             ),
-            is_flag=True,
         ),
     ] = False,
     effective_branch: Annotated[
@@ -65,9 +57,8 @@ def up(
     output: Annotated[
         bool,
         typer.Option(
+            "--output/--no-output",
             "-o",
-            "--output",
-            is_flag=True,
             help="Print the worktree path to stdout and suppress all other output.",
         ),
     ] = False,
@@ -79,7 +70,7 @@ def up(
 
     If the worktree does not exist, copies and links from the manifest are applied first, followed by on_setup hooks. Unless --detached is passed, on_attach hooks also run — use --detached for headless or automated workflows.
     """
-    workspace = Workspace.resolve(workspace_dir)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
     worktree = workspace.resolve_or_create_worktree(branch, base_branch)
 
     console.print(f"Activating {styled_branch(worktree.branch)}")

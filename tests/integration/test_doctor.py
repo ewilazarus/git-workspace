@@ -12,6 +12,7 @@ from git_workspace.cli.commands.up import up
 from git_workspace.errors import InvalidWorkspaceError, UnableToResolveWorkspaceError
 from git_workspace.manifest import Manifest
 from git_workspace.workspace import Workspace
+from tests.helpers import make_context
 
 
 def _remove_keep_files(workspace: Workspace) -> None:
@@ -36,7 +37,7 @@ def _messages(mock) -> list[str]:
 class TestDoctorNotInWorkspace:
     def test_errors_outside_workspace(self, tmp_path: Workspace) -> None:
         with pytest.raises((InvalidWorkspaceError, UnableToResolveWorkspaceError)):
-            doctor(workspace_dir=str(tmp_path))
+            doctor(ctx=make_context(str(tmp_path)))
 
 
 class TestDoctorManifestParseable:
@@ -48,7 +49,7 @@ class TestDoctorManifestParseable:
         mock_error = _errors(mocker)
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace.dir))
+            doctor(ctx=make_context(str(workspace.dir)))
 
         assert exc.value.exit_code == 1
         assert any("TOML" in msg for msg in _messages(mock_error))
@@ -65,7 +66,7 @@ class TestDoctorManifestVersion:
         mock_error = _errors(mocker)
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace.dir))
+            doctor(ctx=make_context(str(workspace.dir)))
 
         assert exc.value.exit_code == 1
         assert any(str(Manifest.DEFAULT_VERSION + 1) in msg for msg in _messages(mock_error))
@@ -81,7 +82,7 @@ class TestDoctorAssetSourcesExist:
         mock_error = _errors(mocker)
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace_with_links.dir))
+            doctor(ctx=make_context(str(workspace_with_links.dir)))
 
         assert exc.value.exit_code == 1
         mock_error.assert_called()
@@ -95,7 +96,7 @@ class TestDoctorAssetSourcesExist:
         mock_error = _errors(mocker)
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace_with_copies.dir))
+            doctor(ctx=make_context(str(workspace_with_copies.dir)))
 
         assert exc.value.exit_code == 1
         mock_error.assert_called()
@@ -121,7 +122,7 @@ target = ".shared"
         mock_error = _errors(mocker)
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace_with_links.dir))
+            doctor(ctx=make_context(str(workspace_with_links.dir)))
 
         assert exc.value.exit_code == 1
         assert any(".shared" in msg for msg in _messages(mock_error))
@@ -145,7 +146,7 @@ target = ".shared"
         mock_error = _errors(mocker)
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace_with_links.dir))
+            doctor(ctx=make_context(str(workspace_with_links.dir)))
 
         assert exc.value.exit_code == 1
         assert any(".shared" in msg for msg in _messages(mock_error))
@@ -167,7 +168,7 @@ target = "../../escape"
         mock_error = _errors(mocker)
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace_with_links.dir))
+            doctor(ctx=make_context(str(workspace_with_links.dir)))
 
         assert exc.value.exit_code == 1
         assert any("escape" in msg for msg in _messages(mock_error))
@@ -187,7 +188,7 @@ my_key = "b"
         mock_error = _errors(mocker)
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace.dir))
+            doctor(ctx=make_context(str(workspace.dir)))
 
         assert exc.value.exit_code == 1
         assert any("my-key" in msg and "my_key" in msg for msg in _messages(mock_error))
@@ -201,7 +202,7 @@ class TestDoctorHookBinReferences:
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace_with_hooks.dir))
+        doctor(ctx=make_context(str(workspace_with_hooks.dir)))
 
         assert any("on_setup" in msg for msg in _messages(mock_warning))
 
@@ -212,7 +213,7 @@ class TestDoctorHookBinReferences:
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace_with_hooks.dir))
+        doctor(ctx=make_context(str(workspace_with_hooks.dir)))
 
         assert any("on_setup" in msg and "executable" in msg for msg in _messages(mock_warning))
 
@@ -229,7 +230,7 @@ commands = [""]
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace.dir))
+        doctor(ctx=make_context(str(workspace.dir)))
 
         assert any("on_setup" in msg for msg in _messages(mock_warning))
 
@@ -248,7 +249,7 @@ commands = ["echo hello", "echo hello"]
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace.dir))
+        doctor(ctx=make_context(str(workspace.dir)))
 
         assert any("on_setup" in msg and "echo hello" in msg for msg in _messages(mock_warning))
 
@@ -261,7 +262,7 @@ class TestDoctorOrphanedBinScripts:
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace_with_hooks.dir))
+        doctor(ctx=make_context(str(workspace_with_hooks.dir)))
 
         assert any("orphan.sh" in msg for msg in _messages(mock_warning))
 
@@ -274,7 +275,7 @@ class TestDoctorOrphanedAssets:
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace_with_links.dir))
+        doctor(ctx=make_context(str(workspace_with_links.dir)))
 
         assert any("orphan.txt" in msg for msg in _messages(mock_warning))
 
@@ -290,19 +291,19 @@ base_branch = "this-branch-does-not-exist"
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace.dir))
+        doctor(ctx=make_context(str(workspace.dir)))
 
         assert any("this-branch-does-not-exist" in msg for msg in _messages(mock_warning))
 
 
 class TestDoctorStaleWorktrees:
     def test_warns_about_stale_worktree(self, workspace: Workspace, mocker: MockerFixture) -> None:
-        up(branch="main", workspace_dir=str(workspace.dir))
+        up(ctx=make_context(str(workspace.dir)), branch="main")
         shutil.rmtree(workspace.paths.worktree("main"))
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace.dir))
+        doctor(ctx=make_context(str(workspace.dir)))
 
         assert any("main" in msg and "no longer exists" in msg for msg in _messages(mock_warning))
 
@@ -316,7 +317,7 @@ class TestDoctorCopyPlaceholders:
 
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace_with_placeholder_copies.dir))
+        doctor(ctx=make_context(str(workspace_with_placeholder_copies.dir)))
 
         assert any("GIT_WORKSPACE_TYPO" in msg for msg in _messages(mock_warning))
 
@@ -325,7 +326,7 @@ class TestDoctorCopyPlaceholders:
     ) -> None:
         mock_warning = _warnings(mocker)
 
-        doctor(workspace_dir=str(workspace_with_placeholder_copies.dir))
+        doctor(ctx=make_context(str(workspace_with_placeholder_copies.dir)))
 
         assert not any("placeholder" in msg for msg in _messages(mock_warning))
 
@@ -335,18 +336,18 @@ class TestDoctorFix:
         script = workspace_with_hooks.paths.bin / "on_setup"
         script.chmod(0o644)
 
-        doctor(workspace_dir=str(workspace_with_hooks.dir), fix=True)
+        doctor(ctx=make_context(str(workspace_with_hooks.dir)), fix=True)
 
         assert os.access(script, os.X_OK)
 
     def test_auto_fix_prunes_stale_worktree(
         self, workspace: Workspace, mocker: MockerFixture
     ) -> None:
-        up(branch="main", workspace_dir=str(workspace.dir))
+        up(ctx=make_context(str(workspace.dir)), branch="main")
         shutil.rmtree(workspace.paths.worktree("main"))
         prune_mock = mocker.patch("git_workspace.doctor.git.prune_worktrees")
 
-        doctor(workspace_dir=str(workspace.dir), fix=True)
+        doctor(ctx=make_context(str(workspace.dir)), fix=True)
 
         prune_mock.assert_called()
 
@@ -354,7 +355,7 @@ class TestDoctorFix:
         orphan = workspace_with_links.paths.assets / "orphan.txt"
         orphan.write_text("unused")
 
-        doctor(workspace_dir=str(workspace_with_links.dir), yes=True)
+        doctor(ctx=make_context(str(workspace_with_links.dir)), yes=True)
 
         assert not orphan.exists()
 
@@ -365,7 +366,7 @@ class TestDoctorFix:
         orphan.write_text("unused")
         mocker.patch("git_workspace.cli.commands.doctor.confirm", return_value=False)
 
-        doctor(workspace_dir=str(workspace_with_links.dir), fix=True)
+        doctor(ctx=make_context(str(workspace_with_links.dir)), fix=True)
 
         assert orphan.exists()
 
@@ -376,7 +377,7 @@ class TestDoctorFix:
         orphan.write_text("unused")
         mocker.patch("git_workspace.cli.commands.doctor.confirm", return_value=True)
 
-        doctor(workspace_dir=str(workspace_with_links.dir), fix=True)
+        doctor(ctx=make_context(str(workspace_with_links.dir)), fix=True)
 
         assert not orphan.exists()
 
@@ -384,7 +385,7 @@ class TestDoctorFix:
         script = workspace_with_hooks.paths.bin / "on_setup"
         script.chmod(0o644)
 
-        doctor(workspace_dir=str(workspace_with_hooks.dir), yes=True)
+        doctor(ctx=make_context(str(workspace_with_hooks.dir)), yes=True)
 
         assert os.access(script, os.X_OK)
 
@@ -392,7 +393,7 @@ class TestDoctorFix:
         workspace.paths.manifest.write_text("!!! not valid toml !!!")
 
         with pytest.raises(typer.Exit) as exc:
-            doctor(workspace_dir=str(workspace.dir), fix=True)
+            doctor(ctx=make_context(str(workspace.dir)), fix=True)
 
         assert exc.value.exit_code == 1
 
@@ -402,7 +403,7 @@ class TestDoctorFix:
         _remove_keep_files(workspace)
         mock_success = mocker.patch.object(ui.console, "success")
 
-        doctor(workspace_dir=str(workspace.dir), fix=True)
+        doctor(ctx=make_context(str(workspace.dir)), fix=True)
 
         mock_success.assert_called_once()
         assert "healthy" in mock_success.call_args[0][0].lower()
@@ -412,7 +413,7 @@ class TestDoctorFix:
             'version = 1\nbase_branch = "main"\n\n[[hooks.on_setup]]\ncommands = ["real_cmd", ""]\n'
         )
 
-        doctor(workspace_dir=str(workspace.dir), fix=True)
+        doctor(ctx=make_context(str(workspace.dir)), fix=True)
 
         updated = tomllib.loads(workspace.paths.manifest.read_text())
         assert updated["hooks"]["on_setup"][0]["commands"] == ["real_cmd"]
@@ -424,7 +425,7 @@ class TestDoctorFix:
             'commands = ["build", "build", "test"]\n'
         )
 
-        doctor(workspace_dir=str(workspace.dir), fix=True)
+        doctor(ctx=make_context(str(workspace.dir)), fix=True)
 
         updated = tomllib.loads(workspace.paths.manifest.read_text())
         assert updated["hooks"]["on_setup"][0]["commands"] == ["build", "test"]
@@ -438,7 +439,7 @@ class TestDoctorFix:
             "commands = []\n"
         )
 
-        doctor(workspace_dir=str(workspace.dir), fix=True)
+        doctor(ctx=make_context(str(workspace.dir)), fix=True)
 
         updated = tomllib.loads(workspace.paths.manifest.read_text())
         assert len(updated["hooks"]["on_setup"]) == 1
@@ -451,7 +452,7 @@ class TestDoctorFix:
             f.unlink()
         mocker.patch("git_workspace.cli.commands.doctor.confirm", return_value=True)
 
-        doctor(workspace_dir=str(workspace_with_links.dir), fix=True)
+        doctor(ctx=make_context(str(workspace_with_links.dir)), fix=True)
 
         updated = tomllib.loads(workspace_with_links.paths.manifest.read_text())
         assert updated.get("link", []) == []
@@ -462,7 +463,7 @@ class TestDoctorFix:
         for f in workspace_with_links.paths.assets.iterdir():
             f.unlink()
 
-        doctor(workspace_dir=str(workspace_with_links.dir), yes=True)
+        doctor(ctx=make_context(str(workspace_with_links.dir)), yes=True)
 
         updated = tomllib.loads(workspace_with_links.paths.manifest.read_text())
         assert updated.get("link", []) == []
@@ -475,7 +476,7 @@ class TestDoctorClean:
         _remove_keep_files(workspace)
         mock_success = mocker.patch.object(ui.console, "success")
 
-        doctor(workspace_dir=str(workspace.dir))
+        doctor(ctx=make_context(str(workspace.dir)))
 
         mock_success.assert_called_once()
         assert "healthy" in mock_success.call_args[0][0].lower()
@@ -483,4 +484,4 @@ class TestDoctorClean:
     def test_healthy_workspace_exits_0(self, workspace: Workspace) -> None:
         _remove_keep_files(workspace)
 
-        doctor(workspace_dir=str(workspace.dir))
+        doctor(ctx=make_context(str(workspace.dir)))

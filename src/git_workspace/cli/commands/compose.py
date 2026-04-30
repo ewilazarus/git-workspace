@@ -1,7 +1,6 @@
 import re
 import subprocess
 from pathlib import Path
-from typing import Annotated
 
 import typer
 
@@ -39,23 +38,13 @@ def _slugify_project_name(name: str) -> str:
 @app.command(
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
-def compose(
-    ctx: typer.Context,
-    workspace_dir: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--root",
-            help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
-        ),
-    ] = None,
-) -> None:
+def compose(ctx: typer.Context) -> None:
     """
     Run docker compose against the workspace's shared compose file.
 
     Looks for a compose file under `<WORKSPACE_ROOT>/.workspace/` (one of compose.yaml, compose.yml, docker-compose.yaml, docker-compose.yml) and invokes `docker compose -p <workspace-name> -f <file> <args>`. All arguments are forwarded verbatim to docker compose. The project name is derived from the workspace directory name, slugified to match docker compose's naming rules.
     """
-    workspace = Workspace.resolve(workspace_dir)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
     compose_file = _find_compose_file(workspace.paths.config)
     if compose_file is None:
         console.error(

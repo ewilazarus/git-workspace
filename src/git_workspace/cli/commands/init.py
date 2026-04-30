@@ -26,9 +26,8 @@ def init(
     output: Annotated[
         bool,
         typer.Option(
+            "--output/--no-output",
             "-o",
-            "--output",
-            is_flag=True,
             help="Print the workspace root path to stdout and suppress all other output.",
         ),
     ] = False,

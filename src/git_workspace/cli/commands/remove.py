@@ -12,26 +12,18 @@ app = typer.Typer()
 
 @app.command("rm")
 def remove(
+    ctx: typer.Context,
     branch: Annotated[
         str | None,
         typer.Argument(
             help="The branch whose worktree should be removed. If omitted, the branch will be inferred from the current working directory.",
         ),
     ] = None,
-    workspace_dir: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--root",
-            help="The path to the workspace root. If omitted, the workspace root will be inferred from the current working directory",
-        ),
-    ] = None,
     force: Annotated[
         bool,
         typer.Option(
-            "--force",
+            "--force/--no-force",
             help="Remove the worktree even if it has uncommitted changes",
-            is_flag=True,
         ),
     ] = False,
     runtime_vars: Annotated[
@@ -61,7 +53,7 @@ def remove(
 
     This command does not modify Git history or delete any branch.
     """
-    workspace = Workspace.resolve(workspace_dir)
+    workspace = Workspace.resolve(ctx.obj.workspace_dir)
     worktree = workspace.resolve_worktree(branch)
 
     console.print(f"Removing {styled_branch(worktree.branch)}")

@@ -12,6 +12,7 @@ from git_workspace.cli.commands.remove import remove
 from git_workspace.cli.commands.reset import reset
 from git_workspace.cli.commands.up import up
 from git_workspace.workspace import Workspace
+from tests.helpers import make_context
 
 # ---------------------------------------------------------------------------
 # No --root: cwd is the workspace directory
@@ -20,41 +21,41 @@ from git_workspace.workspace import Workspace
 
 def test_up_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(workspace.dir)
-    up(branch="main")
+    up(ctx=make_context(), branch="main")
     assert (workspace.dir / "main").is_dir()
 
 
 def test_down_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir)
-    down(branch="main")
+    down(ctx=make_context(), branch="main")
 
 
 def test_reset_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir)
-    reset(branch="main")
+    reset(ctx=make_context(), branch="main")
     assert (workspace.dir / "main").is_dir()
 
 
 def test_remove_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir)
-    remove(branch="main")
+    remove(ctx=make_context(), branch="main")
     assert not (workspace.dir / "main").exists()
 
 
 def test_list_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir)
-    list()
+    list(ctx=make_context())
 
 
 def test_edit_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EDITOR", "true")
     monkeypatch.setenv("VISUAL", "true")
     monkeypatch.chdir(workspace.dir)
-    edit()
+    edit(ctx=make_context())
 
 
 # ---------------------------------------------------------------------------
@@ -63,29 +64,29 @@ def test_edit_without_root(workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 
 
 def test_up_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir / "main")
-    up(workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)))
     assert (workspace.dir / "main").is_dir()
 
 
 def test_down_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir / "main")
-    down(workspace_dir=str(workspace.dir))
+    down(ctx=make_context(str(workspace.dir)))
 
 
 def test_reset_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir / "main")
-    reset(workspace_dir=str(workspace.dir))
+    reset(ctx=make_context(str(workspace.dir)))
     assert (workspace.dir / "main").is_dir()
 
 
 def test_remove_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir / "main")
-    remove(workspace_dir=str(workspace.dir))
+    remove(ctx=make_context(str(workspace.dir)))
     assert not (workspace.dir / "main").exists()
 
 
@@ -95,33 +96,33 @@ def test_remove_without_branch(workspace: Workspace, monkeypatch: pytest.MonkeyP
 
 
 def test_up_without_root_and_branch(workspace: Workspace, monkeypatch: pytest.MonkeyPatch) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir / "main")
-    up()
+    up(ctx=make_context())
     assert (workspace.dir / "main").is_dir()
 
 
 def test_down_without_root_and_branch(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir / "main")
-    down()
+    down(ctx=make_context())
 
 
 def test_reset_without_root_and_branch(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir / "main")
-    reset()
+    reset(ctx=make_context())
     assert (workspace.dir / "main").is_dir()
 
 
 def test_remove_without_root_and_branch(
     workspace: Workspace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    up(branch="main", workspace_dir=str(workspace.dir))
+    up(ctx=make_context(str(workspace.dir)), branch="main")
     monkeypatch.chdir(workspace.dir / "main")
-    remove()
+    remove(ctx=make_context())
     assert not (workspace.dir / "main").exists()

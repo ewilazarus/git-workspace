@@ -5,6 +5,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from git_workspace.cli.commands.edit import edit
+from tests.helpers import make_context
 
 WORKSPACE_DIR = "/workspace"
 CONFIG_PATH = Path("/workspace/.workspace")
@@ -24,12 +25,12 @@ def mock_click_edit(mocker: MockerFixture) -> MagicMock:
 
 class TestEdit:
     def test_resolves_workspace(self, mock_workspace_resolve: MagicMock) -> None:
-        edit(workspace_dir=WORKSPACE_DIR)
+        edit(ctx=make_context(WORKSPACE_DIR))
         mock_workspace_resolve.assert_called_once_with(WORKSPACE_DIR)
 
     def test_opens_config_path_in_editor(
         self,
         mock_click_edit: MagicMock,
     ) -> None:
-        edit()
+        edit(ctx=make_context())
         mock_click_edit.assert_called_once_with(filename=str(CONFIG_PATH))
