@@ -415,7 +415,7 @@ class TestCopyWithSubstitution:
         return Copier(worktree, ignore, env=self.ENV)
 
     def test_resolves_known_placeholder(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="branch={{ GIT_WORKSPACE_BRANCH }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -425,7 +425,7 @@ class TestCopyWithSubstitution:
         assert target.read_text() == "branch=feat/GWS-001"
 
     def test_leaves_unknown_placeholder_verbatim(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{{ GIT_WORKSPACE_TYPO }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -435,7 +435,7 @@ class TestCopyWithSubstitution:
         assert target.read_text() == "{{ GIT_WORKSPACE_TYPO }}"
 
     def test_resolves_custom_var_placeholder(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{{ GIT_WORKSPACE_VAR_MY_VAR }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -459,7 +459,7 @@ class TestCopyWithSubstitution:
     def test_count_is_one_for_single_resolved_placeholder(
         self, copier: Copier, fs: FakeFilesystem
     ) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -469,7 +469,7 @@ class TestCopyWithSubstitution:
     def test_count_reflects_number_of_resolved_placeholders(
         self, copier: Copier, fs: FakeFilesystem
     ) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH }} {{ GIT_WORKSPACE_ROOT }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -479,14 +479,14 @@ class TestCopyWithSubstitution:
     def test_count_is_zero_for_unknown_placeholder(
         self, copier: Copier, fs: FakeFilesystem
     ) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{{ GIT_WORKSPACE_UNKNOWN }}")
         fs.create_dir(str(self.WORKTREE_DIR))
 
         assert copier._copy_with_substitution(source, target) == 0
 
-    def test_count_is_zero_for_binary_file(self, copier: Copier, fs: FakeFilesystem) -> None:
+    def test_count_is_zero_for_non_j2_file(self, copier: Copier, fs: FakeFilesystem) -> None:
         source = self.ASSETS_DIR / "binary.bin"
         target = self.WORKTREE_DIR / "binary.bin"
         fs.create_dir(str(self.ASSETS_DIR))
@@ -496,8 +496,8 @@ class TestCopyWithSubstitution:
         assert copier._copy_with_substitution(source, target) == 0
 
     def test_each_call_returns_its_own_count(self, copier: Copier, fs: FakeFilesystem) -> None:
-        s1 = self.ASSETS_DIR / "f1.txt"
-        s2 = self.ASSETS_DIR / "f2.txt"
+        s1 = self.ASSETS_DIR / "f1.txt.j2"
+        s2 = self.ASSETS_DIR / "f2.txt.j2"
         fs.create_file(str(s1), contents="{{ GIT_WORKSPACE_BRANCH }}")
         fs.create_file(str(s2), contents="{{ GIT_WORKSPACE_ROOT }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -509,9 +509,11 @@ class TestCopyWithSubstitution:
         self, copier: Copier, fs: FakeFilesystem, mocker: MockerFixture
     ) -> None:
         mocker.patch("git_workspace.assets.git.skip_worktree")
-        fs.create_file(str(self.ASSETS_DIR / "template.txt"), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_file(
+            str(self.ASSETS_DIR / "template.txt.j2"), contents="{{ GIT_WORKSPACE_BRANCH }}"
+        )
         fs.create_dir(str(self.WORKTREE_DIR))
-        copy = Copy(source="template.txt", target="template.txt")
+        copy = Copy(source="template.txt.j2", target="template.txt")
 
         assert copier._apply(copy) == 1
 
@@ -542,7 +544,7 @@ class TestJinjaTemplating:
         return Copier(worktree, ignore, env=self.ENV)
 
     def test_renders_if_block_when_condition_true(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(
             str(source),
@@ -557,7 +559,7 @@ class TestJinjaTemplating:
     def test_renders_if_block_when_condition_false(
         self, copier: Copier, fs: FakeFilesystem
     ) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(
             str(source),
@@ -570,7 +572,7 @@ class TestJinjaTemplating:
         assert target.read_text() == "dev"
 
     def test_supports_filters(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH | upper }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -580,7 +582,7 @@ class TestJinjaTemplating:
         assert target.read_text() == "MAIN"
 
     def test_supports_for_loop(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(
             str(source),
@@ -593,7 +595,7 @@ class TestJinjaTemplating:
         assert target.read_text() == "m-a-i-n-"
 
     def test_unknown_variable_renders_verbatim(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{{ GIT_WORKSPACE_TYPO }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -605,7 +607,7 @@ class TestJinjaTemplating:
     def test_does_not_expose_non_prefixed_env_to_templates(
         self, copier: Copier, fs: FakeFilesystem
     ) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{{ PATH }}")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -615,7 +617,7 @@ class TestJinjaTemplating:
         assert target.read_text() == "{{ PATH }}"
 
     def test_preserves_trailing_newline(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="branch={{ GIT_WORKSPACE_BRANCH }}\n")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -625,7 +627,7 @@ class TestJinjaTemplating:
         assert target.read_text() == "branch=main\n"
 
     def test_template_syntax_error_is_wrapped(self, copier: Copier, fs: FakeFilesystem) -> None:
-        source = self.ASSETS_DIR / "template.txt"
+        source = self.ASSETS_DIR / "template.txt.j2"
         target = self.WORKTREE_DIR / "template.txt"
         fs.create_file(str(source), contents="{% if GIT_WORKSPACE_BRANCH %}oops")
         fs.create_dir(str(self.WORKTREE_DIR))
@@ -633,4 +635,100 @@ class TestJinjaTemplating:
         with pytest.raises(WorkspaceCopyError) as exc:
             copier._copy_with_substitution(source, target)
 
-        assert "template.txt" in str(exc.value)
+        assert "template.txt.j2" in str(exc.value)
+
+
+class TestJ2Suffix:
+    ASSETS_DIR = Path("/workspace/.workspace/assets")
+    WORKTREE_DIR = Path("/workspace/feat/GWS-001")
+    ENV = {
+        "GIT_WORKSPACE_BRANCH": "main",
+    }
+
+    @pytest.fixture
+    def copier(self, mocker: MockerFixture) -> Copier:
+        worktree = mocker.MagicMock()
+        worktree.dir = self.WORKTREE_DIR
+        worktree.workspace.paths.assets = self.ASSETS_DIR
+        worktree.workspace.manifest.copies = []
+        ignore = mocker.MagicMock(spec=IgnoreManager)
+        return Copier(worktree, ignore, env=self.ENV)
+
+    def test_j2_source_is_rendered(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "config.yaml.j2"
+        target = self.WORKTREE_DIR / "config.yaml"
+        fs.create_file(str(source), contents="branch={{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "branch=main"
+
+    def test_non_j2_text_file_is_copied_verbatim(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "config.yaml"
+        target = self.WORKTREE_DIR / "config.yaml"
+        fs.create_file(str(source), contents="branch={{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "branch={{ GIT_WORKSPACE_BRANCH }}"
+
+    def test_non_j2_binary_file_is_copied_verbatim(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        source = self.ASSETS_DIR / "image.png"
+        target = self.WORKTREE_DIR / "image.png"
+        binary_content = b"\x89PNG\r\n\x1a\n"
+        fs.create_dir(str(self.ASSETS_DIR))
+        fs.create_dir(str(self.WORKTREE_DIR))
+        source.write_bytes(binary_content)
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_bytes() == binary_content
+
+    def test_j2_bak_file_is_copied_verbatim(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "config.j2.bak"
+        target = self.WORKTREE_DIR / "config.j2.bak"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.read_text() == "{{ GIT_WORKSPACE_BRANCH }}"
+
+    def test_target_path_is_honoured_verbatim_when_it_has_j2(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        source = self.ASSETS_DIR / "config.yaml.j2"
+        target = self.WORKTREE_DIR / "config.yaml.j2"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_with_substitution(source, target)
+
+        assert target.exists()
+        assert target.read_text() == "main"
+
+    def test_count_is_zero_for_non_j2_source(self, copier: Copier, fs: FakeFilesystem) -> None:
+        source = self.ASSETS_DIR / "plain.txt"
+        target = self.WORKTREE_DIR / "plain.txt"
+        fs.create_file(str(source), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        assert copier._copy_with_substitution(source, target) == 0
+
+    def test_directory_renders_j2_and_copies_plain(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        src_dir = self.ASSETS_DIR / "config"
+        dst_dir = self.WORKTREE_DIR / "config"
+        fs.create_file(str(src_dir / "app.yaml.j2"), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_file(str(src_dir / "static.txt"), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_dir_with_substitution(src_dir, dst_dir)
+
+        assert (dst_dir / "app.yaml.j2").read_text() == "main"
+        assert (dst_dir / "static.txt").read_text() == "{{ GIT_WORKSPACE_BRANCH }}"
