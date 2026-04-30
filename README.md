@@ -486,7 +486,7 @@ git workspace compose logs -f
 git workspace compose down
 
 # from outside the workspace
-git workspace compose -r ~/projects/my-workspace ps
+git workspace -r ~/projects/my-workspace compose ps
 ```
 
 The project name is automatically derived from the workspace directory name (slugified to match docker compose naming rules), so services from different workspaces never collide.
