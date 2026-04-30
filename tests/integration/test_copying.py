@@ -215,3 +215,20 @@ def test_j2_target_path_is_honoured_verbatim(
     assert rendered.exists()
     j2_path = workspace_with_jinja_copies.dir / "main" / "template.txt.j2"
     assert not j2_path.exists()
+
+
+def test_directory_copy_strips_j2_suffix_from_rendered_files(
+    workspace_with_jinja_copies: Workspace,
+) -> None:
+    up(ctx=make_context(str(workspace_with_jinja_copies.dir)), branch="main")
+    rendered = workspace_with_jinja_copies.dir / "main" / ".vscode" / "settings.json"
+    assert rendered.read_text() == '{"branch": "main"}\n'
+    assert not (workspace_with_jinja_copies.dir / "main" / ".vscode" / "settings.json.j2").exists()
+
+
+def test_directory_copy_preserves_non_j2_filenames(
+    workspace_with_jinja_copies: Workspace,
+) -> None:
+    up(ctx=make_context(str(workspace_with_jinja_copies.dir)), branch="main")
+    plain = workspace_with_jinja_copies.dir / "main" / ".vscode" / "extensions.json"
+    assert plain.read_text() == '{"recommendations": []}\n'

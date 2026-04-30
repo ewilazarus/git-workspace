@@ -186,8 +186,11 @@ class Copier(AssetManager[Copy]):
     with ``GIT_WORKSPACE_*`` variables from the provided environment dict;
     this supports ``{{ var }}`` substitution as well as ``{% if %}`` /
     ``{% for %}`` and filters. Undefined variables render verbatim as
-    ``{{ name }}``. All other files are copied verbatim. The target path is
-    taken verbatim from the manifest — ``.j2`` is not stripped automatically.
+    ``{{ name }}``. All other files are copied verbatim. For top-level
+    copies the target path is taken verbatim from the manifest — ``.j2``
+    is not stripped automatically. Inside a directory copy, the ``.j2``
+    suffix is stripped from each rendered file's on-disk name (since the
+    manifest does not name those files individually).
     """
 
     asset_name = "copy"
@@ -232,7 +235,11 @@ class Copier(AssetManager[Copy]):
 
         def copy_fn(s: str, d: str) -> None:
             nonlocal total
-            total += self._copy_with_substitution(Path(s), Path(d))
+            src_path = Path(s)
+            dst_path = Path(d)
+            if src_path.name.endswith(".j2"):
+                dst_path = dst_path.with_name(dst_path.name[:-3])
+            total += self._copy_with_substitution(src_path, dst_path)
 
         shutil.copytree(source, target, copy_function=copy_fn)
         return total

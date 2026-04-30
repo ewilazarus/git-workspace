@@ -384,7 +384,7 @@ overwrite = false
 <summary><i>Templating</i></summary>
 <br/>
 
-Files in `.workspace/assets/` whose name ends in `.j2` are rendered as [Jinja2](https://jinja.palletsprojects.com/) templates. Files without `.j2` are copied verbatim. The target path is whatever you write in the manifest — the `.j2` suffix is **not** stripped automatically, so use an explicit `target` if you want a different output name:
+Files in `.workspace/assets/` whose name ends in `.j2` are rendered as [Jinja2](https://jinja.palletsprojects.com/) templates. Files without `.j2` are copied verbatim. For top-level copies the target path is whatever you write in the manifest — the `.j2` suffix is **not** stripped automatically, so use an explicit `target` if you want a different output name:
 
 ```toml
 [[copy]]
@@ -419,7 +419,7 @@ log_level: debug
 {% endif %}
 ```
 
-Unknown variables are left verbatim (e.g. `{{ GIT_WORKSPACE_TYPO }}` is written as-is so typos are obvious). Only `GIT_WORKSPACE_*` keys are exposed — the host process environment is not. Plain (non-`.j2`) files — text or binary — are copied byte-for-byte. In a directory copy, each file is rendered or copied based on its own suffix; on-disk filenames are preserved in the output. `git workspace doctor` flags unknown variables and template syntax errors in `.j2` files.
+Unknown variables are left verbatim (e.g. `{{ GIT_WORKSPACE_TYPO }}` is written as-is so typos are obvious). Only `GIT_WORKSPACE_*` keys are exposed — the host process environment is not. Plain (non-`.j2`) files — text or binary — are copied byte-for-byte. In a directory copy, each file is rendered or copied based on its own suffix, and the trailing `.j2` is stripped from rendered files (e.g. `vscode/settings.json.j2` becomes `.vscode/settings.json`); plain files keep their on-disk name. `git workspace doctor` flags unknown variables and template syntax errors in `.j2` files.
 
 </details>
 
