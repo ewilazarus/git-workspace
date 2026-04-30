@@ -61,7 +61,7 @@ wheels = [
 
 [[package]]
 name = "git-workspace-cli"
-version = "0.8.0b1"
+version = "0.8.0b2"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
