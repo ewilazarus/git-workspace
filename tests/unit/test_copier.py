@@ -730,5 +730,38 @@ class TestJ2Suffix:
 
         copier._copy_dir_with_substitution(src_dir, dst_dir)
 
-        assert (dst_dir / "app.yaml.j2").read_text() == "main"
+        assert (dst_dir / "app.yaml").read_text() == "main"
+        assert not (dst_dir / "app.yaml.j2").exists()
         assert (dst_dir / "static.txt").read_text() == "{{ GIT_WORKSPACE_BRANCH }}"
+
+    def test_directory_strips_j2_suffix_from_nested_files(
+        self, copier: Copier, fs: FakeFilesystem
+    ) -> None:
+        src_dir = self.ASSETS_DIR / "vscode"
+        dst_dir = self.WORKTREE_DIR / ".vscode"
+        fs.create_file(
+            str(src_dir / "settings.json.j2"),
+            contents='{"branch": "{{ GIT_WORKSPACE_BRANCH }}"}',
+        )
+        fs.create_file(
+            str(src_dir / "nested" / "launch.json.j2"),
+            contents='{"branch": "{{ GIT_WORKSPACE_BRANCH }}"}',
+        )
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_dir_with_substitution(src_dir, dst_dir)
+
+        assert (dst_dir / "settings.json").read_text() == '{"branch": "main"}'
+        assert not (dst_dir / "settings.json.j2").exists()
+        assert (dst_dir / "nested" / "launch.json").read_text() == '{"branch": "main"}'
+        assert not (dst_dir / "nested" / "launch.json.j2").exists()
+
+    def test_directory_only_strips_trailing_j2(self, copier: Copier, fs: FakeFilesystem) -> None:
+        src_dir = self.ASSETS_DIR / "config"
+        dst_dir = self.WORKTREE_DIR / "config"
+        fs.create_file(str(src_dir / "config.j2.bak"), contents="{{ GIT_WORKSPACE_BRANCH }}")
+        fs.create_dir(str(self.WORKTREE_DIR))
+
+        copier._copy_dir_with_substitution(src_dir, dst_dir)
+
+        assert (dst_dir / "config.j2.bak").read_text() == "{{ GIT_WORKSPACE_BRANCH }}"

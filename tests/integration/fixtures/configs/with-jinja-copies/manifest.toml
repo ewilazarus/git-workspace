@@ -9,3 +9,7 @@ target = "template.txt"
 [[copy]]
 source = "literal.txt"
 target = "literal.txt"
+
+[[copy]]
+source = "vscode"
+target = ".vscode"
