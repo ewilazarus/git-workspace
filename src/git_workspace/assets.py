@@ -182,11 +182,12 @@ class Copier(AssetManager[Copy]):
     overwrite existing files on reapplication. The only error case is
     attempting to copy over an existing symlink.
 
-    Text files are rendered as Jinja2 templates with ``GIT_WORKSPACE_*``
-    variables from the provided environment dict; this supports
-    ``{{ var }}`` substitution as well as ``{% if %}`` / ``{% for %}`` and
-    filters. Undefined variables render verbatim as ``{{ name }}``.
-    Binary files are copied as-is.
+    Files whose source name ends in ``.j2`` are rendered as Jinja2 templates
+    with ``GIT_WORKSPACE_*`` variables from the provided environment dict;
+    this supports ``{{ var }}`` substitution as well as ``{% if %}`` /
+    ``{% for %}`` and filters. Undefined variables render verbatim as
+    ``{{ name }}``. All other files are copied verbatim. The target path is
+    taken verbatim from the manifest — ``.j2`` is not stripped automatically.
     """
 
     asset_name = "copy"
@@ -217,13 +218,11 @@ class Copier(AssetManager[Copy]):
         return rendered, self._count_resolved(content)
 
     def _copy_with_substitution(self, source: Path, target: Path) -> int:
-        try:
-            content = source.read_text(encoding="utf-8")
-        except UnicodeDecodeError, ValueError:
-            logger.debug("copying %s as binary (not valid UTF-8 text)", source)
+        if not source.name.endswith(".j2"):
             shutil.copy2(source, target)
             return 0
 
+        content = source.read_text(encoding="utf-8")
         new_content, count = self._render(source, content)
         target.write_text(new_content, encoding="utf-8")
         return count

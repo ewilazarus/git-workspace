@@ -311,7 +311,7 @@ class TestDoctorCopyPlaceholders:
     def test_warns_on_unknown_placeholder(
         self, workspace_with_placeholder_copies: Workspace, mocker: MockerFixture
     ) -> None:
-        asset = workspace_with_placeholder_copies.paths.assets / "template.txt"
+        asset = workspace_with_placeholder_copies.paths.assets / "template.txt.j2"
         asset.write_text("x={{ GIT_WORKSPACE_TYPO }}\n")
 
         mock_warning = _warnings(mocker)

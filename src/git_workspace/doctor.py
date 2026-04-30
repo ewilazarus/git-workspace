@@ -509,7 +509,7 @@ def _check_copy_placeholders(workspace: Workspace, findings: list[Finding]) -> N
 
         files = sorted(source.rglob("*")) if source.is_dir() else [source]
         for file in files:
-            if not file.is_file():
+            if not file.is_file() or not file.name.endswith(".j2"):
                 continue
             try:
                 content = file.read_text(encoding="utf-8")

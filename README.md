@@ -383,10 +383,18 @@ overwrite = false
 <summary><i>Templating</i></summary>
 <br/>
 
-Text files in `.workspace/assets/` are rendered as [Jinja2](https://jinja.palletsprojects.com/) templates. Every `GIT_WORKSPACE_*` variable available to hooks — base, manifest, runtime, and fingerprint vars — is exposed by name, so `{{ GIT_WORKSPACE_BRANCH }}` substitution works exactly as it always has.
+Files in `.workspace/assets/` whose name ends in `.j2` are rendered as [Jinja2](https://jinja.palletsprojects.com/) templates. Files without `.j2` are copied verbatim. The target path is whatever you write in the manifest — the `.j2` suffix is **not** stripped automatically, so use an explicit `target` if you want a different output name:
+
+```toml
+[[copy]]
+source = "config.local.yaml.j2"
+target = "config.local.yaml"
+```
+
+Every `GIT_WORKSPACE_*` variable available to hooks — base, manifest, runtime, and fingerprint vars — is exposed by name inside the template:
 
 ```
-# .workspace/assets/config.local.yaml
+# .workspace/assets/config.local.yaml.j2
 branch: {{ GIT_WORKSPACE_BRANCH }}
 worktree: {{ GIT_WORKSPACE_WORKTREE }}
 env: {{ GIT_WORKSPACE_VAR_ENV }}
@@ -410,7 +418,7 @@ log_level: debug
 {% endif %}
 ```
 
-Unknown variables are left verbatim (e.g. `{{ GIT_WORKSPACE_TYPO }}` is written as-is so typos are obvious). Only `GIT_WORKSPACE_*` keys are exposed — the host process environment is not. Binary files are copied as-is without rendering. When the source is a directory, every text file inside it is rendered. `git workspace doctor` flags both unknown variables and template syntax errors.
+Unknown variables are left verbatim (e.g. `{{ GIT_WORKSPACE_TYPO }}` is written as-is so typos are obvious). Only `GIT_WORKSPACE_*` keys are exposed — the host process environment is not. Plain (non-`.j2`) files — text or binary — are copied byte-for-byte. In a directory copy, each file is rendered or copied based on its own suffix; on-disk filenames are preserved in the output. `git workspace doctor` flags unknown variables and template syntax errors in `.j2` files.
 
 </details>
 
