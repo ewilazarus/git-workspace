@@ -27,11 +27,9 @@ def doctor(
     """
     Inspect a workspace for inconsistencies.
 
-    Checks the manifest, assets, hooks, and live worktree state and reports any
-    errors or warnings. Exits 1 if any errors are found.
+    Checks the manifest, assets, hooks, and live worktree state and reports any errors or warnings. Exits 1 if any errors are found.
 
-    Pass --fix to apply safe fixes automatically and be prompted for destructive
-    ones. Add --yes to skip all prompts (useful in CI).
+    Pass --fix to apply safe fixes automatically and be prompted for destructive ones. Add --yes to skip all prompts (useful in CI).
     """
     if yes:
         fix = True

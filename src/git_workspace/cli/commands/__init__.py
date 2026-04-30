@@ -1,5 +1,6 @@
 from git_workspace.cli.commands.cache import app as cache_command
 from git_workspace.cli.commands.clone import app as clone_command
+from git_workspace.cli.commands.compose import app as compose_command
 from git_workspace.cli.commands.doctor import app as doctor_command
 from git_workspace.cli.commands.down import app as down_command
 from git_workspace.cli.commands.edit import app as edit_command
@@ -13,6 +14,7 @@ from git_workspace.cli.commands.up import app as up_command
 __all__ = [
     "cache_command",
     "clone_command",
+    "compose_command",
     "doctor_command",
     "down_command",
     "edit_command",
