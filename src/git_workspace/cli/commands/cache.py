@@ -22,8 +22,7 @@ def get(
     """
     Print the cached value for KEY to stdout.
 
-    Exits 0 if the key exists (with the file bytes written verbatim to stdout,
-    no trailing newline added) and 1 if it does not. Silent on miss.
+    Exits 0 if the key exists (with the file bytes written verbatim to stdout, no trailing newline added) and 1 if it does not. Silent on miss.
     """
     try:
         cache = Cache.from_env()

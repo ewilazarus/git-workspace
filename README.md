@@ -157,6 +157,7 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 | `git workspace prune` | Remove stale worktrees by age (dry-run by default) |
 | `git workspace doctor` | Inspect the workspace for inconsistencies; `--fix` applies safe remediations |
 | `git workspace edit` | Open the workspace config in your editor |
+| `git workspace compose` | Run docker compose against the workspace's shared compose file |
 
 `[branch]` and `--root` let you operate on a workspace from anywhere in the file system, without needing to be inside it.
 
@@ -454,6 +455,43 @@ Pruning force-removes worktrees directly and does **not** run lifecycle hooks. C
 older_than_days  = 30
 exclude_branches = ["main", "develop"]
 ```
+
+---
+
+## Shared services via docker compose
+
+Drop a compose file under `.workspace/` to define services that are shared across all worktrees — databases, caches, message queues, anything that doesn't need a branch-specific checkout:
+
+```bash
+# .workspace/compose.yml
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: secret
+  redis:
+    image: redis:7
+```
+
+Then use `git workspace compose` to manage them from anywhere inside (or outside via `-r`) the workspace:
+
+```bash
+# start services in the background
+git workspace compose up -d
+
+# tail logs
+git workspace compose logs -f
+
+# stop everything
+git workspace compose down
+
+# from outside the workspace
+git workspace compose -r ~/projects/my-workspace ps
+```
+
+The project name is automatically derived from the workspace directory name (slugified to match docker compose naming rules), so services from different workspaces never collide.
+
+Supported compose file names (in precedence order): `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`.
 
 ---
 
