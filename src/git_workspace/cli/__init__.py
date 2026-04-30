@@ -18,6 +18,7 @@ from git_workspace.cli.commands import (
 
 app = typer.Typer(
     no_args_is_help=True,
+    add_completion=False,
     callback=callback,
     help="""
     Manage isolated git worktrees for a repository.
