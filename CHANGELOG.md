@@ -7,6 +7,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-04
+
 ### Added
 - `git workspace compose <args>` — shells out to `docker compose` with a compose file auto-discovered under `<root>/.workspace/` (one of compose.yaml, compose.yml, docker-compose.yaml, docker-compose.yml) and the workspace directory name passed as `-p <project-name>` (slugified to match docker compose naming rules). Intended for shared services (DB, cache, etc.) that span all worktrees of a workspace. All extra arguments are forwarded verbatim, so `git workspace compose up -d`, `logs -f`, `exec`, etc. all work. Supports `-r/--root` to invoke from outside the workspace.
 
