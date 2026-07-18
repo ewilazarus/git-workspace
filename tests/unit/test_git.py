@@ -1,10 +1,8 @@
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
-from pytest_mock import MockerFixture
 
-import git_workspace.git as git
+import git_workspace.subprocesses.git as git
 from git_workspace.errors import (
     GitCloneError,
     GitFetchError,
@@ -13,6 +11,7 @@ from git_workspace.errors import (
     WorktreeListingError,
     WorktreeRemovalError,
 )
+from tests.helpers import FakeCommandRunner
 
 URL = "https://github.com/user/repo.git"
 BRANCH = "feat/GWS-001"
@@ -23,308 +22,346 @@ CWD = Path("/workspace")
 COMMIT_SHA = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
 
 
-@pytest.fixture(autouse=True)
-def mock_subprocess_run(mocker: MockerFixture) -> MagicMock:
-    mock = mocker.patch("git_workspace.git.subprocess.run")
-    mock.return_value.returncode = 0
-    mock.return_value.stdout = ""
-    mock.return_value.stderr = ""
-    return mock
+@pytest.fixture
+def runner() -> FakeCommandRunner:
+    return FakeCommandRunner()
 
 
 class TestClone:
-    def test_builds_basic_clone_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.clone(URL)
+    def test_builds_basic_clone_command(self, runner: FakeCommandRunner) -> None:
+        git.clone(URL, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == ["git", "clone", URL]
+        assert runner.last_call.args == ("git", "clone", URL)
 
-    def test_appends_target_when_provided(self, mock_subprocess_run: MagicMock) -> None:
-        git.clone(URL, target=TARGET)
+    def test_appends_target_when_provided(self, runner: FakeCommandRunner) -> None:
+        git.clone(URL, target=TARGET, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == ["git", "clone", URL, TARGET]
+        assert runner.last_call.args == ("git", "clone", URL, str(TARGET))
 
-    def test_appends_bare_flag_when_bare(self, mock_subprocess_run: MagicMock) -> None:
-        git.clone(URL, bare=True)
+    def test_appends_bare_flag_when_bare(self, runner: FakeCommandRunner) -> None:
+        git.clone(URL, bare=True, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == ["git", "clone", "--bare", URL]
+        assert runner.last_call.args == ("git", "clone", "--bare", URL)
 
-    def test_appends_branch_flags_when_provided(self, mock_subprocess_run: MagicMock) -> None:
-        git.clone(URL, branch=BASE_BRANCH)
+    def test_appends_branch_flags_when_provided(self, runner: FakeCommandRunner) -> None:
+        git.clone(URL, branch=BASE_BRANCH, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "clone",
             "-b",
             BASE_BRANCH,
             "--single-branch",
             URL,
-        ]
+        )
 
-    def test_raises_git_clone_error_on_failure(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_raises_git_clone_error_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
         with pytest.raises(GitCloneError):
-            git.clone(URL)
+            git.clone(URL, runner=runner)
 
 
 class TestInit:
-    def test_builds_init_command_with_target(self, mock_subprocess_run: MagicMock) -> None:
-        git.init(TARGET, bare=False)
+    def test_builds_init_command_with_target(self, runner: FakeCommandRunner) -> None:
+        git.init(TARGET, bare=False, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == ["git", "init", TARGET]
+        assert runner.last_call.args == ("git", "init", str(TARGET))
 
-    def test_appends_bare_flag_when_bare(self, mock_subprocess_run: MagicMock) -> None:
-        git.init(TARGET, bare=True)
+    def test_appends_bare_flag_when_bare(self, runner: FakeCommandRunner) -> None:
+        git.init(TARGET, bare=True, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == ["git", "init", "--bare", TARGET]
+        assert runner.last_call.args == ("git", "init", "--bare", str(TARGET))
 
-    def test_raises_git_init_error_on_failure(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_raises_git_init_error_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
         with pytest.raises(GitInitError):
-            git.init(TARGET, bare=False)
+            git.init(TARGET, bare=False, runner=runner)
 
 
 class TestListWorktrees:
-    def test_builds_list_command_with_cwd(self, mock_subprocess_run: MagicMock) -> None:
-        git.list_worktrees(CWD)
+    def test_builds_list_command_with_cwd(self, runner: FakeCommandRunner) -> None:
+        git.list_worktrees(CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == ["git", "worktree", "list", "--porcelain"]
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
+        assert runner.last_call.args == ("git", "worktree", "list", "--porcelain")
+        assert runner.last_call.cwd == CWD
 
-    def test_returns_parsed_worktrees(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.stdout = (
-            f"worktree {WORKTREE_DIR}\nHEAD {COMMIT_SHA}\nbranch refs/heads/{BRANCH}"
+    def test_returns_parsed_worktrees(self, runner: FakeCommandRunner) -> None:
+        runner.queue(
+            stdout=f"worktree {WORKTREE_DIR}\nHEAD {COMMIT_SHA}\nbranch refs/heads/{BRANCH}"
         )
 
-        result = git.list_worktrees(CWD)
+        result = git.list_worktrees(CWD, runner=runner)
 
         assert result == [{"directory": str(WORKTREE_DIR), "head": COMMIT_SHA, "branch": BRANCH}]
 
-    def test_returns_empty_list_when_no_matches(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.stdout = ""
+    def test_skips_detached_head_worktrees(self, runner: FakeCommandRunner) -> None:
+        runner.queue(
+            stdout=(
+                f"worktree {WORKTREE_DIR}\nHEAD {COMMIT_SHA}\nbranch refs/heads/{BRANCH}\n"
+                "\n"
+                f"worktree /workspace/detached\nHEAD {COMMIT_SHA}\ndetached"
+            )
+        )
 
-        result = git.list_worktrees(CWD)
+        result = git.list_worktrees(CWD, runner=runner)
+
+        assert result == [{"directory": str(WORKTREE_DIR), "head": COMMIT_SHA, "branch": BRANCH}]
+
+    def test_returns_empty_list_when_no_matches(self, runner: FakeCommandRunner) -> None:
+        result = git.list_worktrees(CWD, runner=runner)
 
         assert result == []
 
-    def test_raises_worktree_listing_error_on_failure(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_raises_worktree_listing_error_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
         with pytest.raises(WorktreeListingError):
-            git.list_worktrees(CWD)
+            git.list_worktrees(CWD, runner=runner)
 
 
 class TestConfigureRemoteFetchRefspec:
-    def test_sets_correct_refspec(self, mock_subprocess_run: MagicMock) -> None:
-        git.configure_remote_fetch_refspec(CWD)
+    def test_sets_correct_refspec(self, runner: FakeCommandRunner) -> None:
+        git.configure_remote_fetch_refspec(CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "config",
             "remote.origin.fetch",
             "+refs/heads/*:refs/remotes/origin/*",
-        ]
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
+        )
+        assert runner.last_call.cwd == CWD
 
 
 class TestFetchOrigin:
-    def test_builds_fetch_command_with_cwd(self, mock_subprocess_run: MagicMock) -> None:
-        git.fetch_origin(CWD)
+    def test_builds_fetch_command_with_cwd(self, runner: FakeCommandRunner) -> None:
+        git.fetch_origin(CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == ["git", "fetch", "origin", "--prune"]
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
+        assert runner.last_call.args == ("git", "fetch", "origin", "--prune")
+        assert runner.last_call.cwd == CWD
 
-    def test_raises_git_fetch_error_on_failure(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_raises_git_fetch_error_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
         with pytest.raises(GitFetchError):
-            git.fetch_origin(CWD)
+            git.fetch_origin(CWD, runner=runner)
 
 
 class TestLocalBranchExists:
-    def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.local_branch_exists(BRANCH, CWD)
+    def test_builds_correct_command(self, runner: FakeCommandRunner) -> None:
+        git.local_branch_exists(BRANCH, CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "rev-parse",
             "--verify",
             "--quiet",
             f"refs/heads/{BRANCH}",
-        ]
+        )
 
-    def test_returns_true_when_branch_exists(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 0
+    def test_returns_true_when_branch_exists(self, runner: FakeCommandRunner) -> None:
+        assert git.local_branch_exists(BRANCH, CWD, runner=runner) is True
 
-        assert git.local_branch_exists(BRANCH, CWD) is True
+    def test_returns_false_when_branch_not_found(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
-    def test_returns_false_when_branch_not_found(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
-
-        assert git.local_branch_exists(BRANCH, CWD) is False
+        assert git.local_branch_exists(BRANCH, CWD, runner=runner) is False
 
 
 class TestRemoteBranchExists:
-    def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.remote_branch_exists(BRANCH, CWD)
+    def test_builds_correct_command(self, runner: FakeCommandRunner) -> None:
+        git.remote_branch_exists(BRANCH, CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "rev-parse",
             "--verify",
             "--quiet",
             f"refs/remotes/origin/{BRANCH}",
-        ]
+        )
 
-    def test_returns_true_when_branch_exists(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 0
+    def test_returns_true_when_branch_exists(self, runner: FakeCommandRunner) -> None:
+        assert git.remote_branch_exists(BRANCH, CWD, runner=runner) is True
 
-        assert git.remote_branch_exists(BRANCH, CWD) is True
+    def test_returns_false_when_branch_not_found(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
-    def test_returns_false_when_branch_not_found(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
-
-        assert git.remote_branch_exists(BRANCH, CWD) is False
+        assert git.remote_branch_exists(BRANCH, CWD, runner=runner) is False
 
 
 class TestSkipWorktree:
-    def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.skip_worktree(TARGET)
+    def test_builds_correct_command(self, runner: FakeCommandRunner) -> None:
+        git.skip_worktree(TARGET, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "update-index",
             "--skip-worktree",
-            TARGET,
-        ]
+            str(TARGET),
+        )
 
-    def test_does_not_raise_on_failure(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_does_not_raise_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
-        git.skip_worktree(TARGET)
+        git.skip_worktree(TARGET, runner=runner)
 
 
 class TestCreateWorktreeFromLocalBranch:
-    def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.create_worktree_from_local_branch(WORKTREE_DIR, BRANCH, CWD)
+    def test_builds_correct_command(self, runner: FakeCommandRunner) -> None:
+        git.create_worktree_from_local_branch(WORKTREE_DIR, BRANCH, CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "worktree",
             "add",
-            WORKTREE_DIR,
+            str(WORKTREE_DIR),
             BRANCH,
-        ]
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
+        )
+        assert runner.last_call.cwd == CWD
 
-    def test_raises_worktree_creation_error_on_failure(
-        self, mock_subprocess_run: MagicMock
-    ) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_raises_worktree_creation_error_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
         with pytest.raises(WorktreeCreationError):
-            git.create_worktree_from_local_branch(WORKTREE_DIR, BRANCH, CWD)
+            git.create_worktree_from_local_branch(WORKTREE_DIR, BRANCH, CWD, runner=runner)
 
 
 class TestCreateWorktreeFromRemoteBranch:
-    def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.create_worktree_from_remote_branch(WORKTREE_DIR, BRANCH, CWD)
+    def test_builds_correct_command(self, runner: FakeCommandRunner) -> None:
+        git.create_worktree_from_remote_branch(WORKTREE_DIR, BRANCH, CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "worktree",
             "add",
             "--track",
             "-b",
             BRANCH,
-            WORKTREE_DIR,
+            str(WORKTREE_DIR),
             f"origin/{BRANCH}",
-        ]
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
+        )
+        assert runner.last_call.cwd == CWD
 
-    def test_raises_worktree_creation_error_on_failure(
-        self, mock_subprocess_run: MagicMock
-    ) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_raises_worktree_creation_error_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
         with pytest.raises(WorktreeCreationError):
-            git.create_worktree_from_remote_branch(WORKTREE_DIR, BRANCH, CWD)
+            git.create_worktree_from_remote_branch(WORKTREE_DIR, BRANCH, CWD, runner=runner)
 
 
 class TestCreateWorktreeNew:
-    def test_builds_correct_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.create_worktree_new(WORKTREE_DIR, BRANCH, BASE_BRANCH, CWD)
+    def test_builds_correct_command(self, runner: FakeCommandRunner) -> None:
+        git.create_worktree_new(WORKTREE_DIR, BRANCH, BASE_BRANCH, CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "worktree",
             "add",
             "-b",
             BRANCH,
-            WORKTREE_DIR,
+            str(WORKTREE_DIR),
             BASE_BRANCH,
-        ]
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
+        )
+        assert runner.last_call.cwd == CWD
 
-    def test_raises_worktree_creation_error_on_failure(
-        self, mock_subprocess_run: MagicMock
+    def test_falls_back_to_orphan_worktree_when_base_missing(
+        self, runner: FakeCommandRunner
     ) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+        runner.queue(exit_code=1)
+        runner.queue(exit_code=0)
+
+        git.create_worktree_new(WORKTREE_DIR, BRANCH, BASE_BRANCH, CWD, runner=runner)
+
+        assert runner.last_call.args == (
+            "git",
+            "worktree",
+            "add",
+            "--orphan",
+            "-b",
+            BRANCH,
+            str(WORKTREE_DIR),
+        )
+
+    def test_raises_worktree_creation_error_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
         with pytest.raises(WorktreeCreationError):
-            git.create_worktree_new(WORKTREE_DIR, BRANCH, BASE_BRANCH, CWD)
+            git.create_worktree_new(WORKTREE_DIR, BRANCH, BASE_BRANCH, CWD, runner=runner)
+
+
+class TestGitCommonDir:
+    def test_resolves_relative_output_against_path(self, runner: FakeCommandRunner) -> None:
+        runner.queue(stdout=".git\n")
+
+        result = git.git_common_dir(CWD, runner=runner)
+
+        assert runner.last_call.args == ("git", "rev-parse", "--git-common-dir")
+        assert runner.last_call.cwd == CWD
+        assert result == (CWD / ".git").resolve()
+
+    def test_returns_absolute_output_as_is(self, runner: FakeCommandRunner) -> None:
+        runner.queue(stdout="/workspace/.git\n")
+
+        result = git.git_common_dir(WORKTREE_DIR, runner=runner)
+
+        assert result == Path("/workspace/.git").resolve()
+
+    def test_returns_none_outside_a_repository(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 128
+
+        assert git.git_common_dir(CWD, runner=runner) is None
 
 
 class TestTryGetWorktreeDir:
-    def test_returns_stripped_stdout_when_in_worktree(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.stdout = f"{WORKTREE_DIR}\n"
+    def test_returns_stripped_stdout_when_in_worktree(self, runner: FakeCommandRunner) -> None:
+        runner.queue(stdout=f"{WORKTREE_DIR}\n")
 
-        result = git.try_get_worktree_dir()
+        result = git.try_get_worktree_dir(runner=runner)
 
         assert result == str(WORKTREE_DIR)
 
-    def test_returns_none_when_not_in_worktree(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_returns_none_when_not_in_worktree(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
-        result = git.try_get_worktree_dir()
+        result = git.try_get_worktree_dir(runner=runner)
 
         assert result is None
 
 
 class TestGetWorktreeBranch:
-    def test_returns_stripped_stdout(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.stdout = f"{BRANCH}\n"
+    def test_returns_stripped_stdout(self, runner: FakeCommandRunner) -> None:
+        runner.queue(stdout=f"{BRANCH}\n")
 
-        result = git.get_worktree_branch(str(CWD))
+        result = git.get_worktree_branch(str(CWD), runner=runner)
 
         assert result == BRANCH
 
 
 class TestRemoveWorktree:
-    def test_builds_basic_remove_command(self, mock_subprocess_run: MagicMock) -> None:
-        git.remove_worktree(WORKTREE_DIR, cwd=CWD)
+    def test_builds_basic_remove_command(self, runner: FakeCommandRunner) -> None:
+        git.remove_worktree(WORKTREE_DIR, cwd=CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == ["git", "worktree", "remove", WORKTREE_DIR]
+        assert runner.last_call.args == ("git", "worktree", "remove", str(WORKTREE_DIR))
 
-    def test_passes_cwd(self, mock_subprocess_run: MagicMock) -> None:
-        git.remove_worktree(WORKTREE_DIR, cwd=CWD)
+    def test_passes_cwd(self, runner: FakeCommandRunner) -> None:
+        git.remove_worktree(WORKTREE_DIR, cwd=CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.kwargs["cwd"] == CWD
+        assert runner.last_call.cwd == CWD
 
-    def test_appends_force_flag_when_force(self, mock_subprocess_run: MagicMock) -> None:
-        git.remove_worktree(WORKTREE_DIR, force=True, cwd=CWD)
+    def test_appends_force_flag_when_force(self, runner: FakeCommandRunner) -> None:
+        git.remove_worktree(WORKTREE_DIR, force=True, cwd=CWD, runner=runner)
 
-        assert mock_subprocess_run.call_args.args[0] == [
+        assert runner.last_call.args == (
             "git",
             "worktree",
             "remove",
             "--force",
-            WORKTREE_DIR,
-        ]
+            str(WORKTREE_DIR),
+        )
 
-    def test_raises_worktree_removal_error_on_failure(self, mock_subprocess_run: MagicMock) -> None:
-        mock_subprocess_run.return_value.returncode = 1
+    def test_raises_worktree_removal_error_on_failure(self, runner: FakeCommandRunner) -> None:
+        runner.default_exit_code = 1
 
         with pytest.raises(WorktreeRemovalError):
-            git.remove_worktree(WORKTREE_DIR, cwd=CWD)
+            git.remove_worktree(WORKTREE_DIR, cwd=CWD, runner=runner)

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.env import build_env
+from git_workspace.workspace.env import build_env
 
 BRANCH = "feat/GWS-001"
 WORKSPACE_DIR = Path("/workspace")

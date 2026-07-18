@@ -2,7 +2,7 @@ import pytest
 
 from git_workspace.cli.commands.reset import reset
 from git_workspace.cli.commands.up import up
-from git_workspace.errors import WorkspaceLinkError
+from git_workspace.errors import WorkspacePreparationError
 from git_workspace.workspace import Workspace
 from tests.helpers import make_context
 
@@ -84,7 +84,7 @@ def test_cannot_link_to_existing_file(workspace_with_links: Workspace) -> None:
     link = workspace_with_links.dir / "main" / ".dotfile"
     link.unlink()
     link.write_text("i am a real file")
-    with pytest.raises(WorkspaceLinkError):
+    with pytest.raises(WorkspacePreparationError):
         reset(ctx=make_context(str(workspace_with_links.dir)), branch="main")
 
 
@@ -97,5 +97,5 @@ def test_cannot_link_to_symlink_pointing_elsewhere(
     other = workspace_with_links.dir / "other-target"
     other.write_text("other")
     link.symlink_to(other)
-    with pytest.raises(WorkspaceLinkError):
+    with pytest.raises(WorkspacePreparationError):
         reset(ctx=make_context(str(workspace_with_links.dir)), branch="main")

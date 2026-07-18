@@ -25,3 +25,4 @@ def main() -> None:
     except GitWorkspaceError as e:
         console.error(str(e))
         logger.exception("Failed to run command")
+        sys.exit(1)

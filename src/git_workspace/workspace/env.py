@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from git_workspace.utils import normalize_variable_name
 
 if TYPE_CHECKING:
-    from git_workspace.worktree import Worktree
+    from git_workspace.workspace.worktree import Worktree
 
 _BASE_VAR_BUILDERS: tuple[tuple[str, Callable[[Worktree], str]], ...] = (
     ("GIT_WORKSPACE_BRANCH", lambda wt: wt.branch),

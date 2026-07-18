@@ -18,77 +18,61 @@ def mock_workspace_resolve(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture(autouse=True)
-def mock_activate_worktree(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.cli.commands.up.operations.activate_worktree")
+def mock_service_create(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch("git_workspace.cli.commands.up.WorkspaceService.create")
+
+
+@pytest.fixture(autouse=True)
+def mock_worktree_resolve(mocker: MockerFixture) -> MagicMock:
+    mock = mocker.patch("git_workspace.cli.commands.up.Worktree.resolve")
+    mock.return_value.branch = BRANCH
+    return mock
+
+
+@pytest.fixture
+def mock_service(mock_service_create: MagicMock) -> MagicMock:
+    return mock_service_create.return_value
 
 
 class TestUp:
     def test_resolves_workspace(self, mock_workspace_resolve: MagicMock) -> None:
-        up(ctx=make_context(WORKSPACE_DIR))
+        up(ctx=make_context(WORKSPACE_DIR), branch=BRANCH)
         mock_workspace_resolve.assert_called_once_with(WORKSPACE_DIR)
 
-    def test_resolves_or_creates_worktree(self, mock_workspace_resolve: MagicMock) -> None:
-        up(ctx=make_context(), branch=BRANCH, base_branch=BASE_BRANCH)
-        mock_workspace_resolve.return_value.resolve_or_create_worktree.assert_called_once_with(
-            BRANCH, BASE_BRANCH
-        )
-
-    def test_activates_worktree_with_runtime_vars(
-        self,
-        mock_workspace_resolve: MagicMock,
-        mock_activate_worktree: MagicMock,
+    def test_builds_service_for_resolved_workspace(
+        self, mock_workspace_resolve: MagicMock, mock_service_create: MagicMock
     ) -> None:
-        up(ctx=make_context(), runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
-        workspace = mock_workspace_resolve.return_value
-        worktree = workspace.resolve_or_create_worktree.return_value
-        mock_activate_worktree.assert_called_once_with(
-            worktree,
-            runtime_vars={"MY_VAR": "my_value"},
+        up(ctx=make_context(), branch=BRANCH)
+        mock_service_create.assert_called_once_with(mock_workspace_resolve.return_value)
+
+    def test_delegates_to_service_up(self, mock_service: MagicMock) -> None:
+        up(ctx=make_context(), branch=BRANCH, base_branch=BASE_BRANCH)
+        mock_service.up.assert_called_once_with(
+            BRANCH,
+            base_branch=BASE_BRANCH,
+            runtime_vars={},
             detached=False,
             effective_branch=None,
         )
 
-    def test_activates_worktree_with_empty_runtime_vars_when_none(
+    def test_resolves_branch_from_cwd_when_omitted(
         self,
         mock_workspace_resolve: MagicMock,
-        mock_activate_worktree: MagicMock,
+        mock_worktree_resolve: MagicMock,
+        mock_service: MagicMock,
     ) -> None:
         up(ctx=make_context())
-        workspace = mock_workspace_resolve.return_value
-        worktree = workspace.resolve_or_create_worktree.return_value
-        mock_activate_worktree.assert_called_once_with(
-            worktree,
-            runtime_vars={},
-            detached=False,
-            effective_branch=None,
-        )
+        mock_worktree_resolve.assert_called_once_with(mock_workspace_resolve.return_value, None)
+        assert mock_service.up.call_args.args[0] == BRANCH
 
-    def test_activates_worktree_as_detached(
-        self,
-        mock_workspace_resolve: MagicMock,
-        mock_activate_worktree: MagicMock,
-    ) -> None:
-        up(ctx=make_context(), detached=True)
-        workspace = mock_workspace_resolve.return_value
-        worktree = workspace.resolve_or_create_worktree.return_value
-        mock_activate_worktree.assert_called_once_with(
-            worktree,
-            runtime_vars={},
-            detached=True,
-            effective_branch=None,
-        )
+    def test_passes_runtime_vars(self, mock_service: MagicMock) -> None:
+        up(ctx=make_context(), branch=BRANCH, runtime_vars=RUNTIME_VARS)  # ty:ignore[invalid-argument-type]
+        assert mock_service.up.call_args.kwargs["runtime_vars"] == {"MY_VAR": "my_value"}
 
-    def test_passes_effective_branch_to_activate(
-        self,
-        mock_workspace_resolve: MagicMock,
-        mock_activate_worktree: MagicMock,
-    ) -> None:
-        up(ctx=make_context(), effective_branch="gabriel/impersonated")
-        workspace = mock_workspace_resolve.return_value
-        worktree = workspace.resolve_or_create_worktree.return_value
-        mock_activate_worktree.assert_called_once_with(
-            worktree,
-            runtime_vars={},
-            detached=False,
-            effective_branch="gabriel/impersonated",
-        )
+    def test_passes_detached(self, mock_service: MagicMock) -> None:
+        up(ctx=make_context(), branch=BRANCH, detached=True)
+        assert mock_service.up.call_args.kwargs["detached"] is True
+
+    def test_passes_effective_branch(self, mock_service: MagicMock) -> None:
+        up(ctx=make_context(), branch=BRANCH, effective_branch="gabriel/impersonated")
+        assert mock_service.up.call_args.kwargs["effective_branch"] == "gabriel/impersonated"

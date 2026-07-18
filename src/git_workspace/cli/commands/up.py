@@ -2,10 +2,11 @@ from typing import Annotated
 
 import typer
 
-from git_workspace import operations
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.ui import console, styled_branch, styled_path
 from git_workspace.workspace import Workspace
+from git_workspace.workspace.service import WorkspaceService
+from git_workspace.workspace.worktree import Worktree
 
 app = typer.Typer()
 
@@ -71,12 +72,14 @@ def up(
     If the worktree does not exist, copies and links from the manifest are applied first, followed by on_setup hooks. Unless --detached is passed, on_attach hooks also run — use --detached for headless or automated workflows.
     """
     workspace = Workspace.resolve(ctx.obj.workspace_dir)
-    worktree = workspace.resolve_or_create_worktree(branch, base_branch)
+    if branch is None:
+        branch = Worktree.resolve(workspace, None).branch
 
-    console.print(f"Activating {styled_branch(worktree.branch)}")
+    console.print(f"Activating {styled_branch(branch)}")
 
-    operations.activate_worktree(
-        worktree,
+    worktree = WorkspaceService.create(workspace).up(
+        branch,
+        base_branch=base_branch,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         detached=detached,
         effective_branch=effective_branch,

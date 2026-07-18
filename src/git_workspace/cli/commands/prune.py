@@ -5,6 +5,7 @@ from rich.table import Table
 
 from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
+from git_workspace.workspace.service import WorkspaceService
 
 app = typer.Typer()
 
@@ -33,27 +34,19 @@ def prune(
     Identifies and removes worktrees older than a specified threshold. The age threshold is taken from --older-than-days if provided, otherwise from the [prune] section in the manifest. Branches listed in exclude_branches are never removed regardless of age.
 
     Runs in dry-run mode by default. Pass --apply to actually remove worktrees.
+
+    Removal goes through the full lifecycle: on_detach and on_teardown hooks run for each worktree before it is deleted. A failing worktree is skipped and pruning continues; failures are reported at the end.
     """
     workspace = Workspace.resolve(ctx.obj.workspace_dir)
 
-    threshold = older_than_days
-    if threshold is None:
-        if workspace.manifest.prune is None:
-            raise typer.BadParameter(
-                "Must pass --older-than-days or define [prune] in manifest",
-                param_hint="'--older-than-days'",
-            )
-        threshold = workspace.manifest.prune.older_than_days
+    if older_than_days is None and workspace.manifest.prune is None:
+        raise typer.BadParameter(
+            "Must pass --older-than-days or define [prune] in manifest",
+            param_hint="'--older-than-days'",
+        )
 
-    protected: set[str] = set()
-    if workspace.manifest.prune:
-        protected.update(workspace.manifest.prune.exclude_branches)
-
-    candidates = [
-        worktree
-        for worktree in workspace.list_worktrees()
-        if worktree.age_days > threshold and worktree.branch not in protected
-    ]
+    service = WorkspaceService.create(workspace)
+    candidates = service.prune_candidates(older_than_days=older_than_days)
 
     if not candidates:
         console.success("Nothing to prune")
@@ -70,7 +63,14 @@ def prune(
         console.print(table)
     else:
         console.print(f"Pruning [bold]{len(candidates)}[/bold] worktree(s)...")
-        for worktree in candidates:
-            console.print(f"  Removing {styled_branch(worktree.branch)}")
-            worktree.delete(force=True)
+        failures = service.prune(candidates)
+
+        if failures:
+            for failure in failures:
+                console.warning(
+                    f"Failed to remove {styled_branch(failure.worktree.branch)}: {failure.error}"
+                )
+            console.error(f"Pruned with {len(failures)} failure(s)")
+            raise typer.Exit(code=1)
+
         console.success("Done")

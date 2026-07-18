@@ -7,6 +7,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- `git workspace prepare [PATH]` — prepares an existing worktree (assets + `on_setup` hooks) regardless of which tool created it, including worktrees created directly with `git worktree add` at arbitrary paths outside the workspace root. The owning workspace is discovered through the worktree's git metadata (`.workspace` lives as a sibling of the main git directory). No-ops when the worktree is already prepared; `--force` re-runs setup. This is the primitive external hosts (editor plugins, CI, other tools) should invoke.
+- Per-worktree lifecycle state under `<root>/.workspace/.state/` (`created` → `preparing` → `ready`/`preparation-failed`, plus `detached`/`tearing-down`). A failed `on_setup` is now remembered: the next `up` or `prepare` retries preparation instead of silently treating the worktree as healthy. Worktrees without a state file (created by older versions) remain fully supported.
+- Per-worktree operation locks: concurrent mutating operations (`up`, `prepare`, `down`, `rm`, `prune --apply`) on the same worktree now fail fast with a clear message instead of racing.
+- `doctor` now flags worktrees whose preparation failed (with the retry command) and stale state files whose worktree no longer exists (auto-fixable).
+- Internal provider/presenter architecture: worktree lifecycle is owned by a `WorktreeProvider` (native git today), presentation by an optional `WorkspacePresenter` (none today), orchestrated by a `WorkspaceService`. This is the seam future backends (editor/multiplexer integrations, alternative worktree managers) plug into; no user-facing backend selection exists yet.
+
+### Changed
+- **Breaking:** `git workspace prune --apply` now runs the full removal lifecycle per worktree — `on_detach` and `on_teardown` hooks execute before deletion (previously hooks were skipped). A failing worktree is skipped and pruning continues; failures are summarized and the command exits non-zero.
+- **Breaking:** the CLI now exits with a non-zero status code when a command fails with a git-workspace error (previously it printed the error but exited 0).
+- Failed preparation on `up` now leaves the worktree in place, records the failure, and prints a retry command (`git workspace prepare <path>`); it never cleans up automatically.
+
+### Deprecated
+- `git workspace reset` — use `git workspace prepare --force` instead. `reset` currently remains as an alias with identical behavior.
+
 ## [0.8.0] - 2026-05-04
 
 ### Added

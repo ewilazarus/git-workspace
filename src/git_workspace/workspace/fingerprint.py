@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from git_workspace.manifest import Fingerprint
 
 if TYPE_CHECKING:
-    from git_workspace.worktree import Worktree
+    from git_workspace.workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
 

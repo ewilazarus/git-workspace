@@ -6,6 +6,7 @@ from git_workspace.cli.commands.down import app as down_command
 from git_workspace.cli.commands.edit import app as edit_command
 from git_workspace.cli.commands.init import app as init_command
 from git_workspace.cli.commands.list import app as list_command
+from git_workspace.cli.commands.prepare import app as prepare_command
 from git_workspace.cli.commands.prune import app as prune_command
 from git_workspace.cli.commands.remove import app as remove_command
 from git_workspace.cli.commands.reset import app as reset_command
@@ -20,6 +21,7 @@ __all__ = [
     "edit_command",
     "init_command",
     "list_command",
+    "prepare_command",
     "prune_command",
     "remove_command",
     "reset_command",

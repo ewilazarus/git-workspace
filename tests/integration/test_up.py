@@ -114,3 +114,27 @@ def test_new_branch_forks_from_latest_remote_main(setup: Setup, tmp_path: Path) 
     assert worktree_path.is_dir()
     # The file added to remote main after cloning must be present in the new branch
     assert (worktree_path / "new_remote_file.txt").exists()
+
+
+def test_up_records_ready_state(workspace: Workspace) -> None:
+    from git_workspace.workspace.state import WorkspaceStateStore
+
+    up(ctx=make_context(str(workspace.dir)), branch="main")
+
+    record = WorkspaceStateStore(workspace.paths.state).load(workspace.dir / "main")
+    assert record is not None
+    assert record.lifecycle_state.value == "ready"
+
+
+def test_up_works_for_legacy_worktree_without_state(workspace: Workspace) -> None:
+    from git_workspace.workspace.state import WorkspaceStateStore
+
+    up(ctx=make_context(str(workspace.dir)), branch="main")
+    store = WorkspaceStateStore(workspace.paths.state)
+    store.delete(workspace.dir / "main")
+
+    up(ctx=make_context(str(workspace.dir)), branch="main")
+
+    record = store.load(workspace.dir / "main")
+    assert record is not None
+    assert record.lifecycle_state.value == "ready"

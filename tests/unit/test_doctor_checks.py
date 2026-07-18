@@ -1329,3 +1329,73 @@ class TestCheckHookEmptyGroups:
         updated = tomllib.loads(manifest.read_text())
         assert len(updated["hooks"]["on_setup"]) == 1
         assert updated["hooks"]["on_setup"][0]["commands"] == ["real_cmd"]
+
+
+class TestCheckWorkspaceState:
+    @pytest.fixture
+    def workspace_with_state(self, tmp_path):
+        from unittest.mock import MagicMock
+
+        from git_workspace.workspace.models import (
+            ManagedWorktree,
+            ProviderKind,
+            WorkspaceLifecycleState,
+        )
+        from git_workspace.workspace.state import WorkspaceStateStore
+
+        workspace = MagicMock()
+        workspace.dir = tmp_path
+        workspace.paths.state = tmp_path / ".workspace" / ".state"
+        store = WorkspaceStateStore(workspace.paths.state)
+
+        worktree_dir = tmp_path / "feature" / "auth"
+        worktree_dir.mkdir(parents=True)
+        managed = ManagedWorktree(
+            repository_path=tmp_path,
+            worktree_path=worktree_dir,
+            branch="feature/auth",
+            provider_kind=ProviderKind.NATIVE_GIT,
+        )
+        return workspace, store, managed, WorkspaceLifecycleState
+
+    def test_no_findings_for_healthy_state(self, workspace_with_state):
+        from git_workspace.doctor import _check_workspace_state
+
+        workspace, store, managed, states = workspace_with_state
+        store.save_created(managed)
+        store.set_state(managed.worktree_path, states.READY)
+
+        findings = []
+        _check_workspace_state(workspace, findings)
+
+        assert findings == []
+
+    def test_flags_failed_preparation_with_retry_hint(self, workspace_with_state):
+        from git_workspace.doctor import _check_workspace_state
+
+        workspace, store, managed, states = workspace_with_state
+        store.save_created(managed)
+        store.mark_preparation_failed(managed.worktree_path, error="hook exploded")
+
+        findings = []
+        _check_workspace_state(workspace, findings)
+
+        assert len(findings) == 1
+        assert "git workspace prepare --force" in findings[0].message
+
+    def test_flags_stale_state_with_delete_fix(self, workspace_with_state):
+        import shutil
+
+        from git_workspace.doctor import _check_workspace_state
+
+        workspace, store, managed, states = workspace_with_state
+        store.save_created(managed)
+        shutil.rmtree(managed.worktree_path)
+
+        findings = []
+        _check_workspace_state(workspace, findings)
+
+        assert len(findings) == 1
+        assert findings[0].fix is not None
+        findings[0].fix.apply()
+        assert store.load(managed.worktree_path) is None

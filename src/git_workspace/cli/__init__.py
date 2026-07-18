@@ -10,6 +10,7 @@ from git_workspace.cli.commands import (
     edit_command,
     init_command,
     list_command,
+    prepare_command,
     prune_command,
     remove_command,
     reset_command,
@@ -39,6 +40,7 @@ app.add_typer(down_command)
 app.add_typer(edit_command)
 app.add_typer(init_command)
 app.add_typer(list_command)
+app.add_typer(prepare_command)
 app.add_typer(prune_command)
 app.add_typer(remove_command)
 app.add_typer(reset_command)

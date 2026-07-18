@@ -10,13 +10,13 @@ from typing import TYPE_CHECKING, Literal
 import tomlkit
 from jinja2 import Environment, TemplateSyntaxError
 
-from git_workspace import git
-from git_workspace.assets import Copier
-from git_workspace.env import BASE_VAR_KEYS, FINGERPRINT_VAR_PREFIX
 from git_workspace.errors import WorktreeListingError
-from git_workspace.fingerprint import SUPPORTED_ALGORITHMS
 from git_workspace.manifest import KNOWN_CONDITION_KEYS, HookGroup, Manifest
+from git_workspace.subprocesses import git
 from git_workspace.utils import normalize_variable_name
+from git_workspace.workspace.assets import Copier
+from git_workspace.workspace.env import BASE_VAR_KEYS, FINGERPRINT_VAR_PREFIX
+from git_workspace.workspace.fingerprint import SUPPORTED_ALGORITHMS
 
 if TYPE_CHECKING:
     from git_workspace.workspace import Workspace
@@ -568,6 +568,37 @@ def _check_stale_worktrees(workspace: Workspace, findings: list[Finding]) -> Non
             )
 
 
+def _check_workspace_state(workspace: Workspace, findings: list[Finding]) -> None:
+    from git_workspace.workspace.state import WorkspaceStateStore
+
+    store = WorkspaceStateStore(workspace.paths.state)
+    for record in store.list():
+        worktree_path = record.worktree.worktree_path
+
+        if not worktree_path.exists():
+            findings.append(
+                Finding(
+                    "warning",
+                    f"Workspace state exists for '{record.worktree.branch}' but its worktree"
+                    f" '{worktree_path}' no longer exists",
+                    fix=Fix(
+                        label=f"Delete stale state for '{record.worktree.branch}'",
+                        kind="auto",
+                        apply=lambda p=worktree_path: store.delete(p),
+                    ),
+                )
+            )
+        elif record.lifecycle_state.value == "preparation-failed":
+            findings.append(
+                Finding(
+                    "warning",
+                    f"Preparation failed for '{record.worktree.branch}'"
+                    f" ({record.preparation_error}); retry with:"
+                    f" git workspace prepare --force {worktree_path}",
+                )
+            )
+
+
 def _check_hook_unknown_condition_keys(workspace: Workspace, findings: list[Finding]) -> None:
     known_str = ", ".join(sorted(KNOWN_CONDITION_KEYS))
     for event, groups in _iter_hooks(workspace):
@@ -657,5 +688,6 @@ def run_checks(workspace: Workspace) -> list[Finding]:
     _check_copy_placeholders(workspace, findings)
     _check_base_branch(workspace, findings)
     _check_stale_worktrees(workspace, findings)
+    _check_workspace_state(workspace, findings)
 
     return findings

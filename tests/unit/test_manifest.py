@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.fingerprint import DEFAULT_ALGORITHM, DEFAULT_LENGTH
 from git_workspace.manifest import (
     Fingerprint,
     HookGroup,
@@ -12,6 +11,7 @@ from git_workspace.manifest import (
     Manifest,
     Prune,
 )
+from git_workspace.workspace.fingerprint import DEFAULT_ALGORITHM, DEFAULT_LENGTH
 
 
 @pytest.fixture

@@ -5,9 +5,9 @@ import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest_mock import MockerFixture
 
-from git_workspace.assets import IgnoreManager, Linker
 from git_workspace.errors import WorkspaceLinkError
 from git_workspace.manifest import Link
+from git_workspace.workspace.assets import IgnoreManager, Linker
 
 ASSETS_DIR = Path("/workspace/.workspace/assets")
 WORKTREE_DIR = Path("/workspace/feat/GWS-001")
@@ -49,7 +49,7 @@ class TestApplyWithOverride:
 
     @pytest.fixture(autouse=True)
     def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.git.skip_worktree")
+        return mocker.patch("git_workspace.workspace.assets.git.skip_worktree")
 
     def test_apply_calls_skip_worktree_for_override(
         self,
@@ -179,7 +179,7 @@ class TestApplyCreatesParentDirs:
 
     @pytest.fixture(autouse=True)
     def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.git.skip_worktree")
+        return mocker.patch("git_workspace.workspace.assets.git.skip_worktree")
 
     @pytest.fixture
     def linker(self, mocker: MockerFixture) -> Linker:

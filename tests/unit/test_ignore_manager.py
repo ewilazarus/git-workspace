@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.assets import IgnoreManager
+from git_workspace.workspace.assets import IgnoreManager
 
 
 @pytest.fixture

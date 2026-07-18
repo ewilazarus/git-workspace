@@ -31,3 +31,32 @@ def test_worktree_can_be_recreated_after_remove(workspace: Workspace) -> None:
     remove(ctx=make_context(str(workspace.dir)), branch="main")
     up(ctx=make_context(str(workspace.dir)), branch="main")
     assert (workspace.dir / "main").is_dir()
+
+
+def test_remove_deletes_state_file(workspace: Workspace) -> None:
+    from git_workspace.cli.commands.up import up
+    from git_workspace.workspace.state import WorkspaceStateStore
+
+    up(ctx=make_context(str(workspace.dir)), branch="main")
+    store = WorkspaceStateStore(workspace.paths.state)
+    assert store.load(workspace.dir / "main") is not None
+
+    remove(ctx=make_context(str(workspace.dir)), branch="main")
+
+    assert store.load(workspace.dir / "main") is None
+
+
+def test_remove_preserves_branch(workspace: Workspace) -> None:
+    import subprocess
+
+    from git_workspace.cli.commands.up import up
+
+    up(ctx=make_context(str(workspace.dir)), branch="feature/keep")
+    remove(ctx=make_context(str(workspace.dir)), branch="feature/keep")
+
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "refs/heads/feature/keep"],
+        cwd=workspace.dir,
+        capture_output=True,
+    )
+    assert result.returncode == 0

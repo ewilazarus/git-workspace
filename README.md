@@ -151,7 +151,8 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 | `git workspace clone` | Clone an existing repository into workspace format |
 | `git workspace up` | Open a worktree, creating it if it doesn't exist |
 | `git workspace down` | Deactivate a worktree and run teardown hooks |
-| `git workspace reset` | Reapply copies, links, and re-run setup hooks |
+| `git workspace prepare` | Prepare an existing worktree (assets + setup hooks), wherever it was created |
+| `git workspace reset` | Deprecated alias for `prepare --force` |
 | `git workspace rm` | Remove a worktree (branch is preserved) |
 | `git workspace ls` | List all active worktrees with branch, path, and age |
 | `git workspace prune` | Remove stale worktrees by age (dry-run by default) |

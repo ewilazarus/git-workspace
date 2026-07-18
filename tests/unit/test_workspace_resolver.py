@@ -20,7 +20,7 @@ def filesystem(fs: FakeFilesystem) -> None:
 
 @pytest.fixture(autouse=True)
 def manifest_load(mocker: MockerFixture) -> None:
-    mocker.patch("git_workspace.workspace.Manifest.load")
+    mocker.patch("git_workspace.workspace.core.Manifest.load")
 
 
 @pytest.mark.parametrize("raw_workspace_dir", [WORKSPACE, None])
