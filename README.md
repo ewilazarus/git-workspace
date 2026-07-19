@@ -171,6 +171,14 @@ backend = "native"   # or "herdr" / "auto" (default)
 `git workspace prepare` always works through plain git, regardless of backend —
 it is the primitive external tools and CI invoke.
 
+For the reverse direction — worktrees created from herdr's own UI — a thin
+[herdr plugin](integrations/herdr/) runs `git workspace prepare` automatically
+on herdr's worktree events:
+
+```bash
+herdr plugin link /path/to/git-workspace/integrations/herdr
+```
+
 ---
 
 ## Commands

@@ -1,0 +1,26 @@
+id = "git-workspace"
+name = "git-workspace"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+platforms = ["macos", "linux"]
+description = "Prepares git-workspace worktrees when herdr creates or opens them"
+
+[[events]]
+on = "worktree.created"
+command = ["hooks/prepare"]
+
+[[events]]
+on = "worktree.opened"
+command = ["hooks/prepare"]
+
+[[actions]]
+id = "prepare"
+title = "Prepare worktree"
+description = "Run `git workspace prepare` for the current worktree"
+command = ["hooks/prepare"]
+
+[[actions]]
+id = "reprepare"
+title = "Re-run worktree preparation"
+description = "Run `git workspace prepare --force` for the current worktree"
+command = ["hooks/prepare", "--force"]

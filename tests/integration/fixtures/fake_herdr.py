@@ -269,6 +269,15 @@ def cmd_workspace_close(workspace_id: str) -> None:
     ok("workspace:close", {"type": "ok"})
 
 
+def cmd_notification_show(flags: dict, positional: list) -> None:
+    state = load_state()
+    state.setdefault("notifications", []).append(
+        {"title": positional[0], "body": flags.get("body")}
+    )
+    save_state(state)
+    ok("notification:show", {"type": "ok"})
+
+
 def main() -> None:
     argv = sys.argv[1:]
     if len(argv) < 2:
@@ -289,6 +298,8 @@ def main() -> None:
         cmd_workspace_focus(positional[0])
     elif group == "workspace" and sub == "close":
         cmd_workspace_close(positional[0])
+    elif group == "notification" and sub == "show":
+        cmd_notification_show(flags, positional)
     else:
         fail("unknown_command", f"fake herdr does not implement: {group} {sub}", exit_code=2)
 

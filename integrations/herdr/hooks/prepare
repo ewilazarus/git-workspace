@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""
+Thin herdr plugin hook: prepares a git-workspace worktree.
+
+Invoked by herdr on worktree.created / worktree.opened events (payload in
+HERDR_PLUGIN_EVENT_JSON) and by the plugin's prepare/reprepare actions
+(context in HERDR_PLUGIN_CONTEXT_JSON).
+
+Deliberately thin, per the git-workspace backend architecture: it only
+resolves the worktree path and shells out to `git workspace prepare`. It
+never parses project configuration, applies assets, runs hooks directly,
+or keeps state of its own — all lifecycle rules live in git-workspace.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+# git-workspace exits with EX_TEMPFAIL when another operation already holds
+# the worktree's lifecycle lock — e.g. `git workspace up --backend herdr` is
+# still preparing the worktree it just created through herdr. That is not a
+# failure; the creator finishes the preparation.
+GIT_WORKSPACE_LOCKED_EXIT_CODE = 75
+
+
+def resolve_git_workspace():
+    explicit = os.environ.get("GIT_WORKSPACE_BIN")
+    if explicit:
+        return explicit
+    return shutil.which("git-workspace")
+
+
+def notify(body):
+    herdr_bin = os.environ.get("HERDR_BIN_PATH") or shutil.which("herdr")
+    if herdr_bin is None:
+        return
+    subprocess.run(
+        [herdr_bin, "notification", "show", "git-workspace", "--body", body],
+        capture_output=True,
+    )
+
+
+def resolve_worktree():
+    """Returns (worktree_path, repo_root) from the event or action context."""
+    raw_event = os.environ.get("HERDR_PLUGIN_EVENT_JSON")
+    if raw_event:
+        data = json.loads(raw_event).get("data", {})
+        workspace_worktree = data.get("workspace", {}).get("worktree", {})
+        path = data.get("worktree", {}).get("path") or workspace_worktree.get("checkout_path")
+        return path, workspace_worktree.get("repo_root")
+
+    raw_context = os.environ.get("HERDR_PLUGIN_CONTEXT_JSON")
+    if raw_context:
+        context = json.loads(raw_context)
+        worktree = context.get("worktree") or {}
+        path = (
+            worktree.get("checkout_path")
+            or context.get("workspace_cwd")
+            or context.get("focused_pane_cwd")
+        )
+        return path, worktree.get("repo_root")
+
+    return None, None
+
+
+def main():
+    force = "--force" in sys.argv[1:]
+
+    path, repo_root = resolve_worktree()
+    if not path:
+        print("no worktree path in the herdr event or context; nothing to prepare")
+        return 0
+
+    # Only act on git-workspace repositories; herdr fires these events for
+    # every repo it manages.
+    if repo_root and not (Path(repo_root) / ".workspace" / "manifest.toml").is_file():
+        print(f"{repo_root} is not a git-workspace workspace; skipping")
+        return 0
+
+    git_workspace = resolve_git_workspace()
+    if git_workspace is None:
+        print(
+            "git-workspace executable not found (install it or set GIT_WORKSPACE_BIN)",
+            file=sys.stderr,
+        )
+        notify(f"git-workspace is not installed; cannot prepare {Path(path).name}")
+        return 1
+
+    cmd = [git_workspace, "prepare", path]
+    if force:
+        cmd.append("--force")
+
+    print("running:", " ".join(cmd), flush=True)
+    result = subprocess.run(cmd)
+
+    if result.returncode == GIT_WORKSPACE_LOCKED_EXIT_CODE:
+        print("another git-workspace operation is already preparing this worktree; skipping")
+        return 0
+    if result.returncode != 0:
+        notify(
+            f"Preparation failed for {Path(path).name} — "
+            f"retry with: git workspace prepare --force {path}"
+        )
+    return result.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())
