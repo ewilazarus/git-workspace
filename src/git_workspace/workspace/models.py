@@ -8,10 +8,12 @@ from pathlib import Path
 
 class ProviderKind(StrEnum):
     NATIVE_GIT = "native-git"
+    HERDR = "herdr"
 
 
 class PresenterKind(StrEnum):
     NONE = "none"
+    HERDR = "herdr"
 
 
 class WorkspaceLifecycleState(StrEnum):

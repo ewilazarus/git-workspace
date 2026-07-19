@@ -7,6 +7,7 @@ from git_workspace.cli.parsers import parse_vars
 from git_workspace.ui import console, styled_path
 from git_workspace.workspace import Workspace
 from git_workspace.workspace.core import WorkspaceResolver
+from git_workspace.workspace.models import ProviderKind
 from git_workspace.workspace.service import WorkspaceService
 
 app = typer.Typer()
@@ -62,7 +63,10 @@ def prepare(
 
     console.print(f"Preparing {styled_path(target)}")
 
-    outcome = WorkspaceService.create(workspace).prepare_path(
+    # Preparation must work anywhere (CI, external hosts) with git alone, so
+    # the import step is pinned to the native provider regardless of backend.
+    service = WorkspaceService.create(workspace, provider_kind=ProviderKind.NATIVE_GIT)
+    outcome = service.prepare_path(
         target,
         force=force,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]

@@ -5,6 +5,7 @@ import typer
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
+from git_workspace.workspace.models import ProviderKind
 from git_workspace.workspace.service import WorkspaceService
 
 app = typer.Typer()
@@ -53,7 +54,7 @@ def reset(
 
     console.print(f"Resetting {styled_branch(worktree.branch)}")
 
-    WorkspaceService.create(workspace).prepare_path(
+    WorkspaceService.create(workspace, provider_kind=ProviderKind.NATIVE_GIT).prepare_path(
         worktree.dir,
         force=True,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]

@@ -96,6 +96,24 @@ class Hooks:
 
 
 @dataclass
+class WorkspaceSettings:
+    """
+    Backend selection from the manifest's ``[workspace]`` table.
+
+    - backend: named preset ("native", "herdr") or "auto" for verified
+      environment detection
+    - provider: explicit worktree-provider kind; overrides the preset's provider
+    - presenter: explicit presenter kind; overrides the preset's presenter
+
+    Values are plain strings here; the backend resolver validates them.
+    """
+
+    backend: str | None = None
+    provider: str | None = None
+    presenter: str | None = None
+
+
+@dataclass
 class Prune:
     """
     Defines rules used by the `prune` command to remove worktrees.
@@ -165,6 +183,7 @@ class Manifest:
     fingerprints: list[Fingerprint] = field(default_factory=list)
     hooks: Hooks = field(default_factory=Hooks)
     prune: Prune | None = None
+    workspace: WorkspaceSettings = field(default_factory=WorkspaceSettings)
 
     @classmethod
     def _parse_version(cls, data: dict[str, Any]) -> int:
@@ -241,6 +260,15 @@ class Manifest:
         )
 
     @classmethod
+    def _parse_workspace(cls, data: dict[str, Any]) -> WorkspaceSettings:
+        workspace_data = data.get("workspace", {})
+        return WorkspaceSettings(
+            backend=workspace_data.get("backend"),
+            provider=workspace_data.get("provider"),
+            presenter=workspace_data.get("presenter"),
+        )
+
+    @classmethod
     def _parse_prune(cls, data: dict[str, Any]) -> Prune | None:
         prune_data = data.get("prune")
         return (
@@ -300,4 +328,14 @@ class Manifest:
             len(hooks.on_teardown),
             f"older_than_days={prune.older_than_days}" if prune else None,
         )
-        return Manifest(version, base_branch, copies, links, vars, fingerprints, hooks, prune)
+        return Manifest(
+            version,
+            base_branch,
+            copies,
+            links,
+            vars,
+            fingerprints,
+            hooks,
+            prune,
+            cls._parse_workspace(data),
+        )

@@ -92,6 +92,14 @@ class PresentationNotFoundError(PresenterError):
     """Raised when no presentation exists for a worktree."""
 
 
+class HerdrError(WorkspaceBackendError):
+    """Raised when the herdr CLI reports an error or returns malformed output."""
+
+    def __init__(self, message: str, *, code: str | None = None) -> None:
+        self.code = code
+        super().__init__(message)
+
+
 class ExternalCommandError(WorkspaceBackendError):
     """Raised when an external command exits with a non-zero return code."""
 

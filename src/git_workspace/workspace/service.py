@@ -15,6 +15,8 @@ from git_workspace.workspace.core import Workspace
 from git_workspace.workspace.lock import workspace_operation_lock
 from git_workspace.workspace.models import (
     ManagedWorktree,
+    PresenterKind,
+    ProviderKind,
     WorkspaceLifecycleState,
     WorkspaceRecord,
     WorktreeRequest,
@@ -76,10 +78,18 @@ class WorkspaceService:
         cls,
         workspace: Workspace,
         *,
+        backend_name: str | None = None,
+        provider_kind: ProviderKind | None = None,
+        presenter_kind: PresenterKind | None = None,
         runner: CommandRunner = DEFAULT_RUNNER,
         resolver: WorkspaceBackendResolver | None = None,
     ) -> WorkspaceService:
-        backend = (resolver or WorkspaceBackendResolver(runner)).resolve()
+        backend = (resolver or WorkspaceBackendResolver(runner)).resolve(
+            backend_name=backend_name,
+            provider_kind=provider_kind,
+            presenter_kind=presenter_kind,
+            settings=workspace.manifest.workspace,
+        )
         return cls(
             workspace=workspace,
             backend=backend,
@@ -345,7 +355,7 @@ class WorkspaceService:
                     effective_branch=effective_branch,
                 )
 
-            self._present(managed, focus=focus)
+            self._present(managed, focus=focus and not detached)
 
         return worktree
 
@@ -387,7 +397,7 @@ class WorkspaceService:
                     effective_branch=effective_branch,
                 )
 
-            self._present(managed, focus=focus)
+            self._present(managed, focus=focus and not detached)
 
         return worktree
 

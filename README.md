@@ -138,6 +138,41 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 
 ---
 
+## Backends
+
+Worktree creation and presentation are pluggable. Two backends exist today:
+
+| Backend | Worktrees created by | Presented as |
+|---|---|---|
+| `native` | git | — (nothing opens) |
+| `herdr` | [herdr](https://herdr.dev) | a herdr workspace (opened and focused) |
+
+Selection is automatic: inside a verified herdr session (`HERDR_ENV` set and the
+session socket reachable), `up` uses the herdr backend — the worktree is created
+through herdr, prepared, and opened as a workspace. Everywhere else the native
+backend is used. `down` closes the herdr workspace (keeping the worktree);
+`rm` removes the worktree through herdr (keeping the branch).
+
+Override per invocation or per repository:
+
+```bash
+git workspace up feature/auth --backend native   # opt out for one call
+git workspace up feature/auth --no-focus         # open but don't switch to it
+git workspace up feature/auth \
+  --provider native-git --presenter herdr        # explicit composition
+```
+
+```toml
+# .workspace/manifest.toml
+[workspace]
+backend = "native"   # or "herdr" / "auto" (default)
+```
+
+`git workspace prepare` always works through plain git, regardless of backend —
+it is the primitive external tools and CI invoke.
+
+---
+
 ## Commands
 
 > [!TIP]

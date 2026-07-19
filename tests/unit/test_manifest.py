@@ -10,6 +10,7 @@ from git_workspace.manifest import (
     Link,
     Manifest,
     Prune,
+    WorkspaceSettings,
 )
 from git_workspace.workspace.fingerprint import DEFAULT_ALGORITHM, DEFAULT_LENGTH
 
@@ -338,3 +339,40 @@ files = ["b.txt"]
         result = Manifest.load(workspace)
 
         assert result.fingerprints == []
+
+
+class TestParseWorkspaceSettings:
+    def test_parses_workspace_table(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[workspace]
+backend = "herdr"
+provider = "native-git"
+presenter = "none"
+"""
+
+        result = Manifest.load(workspace)
+
+        assert result.workspace == WorkspaceSettings(
+            backend="herdr",
+            provider="native-git",
+            presenter="none",
+        )
+
+    def test_defaults_to_empty_settings_when_absent(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = ""
+
+        result = Manifest.load(workspace)
+
+        assert result.workspace == WorkspaceSettings()
+
+    def test_partial_settings_leave_other_fields_none(self, workspace: MagicMock) -> None:
+        workspace.paths.manifest.read_text.return_value = """
+[workspace]
+backend = "auto"
+"""
+
+        result = Manifest.load(workspace)
+
+        assert result.workspace.backend == "auto"
+        assert result.workspace.provider is None
+        assert result.workspace.presenter is None

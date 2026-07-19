@@ -43,7 +43,7 @@ class TestUp:
         self, mock_workspace_resolve: MagicMock, mock_service_create: MagicMock
     ) -> None:
         up(ctx=make_context(), branch=BRANCH)
-        mock_service_create.assert_called_once_with(mock_workspace_resolve.return_value)
+        assert mock_service_create.call_args.args == (mock_workspace_resolve.return_value,)
 
     def test_delegates_to_service_up(self, mock_service: MagicMock) -> None:
         up(ctx=make_context(), branch=BRANCH, base_branch=BASE_BRANCH)
@@ -53,6 +53,7 @@ class TestUp:
             runtime_vars={},
             detached=False,
             effective_branch=None,
+            focus=True,
         )
 
     def test_resolves_branch_from_cwd_when_omitted(
@@ -76,3 +77,39 @@ class TestUp:
     def test_passes_effective_branch(self, mock_service: MagicMock) -> None:
         up(ctx=make_context(), branch=BRANCH, effective_branch="gabriel/impersonated")
         assert mock_service.up.call_args.kwargs["effective_branch"] == "gabriel/impersonated"
+
+
+class TestBackendSelection:
+    def test_passes_backend_selection_to_service(
+        self, mock_workspace_resolve: MagicMock, mock_service_create: MagicMock
+    ) -> None:
+        from git_workspace.workspace.models import PresenterKind, ProviderKind
+
+        up(
+            ctx=make_context(),
+            branch=BRANCH,
+            backend="herdr",
+            provider=ProviderKind.NATIVE_GIT,
+            presenter=PresenterKind.HERDR,
+        )
+
+        mock_service_create.assert_called_once_with(
+            mock_workspace_resolve.return_value,
+            backend_name="herdr",
+            provider_kind=ProviderKind.NATIVE_GIT,
+            presenter_kind=PresenterKind.HERDR,
+        )
+
+    def test_defaults_to_no_explicit_selection(self, mock_service_create: MagicMock) -> None:
+        up(ctx=make_context(), branch=BRANCH)
+
+        assert mock_service_create.call_args.kwargs == {
+            "backend_name": None,
+            "provider_kind": None,
+            "presenter_kind": None,
+        }
+
+    def test_passes_focus_flag(self, mock_service: MagicMock) -> None:
+        up(ctx=make_context(), branch=BRANCH, focus=False)
+
+        assert mock_service.up.call_args.kwargs["focus"] is False
