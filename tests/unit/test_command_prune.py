@@ -5,7 +5,8 @@ import typer
 from pytest_mock import MockerFixture
 
 from git_workspace.cli.commands.prune import prune
-from git_workspace.errors import UnableToResolveWorkspaceError
+from git_workspace.errors import UnableToResolveWorkspaceError, WorkspaceLockedError
+from git_workspace.workspace.service import PruneFailure
 from tests.helpers import make_context
 
 WORKSPACE_DIR = "/workspace"
@@ -14,9 +15,21 @@ WORKSPACE_DIR = "/workspace"
 @pytest.fixture(autouse=True)
 def mock_workspace_resolve(mocker: MockerFixture) -> MagicMock:
     mock = mocker.patch("git_workspace.cli.commands.prune.Workspace.resolve")
-    mock.return_value.manifest.prune = None
-    mock.return_value.list_worktrees.return_value = []
+    mock.return_value.manifest.prune = MagicMock()
     return mock
+
+
+@pytest.fixture(autouse=True)
+def mock_service_create(mocker: MockerFixture) -> MagicMock:
+    mock = mocker.patch("git_workspace.cli.commands.prune.WorkspaceService.create")
+    mock.return_value.prune_candidates.return_value = []
+    mock.return_value.prune.return_value = []
+    return mock
+
+
+@pytest.fixture
+def mock_service(mock_service_create: MagicMock) -> MagicMock:
+    return mock_service_create.return_value
 
 
 def make_worktree(branch: str = "feature/old", age_days: int = 60) -> MagicMock:
@@ -43,76 +56,38 @@ class TestPrune:
         with pytest.raises(typer.BadParameter):
             prune(ctx=make_context())
 
-    def test_uses_older_than_days_arg_as_threshold(self, mock_workspace_resolve: MagicMock) -> None:
-        within_threshold = make_worktree(age_days=5)
-        beyond_threshold = make_worktree(age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [
-            within_threshold,
-            beyond_threshold,
-        ]
+    def test_passes_threshold_to_service(self, mock_service: MagicMock) -> None:
+        prune(ctx=make_context(), older_than_days=30)
+        mock_service.prune_candidates.assert_called_once_with(older_than_days=30)
 
-        prune(ctx=make_context(), older_than_days=30, dry_run=False)
-
-        within_threshold.delete.assert_not_called()
-        beyond_threshold.delete.assert_called_once_with(force=True)
-
-    def test_uses_manifest_prune_threshold_when_arg_not_provided(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
-        prune_config = MagicMock()
-        prune_config.older_than_days = 30
-        prune_config.exclude_branches = []
-        mock_workspace_resolve.return_value.manifest.prune = prune_config
-        old_wt = make_worktree(age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [old_wt]
-
-        prune(ctx=make_context(), dry_run=False)
-
-        old_wt.delete.assert_called_once_with(force=True)
-
-    def test_older_than_days_arg_takes_precedence_over_manifest(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
-        prune_config = MagicMock()
-        prune_config.older_than_days = 90
-        prune_config.exclude_branches = []
-        mock_workspace_resolve.return_value.manifest.prune = prune_config
-        wt = make_worktree(age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [wt]
-
-        # manifest threshold=90 would exclude wt (age=60), but arg threshold=30 includes it
-        prune(ctx=make_context(), older_than_days=30, dry_run=False)
-
-        wt.delete.assert_called_once_with(force=True)
-
-    def test_excludes_protected_branches_from_candidates(
-        self, mock_workspace_resolve: MagicMock
-    ) -> None:
-        prune_config = MagicMock()
-        prune_config.older_than_days = 30
-        prune_config.exclude_branches = ["main"]
-        mock_workspace_resolve.return_value.manifest.prune = prune_config
-        protected_wt = make_worktree(branch="main", age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [protected_wt]
-
-        prune(ctx=make_context(), dry_run=False)
-
-        protected_wt.delete.assert_not_called()
-
-    def test_dry_run_does_not_delete_worktrees(self, mock_workspace_resolve: MagicMock) -> None:
-        old_wt = make_worktree(age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [old_wt]
+    def test_dry_run_does_not_prune(self, mock_service: MagicMock) -> None:
+        mock_service.prune_candidates.return_value = [make_worktree()]
 
         prune(ctx=make_context(), older_than_days=30, dry_run=True)
 
-        old_wt.delete.assert_not_called()
+        mock_service.prune.assert_not_called()
 
-    def test_apply_deletes_each_candidate(self, mock_workspace_resolve: MagicMock) -> None:
-        wt1 = make_worktree(branch="feature/a", age_days=60)
-        wt2 = make_worktree(branch="feature/b", age_days=60)
-        mock_workspace_resolve.return_value.list_worktrees.return_value = [wt1, wt2]
+    def test_apply_prunes_candidates(self, mock_service: MagicMock) -> None:
+        candidates = [make_worktree("feature/a"), make_worktree("feature/b")]
+        mock_service.prune_candidates.return_value = candidates
 
         prune(ctx=make_context(), older_than_days=30, dry_run=False)
 
-        wt1.delete.assert_called_once_with(force=True)
-        wt2.delete.assert_called_once_with(force=True)
+        mock_service.prune.assert_called_once_with(candidates)
+
+    def test_does_not_prune_when_no_candidates(self, mock_service: MagicMock) -> None:
+        prune(ctx=make_context(), older_than_days=30, dry_run=False)
+
+        mock_service.prune.assert_not_called()
+
+    def test_exits_non_zero_when_failures_reported(self, mock_service: MagicMock) -> None:
+        worktree = make_worktree()
+        mock_service.prune_candidates.return_value = [worktree]
+        mock_service.prune.return_value = [
+            PruneFailure(worktree=worktree, error=WorkspaceLockedError("locked"))
+        ]
+
+        with pytest.raises(typer.Exit) as excinfo:
+            prune(ctx=make_context(), older_than_days=30, dry_run=False)
+
+        assert excinfo.value.exit_code == 1

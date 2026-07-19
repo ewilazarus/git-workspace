@@ -2,15 +2,16 @@ from typing import Annotated
 
 import typer
 
-from git_workspace import operations
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
+from git_workspace.workspace.models import ProviderKind
+from git_workspace.workspace.service import WorkspaceService
 
 app = typer.Typer()
 
 
-@app.command()
+@app.command(deprecated=True)
 def reset(
     ctx: typer.Context,
     branch: Annotated[
@@ -43,14 +44,19 @@ def reset(
     Re-applies copies and links from the manifest, updates the managed ignore rules, and reruns setup hooks.
 
     Intended for repairing or refreshing an existing workspace when its state has drifted (e.g. missing dependencies, removed files, or updated configuration). Does not modify Git history, switch branches, or discard uncommitted changes.
+
+    Deprecated: use `git workspace prepare --force` instead.
     """
+    console.warning("'reset' is deprecated; use 'git workspace prepare --force' instead")
+
     workspace = Workspace.resolve(ctx.obj.workspace_dir)
     worktree = workspace.resolve_worktree(branch)
 
     console.print(f"Resetting {styled_branch(worktree.branch)}")
 
-    operations.reset_worktree(
-        worktree,
+    WorkspaceService.create(workspace, provider_kind=ProviderKind.NATIVE_GIT).prepare_path(
+        worktree.dir,
+        force=True,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         effective_branch=effective_branch,
     )

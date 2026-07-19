@@ -9,7 +9,7 @@ from types import TracebackType
 from git_workspace.errors import HookExecutionError
 from git_workspace.manifest import HookGroup
 from git_workspace.ui import HookProgress, console
-from git_workspace.worktree import Worktree
+from git_workspace.workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
 

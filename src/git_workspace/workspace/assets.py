@@ -7,11 +7,11 @@ from types import TracebackType
 
 from jinja2 import DebugUndefined, Environment, TemplateError
 
-from git_workspace import git
 from git_workspace.errors import WorkspaceCopyError, WorkspaceLinkError
 from git_workspace.manifest import Asset, Copy, Link
+from git_workspace.subprocesses import git
 from git_workspace.ui import console
-from git_workspace.worktree import Worktree
+from git_workspace.workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
 

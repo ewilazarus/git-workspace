@@ -32,12 +32,15 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 - [How it works](#how-it-works)
 - [Installation](#installation)
 - [Quick start](#quick-start)
+- [Backends](#backends)
 - [Commands](#commands)
 - [Workspace manifest](#workspace-manifest)
 - [Lifecycle hooks](#lifecycle-hooks)
 - [Fingerprints](#fingerprints)
 - [Assets: links and copies](#assets-links-and-copies)
+- [Preparing worktrees](#preparing-worktrees)
 - [Pruning stale worktrees](#pruning-stale-worktrees)
+- [Shared services via docker compose](#shared-services-via-docker-compose)
 - [Detached mode](#detached-mode)
 - [Diagnosing a workspace](#diagnosing-a-workspace)
 - [Debugging](#debugging)
@@ -50,6 +53,9 @@ With `git-workspace`, each branch lives in its own directory. You `up` into it, 
 
 - 🌳 **Worktree-per-branch** — every branch gets its own directory; no more dirty working trees
 - 🪝 **Lifecycle hooks** — run scripts on setup, attach, detach, and teardown
+- 🔌 **Pluggable backends** — create and present worktrees through [herdr](https://herdr.dev), auto-detected inside a herdr session
+- 🛠️ **Prepare anything** — `git workspace prepare` sets up worktrees created by any tool, at any path
+- 🧾 **Lifecycle state** — failed setups are remembered and retried instead of silently ignored
 - 🔗 **Symlink injection** — link dotfiles and config from a shared config repo into every worktree
 - 📋 **File copying** — copy mutable config files that each worktree can edit independently
 - 🔒 **Override assets** — replace tracked files with symlinks or copies without touching git history
@@ -138,6 +144,49 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 
 ---
 
+## Backends
+
+Worktree creation and presentation are pluggable. Two backends exist today:
+
+| Backend | Worktrees created by | Presented as |
+|---|---|---|
+| `native` | git | — (nothing opens) |
+| `herdr` | [herdr](https://herdr.dev) | a herdr workspace (opened and focused) |
+
+Selection is automatic: inside a verified herdr session (`HERDR_ENV` set and the
+session socket reachable), `up` uses the herdr backend — the worktree is created
+through herdr, prepared, and opened as a workspace. Everywhere else the native
+backend is used. `down` closes the herdr workspace (keeping the worktree);
+`rm` removes the worktree through herdr (keeping the branch).
+
+Override per invocation or per repository:
+
+```bash
+git workspace up feature/auth --backend native   # opt out for one call
+git workspace up feature/auth --no-focus         # open but don't switch to it
+git workspace up feature/auth \
+  --provider native-git --presenter herdr        # explicit composition
+```
+
+```toml
+# .workspace/manifest.toml
+[workspace]
+backend = "native"   # or "herdr" / "auto" (default)
+```
+
+`git workspace prepare` always works through plain git, regardless of backend —
+it is the primitive external tools and CI invoke.
+
+For the reverse direction — worktrees created from herdr's own UI — a thin
+[herdr plugin](integrations/herdr/) runs `git workspace prepare` automatically
+on herdr's worktree events:
+
+```bash
+herdr plugin link /path/to/git-workspace/integrations/herdr
+```
+
+---
+
 ## Commands
 
 > [!TIP]
@@ -151,7 +200,8 @@ You're now inside `my-project/main/` — a real git worktree on the `main` branc
 | `git workspace clone` | Clone an existing repository into workspace format |
 | `git workspace up` | Open a worktree, creating it if it doesn't exist |
 | `git workspace down` | Deactivate a worktree and run teardown hooks |
-| `git workspace reset` | Reapply copies, links, and re-run setup hooks |
+| `git workspace prepare` | Prepare an existing worktree (assets + setup hooks), wherever it was created |
+| `git workspace reset` | Deprecated alias for `prepare --force` |
 | `git workspace rm` | Remove a worktree (branch is preserved) |
 | `git workspace ls` | List all active worktrees with branch, path, and age |
 | `git workspace prune` | Remove stale worktrees by age (dry-run by default) |
@@ -215,10 +265,10 @@ Hooks come in two pairs that map to the two lifetimes a worktree has:
 
   | Event | When it runs |
   |---|---|
-  | `on_setup` | After a worktree is first created, or on `reset` |
+  | `on_setup` | When a worktree is prepared: on `up` for a new worktree, on `prepare` for an unprepared one, and on `prepare --force` |
   | `on_attach` | On `up` in interactive mode (skipped with `--detached`) |
-  | `on_detach` | On `down` and at the start of `rm` |
-  | `on_teardown` | On `rm`, after `on_detach`, before the directory is deleted |
+  | `on_detach` | On `down`, and at the start of `rm` and `prune --apply` |
+  | `on_teardown` | On `rm` and `prune --apply`, after `on_detach`, before the directory is deleted |
 
 <br/>
 
@@ -285,7 +335,7 @@ commands = ["start_long_running_task"]
 
 #### Impersonating a branch with `--as`
 
-All hook-running commands (`up`, `down`, `reset`, `rm`) accept `-a`/`--as <branch>` to override which branch is used when evaluating hook conditions. The real `GIT_WORKSPACE_BRANCH` environment variable and git state are **not** affected.
+All hook-running commands (`up`, `down`, `prepare`, `rm`) accept `-a`/`--as <branch>` to override which branch is used when evaluating hook conditions. The real `GIT_WORKSPACE_BRANCH` environment variable and git state are **not** affected.
 
 ```bash
 # Run hooks as if this were a gabriel/* branch, even though the real branch is feat/my-feature
@@ -318,7 +368,7 @@ length = 12           # optional; default: 12
 
 Each fingerprint is exposed as `GIT_WORKSPACE_FINGERPRINT_<NORMALIZED_NAME>` (same normalization as vars — uppercase, non-alphanumeric replaced by `_`). The above example produces `GIT_WORKSPACE_FINGERPRINT_DOCKER_DEPS`.
 
-Fingerprints are recomputed on every `up`, `reset`, `down`, and `rm` invocation. Files are looked up relative to the worktree root; a missing or unreadable file contributes its path and the literal marker `NULL` to the hash rather than failing.
+Fingerprints are recomputed on every `up`, `prepare`, `down`, and `rm` invocation. Files are looked up relative to the worktree root; a missing or unreadable file contributes its path and the literal marker `NULL` to the hash rather than failing.
 
 <details>
 <summary><i>Usage example</i></summary>
@@ -343,7 +393,7 @@ fi
 
 ## Assets: links and copies
 
-Assets let you inject shared files — dotfiles, editor configs, secrets — into every worktree from your config repository. They live in `.workspace/assets/` and are applied automatically on `up` and `reset`.
+Assets let you inject shared files — dotfiles, editor configs, secrets — into every worktree from your config repository. They live in `.workspace/assets/` and are applied automatically whenever a worktree is prepared (`up` on a new worktree, `prepare`, `prepare --force`).
 
 ### Links
 
@@ -357,7 +407,7 @@ target = ".env.local"
 
 ### Copies
 
-File copies from `.workspace/assets` into the worktree. Each worktree gets its own independent file. Copies are idempotent — `reset` overwrites them with a fresh copy from the source.
+File copies from `.workspace/assets` into the worktree. Each worktree gets its own independent file. Copies are idempotent — `prepare --force` overwrites them with a fresh copy from the source.
 
 ```toml
 [[copy]]
@@ -369,7 +419,7 @@ target = "config.local.yaml"
 <summary><i>Overwrite control</i></summary>
 <br/>
 
-Set `overwrite = false` to seed the file once and preserve local edits across resets. The file is still created on the first `up`, but subsequent `reset` calls leave it untouched.
+Set `overwrite = false` to seed the file once and preserve local edits. The file is still created on the first `up`, but subsequent `prepare --force` calls leave it untouched.
 
 ```toml
 [[copy]]
@@ -436,6 +486,26 @@ override = true
 
 ---
 
+## Preparing worktrees
+
+*Preparation* is the setup half of the lifecycle: applying assets and running `on_setup` hooks. It normally happens automatically when `up` creates a worktree, but it is also available as a standalone command:
+
+```bash
+git workspace prepare              # prepare the worktree you're standing in
+git workspace prepare <path>       # prepare a specific worktree
+git workspace prepare --force      # re-run preparation even if already prepared
+```
+
+`prepare` works on **any** git worktree of the workspace's repository — including ones created directly with `git worktree add`, by herdr, or by any other tool, at any path on disk. The owning workspace is discovered through the worktree's git metadata, so you don't need to be inside the workspace root. This makes it the primitive external integrations (like the [herdr plugin](integrations/herdr/)) and CI invoke.
+
+Preparation is tracked per worktree under `.workspace/.state/`:
+
+- An already-prepared worktree is a no-op (`prepare` reports it and exits 0); pass `--force` to re-apply assets and re-run `on_setup` — this is the repair/refresh path (the old `reset` command is now a deprecated alias for it).
+- A **failed** preparation is remembered: the worktree is preserved, the error is recorded, and the next `up` or `prepare` retries setup instead of pretending the worktree is healthy. The failure and its retry command also show up in `git workspace doctor`.
+- Mutating commands hold a per-worktree lock; a concurrent operation fails fast with exit code `75` (`EX_TEMPFAIL`) so scripts can distinguish "busy, retry later" from a real failure (exit `1`).
+
+---
+
 ## Pruning stale worktrees
 
 Over time, worktrees accumulate. The `prune` command removes the ones you're no longer using:
@@ -448,7 +518,7 @@ git workspace prune --older-than-days 14
 git workspace prune --older-than-days 14 --apply
 ```
 
-Pruning force-removes worktrees directly and does **not** run lifecycle hooks. Configure defaults in the manifest so you can just run `git workspace prune`:
+Each pruned worktree goes through the full removal lifecycle — `on_detach` and `on_teardown` hooks run before deletion, so services and state get cleaned up just like with `rm`. A worktree whose hooks fail is skipped and reported at the end (exit code 1), without stopping the rest of the prune. Configure defaults in the manifest so you can just run `git workspace prune`:
 
 ```toml
 [prune]
@@ -503,7 +573,7 @@ For CI pipelines, automation, or agent workflows where you don't want interactiv
 git workspace up main --detached
 ```
 
-This runs `on_setup` (on first creation only) but skips `on_attach`. Combine with `-o` for fully machine-readable output:
+This runs `on_setup` (on first creation only) but skips `on_attach`. On a backend with a presenter (e.g. herdr), detached mode also opens the presentation without focusing it — your current view stays put. Combine with `-o` for fully machine-readable output:
 
 ```bash
 WORKTREE=$(git workspace up main --detached -o)
@@ -533,7 +603,7 @@ Otherwise it lists findings by severity:
 ⚠  base_branch 'develop' does not resolve to any local or remote ref
 ```
 
-**Errors** (✗) indicate problems that will break `up`, `reset`, or hooks. **Warnings** (⚠) indicate configuration that is suspicious but may be intentional — for example, a hook entry that looks like a bin script name but has no matching file (it may be an ad-hoc inline command).
+**Errors** (✗) indicate problems that will break `up`, `prepare`, or hooks. **Warnings** (⚠) indicate configuration that is suspicious but may be intentional — for example, a hook entry that looks like a bin script name but has no matching file (it may be an ad-hoc inline command).
 
 The command exits 1 if any errors are found, 0 if the workspace is clean or has warnings only.
 
@@ -597,6 +667,8 @@ git workspace doctor --fix --yes
 | warning | Unknown copy placeholder | A `{{ GIT_WORKSPACE_* }}` placeholder in a copy asset is not a base variable, manifest var, or fingerprint | — |
 | warning | Unknown base branch | `base_branch` does not resolve to any local or remote ref | — |
 | warning | Stale worktree | A git-registered worktree's directory no longer exists on disk | auto |
+| warning | Failed preparation | A worktree's last preparation failed; reports the error and the retry command | — |
+| warning | Stale workspace state | A state file exists for a worktree that no longer exists on disk | auto |
 | warning | Fingerprint/var name overlap | A `[[fingerprint]]` name and a `[vars]` key normalize the same (different env prefixes, but may be confusing in templates) | — |
 | warning | Empty fingerprint files list | A `[[fingerprint]]` has no entries in `files` | — |
 | warning | Duplicate fingerprint file | The same file path appears more than once within one `[[fingerprint]]` | auto |
@@ -646,7 +718,7 @@ The test suite includes both unit tests and integration tests. Integration tests
 ```bash
 uv run ruff check src/ tests/
 uv run ruff format --check src/ tests/
-uv run ty check src/
+uv run ty check src/ tests/
 ```
 
 </details>
@@ -655,23 +727,39 @@ uv run ty check src/
 <summary><i>Project layout</i></summary>
 <br/>
 
+The architecture separates three concerns: worktree lifecycle (**providers**), project setup (**the preparer**), and how a worktree is surfaced to you (**presenters**). A **backend** is one provider plus an optional presenter, orchestrated by the workspace service.
+
 ```
 src/git_workspace/
-├── cli/commands/   ← one file per command
-├── assets.py       ← symlink and copy management
-├── doctor.py       ← workspace diagnostic checks
-├── env.py          ← GIT_WORKSPACE_* environment variable construction
-├── errors.py       ← exception hierarchy
-├── fingerprint.py  ← worktree file hashing and fingerprint env var computation
-├── git.py          ← subprocess wrappers for git
-├── hooks.py        ← hook logic and execution
-├── manifest.py     ← manifest parsing
-├── operations.py   ← lifecycle orchestration
-├── ui.py           ← ui-related logic
-├── utils.py        ← general logic that doesn't fit elsewhere
-├── workspace.py    ← top-level workspace model
-└── worktree.py     ← worktree model
+├── cli/commands/       ← one file per command (thin wrappers over the service)
+├── backends/           ← backend presets and resolution (native/herdr/auto)
+├── providers/          ← WorktreeProvider protocol + native-git and herdr providers
+├── presenters/         ← WorkspacePresenter protocol + herdr presenter
+├── subprocesses/       ← injectable CommandRunner + git and herdr CLI plumbing
+├── workspace/
+│   ├── core.py         ← workspace model, paths, discovery/resolution
+│   ├── worktree.py     ← worktree model
+│   ├── models.py       ← domain models and lifecycle states
+│   ├── service.py      ← lifecycle orchestration (up/prepare/down/rm/prune)
+│   ├── preparer.py     ← backend-agnostic setup: assets, env, hooks
+│   ├── state.py        ← per-worktree lifecycle state persistence
+│   ├── lock.py         ← per-worktree operation locks
+│   ├── assets.py       ← symlink and copy management
+│   ├── hooks.py        ← hook logic and execution
+│   ├── env.py          ← GIT_WORKSPACE_* environment variable construction
+│   └── fingerprint.py  ← worktree file hashing
+├── doctor.py           ← workspace diagnostic checks
+├── manifest.py         ← manifest parsing
+├── errors.py           ← exception hierarchy
+├── cache.py            ← file cache for hook scripts
+├── ui.py               ← ui-related logic
+└── utils.py            ← general logic that doesn't fit elsewhere
+
+integrations/herdr/     ← thin herdr plugin (runs `prepare` on herdr worktree events)
+tests/contracts/        ← reusable provider/presenter contract tests
 ```
+
+New providers must pass `tests/contracts/provider.py`; new presenters, `tests/contracts/presenter.py`. External tools (herdr, and fakes in tests) are exercised through the injectable `CommandRunner` — integration tests never require herdr installed.
 
 </details>
 

@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.hooks import HookCommandResolver, HookNamesResolver, HookRunner
 from git_workspace.manifest import HookConditions, HookGroup
+from git_workspace.workspace.hooks import HookCommandResolver, HookNamesResolver, HookRunner
 
 BRANCH = "feat/GWS-001"
 WORKSPACE_DIR = Path("/workspace")
@@ -53,7 +53,7 @@ def mock_bin_is_file(mocker: MockerFixture) -> MagicMock:
 
 @pytest.fixture(autouse=True)
 def mock_popen(mocker: MockerFixture) -> MagicMock:
-    mock = mocker.patch("git_workspace.hooks.subprocess.Popen")
+    mock = mocker.patch("git_workspace.workspace.hooks.subprocess.Popen")
     mock.return_value.__enter__.return_value.returncode = 0
     return mock
 

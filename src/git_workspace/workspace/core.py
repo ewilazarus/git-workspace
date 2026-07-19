@@ -2,7 +2,7 @@ import logging
 import shutil
 from pathlib import Path
 
-from git_workspace import git, utils
+from git_workspace import utils
 from git_workspace.errors import (
     GitCloneError,
     GitInitError,
@@ -11,7 +11,9 @@ from git_workspace.errors import (
     WorkspaceCreationError,
 )
 from git_workspace.manifest import Manifest
-from git_workspace.worktree import Worktree
+from git_workspace.providers.native_git import NativeGitProvider
+from git_workspace.subprocesses import git
+from git_workspace.workspace.worktree import Worktree
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,11 @@ class WorkspacePaths:
     @property
     def cache(self) -> Path:
         return self.config / ".cache"
+
+    # <ROOT>/.workspace/.state
+    @property
+    def state(self) -> Path:
+        return self.config / ".state"
 
     # <ROOT>/.git
     @property
@@ -131,6 +138,39 @@ class WorkspaceResolver:
 
         logger.warning("could not resolve workspace root from: %s", path)
         raise UnableToResolveWorkspaceError(f"Unable to resolve workspace root path from: {path!r}")
+
+    @classmethod
+    def resolve_from_worktree(cls, worktree_path: Path) -> Workspace:
+        """
+        Resolves the workspace owning a worktree at an arbitrary path.
+
+        The ``.workspace`` config directory lives as a sibling of the main git
+        directory, so the worktree's ``git rev-parse --git-common-dir`` leads
+        back to the workspace root regardless of where the worktree itself was
+        created (bare layout: ``<ROOT>/.git`` + ``<ROOT>/.workspace``; normal
+        repo: ``<repo>/.git`` + ``<repo>/.workspace``).
+
+        Falls back to walking up from the path when git-based discovery does
+        not land on a valid workspace (e.g. when invoked from inside
+        ``.workspace``, which is itself a git repository).
+
+        :param worktree_path: A directory inside the worktree to resolve for.
+        :raises UnableToResolveWorkspaceError: If no workspace root can be found.
+        :returns: The resolved ``Workspace``.
+        """
+        canonical = worktree_path.expanduser().resolve()
+
+        common_dir = git.git_common_dir(canonical)
+        if common_dir is not None:
+            candidate = common_dir.parent
+            try:
+                WorkspaceValidator.validate(candidate)
+                logger.info("resolved workspace root via git common dir: %s", candidate)
+                return Workspace(candidate)
+            except InvalidWorkspaceError:
+                logger.debug("git common dir parent %s is not a workspace root", candidate)
+
+        return Workspace(cls._resolve(canonical))
 
     @classmethod
     def resolve(cls, raw_workspace_dir: str | None) -> Workspace:
@@ -281,6 +321,11 @@ class Workspace:
         self.paths = WorkspacePaths(dir)
         self.manifest = Manifest.load(self)
 
+    @property
+    def provider(self) -> NativeGitProvider:
+        """The worktree provider owning this workspace's git worktree lifecycle."""
+        return NativeGitProvider()
+
     @classmethod
     def resolve(cls, workspace_dir: str | None) -> Workspace:
         """
@@ -357,17 +402,3 @@ class Workspace:
         :raises WorktreeResolutionError: If no worktree can be resolved.
         """
         return Worktree.resolve(self, branch)
-
-    def resolve_or_create_worktree(self, branch: str | None, base_branch: str | None) -> Worktree:
-        """
-        Resolves an existing worktree or creates a new one for the given branch.
-
-        :param branch: Branch name to resolve or create, or ``None`` to infer from cwd.
-        :param base_branch: Branch to base a new branch on. Falls back to the
-            manifest's ``base_branch`` when ``None``.
-        :returns: The resolved or newly created ``Worktree`` instance.
-        :raises WorktreeResolutionError: If ``branch`` is ``None`` and the cwd is
-            not inside a known worktree.
-        :raises WorktreeCreationError: If worktree creation fails at the git level.
-        """
-        return Worktree.resolve_or_create(self, branch, base_branch)

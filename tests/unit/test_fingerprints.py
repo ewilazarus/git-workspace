@@ -5,12 +5,12 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from git_workspace.fingerprint import (
+from git_workspace.manifest import Fingerprint
+from git_workspace.workspace.fingerprint import (
     DEFAULT_ALGORITHM,
     DEFAULT_LENGTH,
     compute_fingerprints,
 )
-from git_workspace.manifest import Fingerprint
 
 
 @pytest.fixture

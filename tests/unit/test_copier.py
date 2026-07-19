@@ -6,9 +6,9 @@ import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest_mock import MockerFixture
 
-from git_workspace.assets import Copier, IgnoreManager
 from git_workspace.errors import WorkspaceCopyError
 from git_workspace.manifest import Copy
+from git_workspace.workspace.assets import Copier, IgnoreManager
 
 ASSETS_DIR = Path("/workspace/.workspace/assets")
 WORKTREE_DIR = Path("/workspace/feat/GWS-001")
@@ -55,7 +55,7 @@ class TestApplyWithOverride:
 
     @pytest.fixture(autouse=True)
     def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.git.skip_worktree")
+        return mocker.patch("git_workspace.workspace.assets.git.skip_worktree")
 
     @pytest.fixture(autouse=True)
     def mock_copy_with_substitution(self, mocker: MockerFixture, copier: Copier) -> MagicMock:
@@ -194,7 +194,7 @@ class TestApplyCreatesParentDirs:
 
     @pytest.fixture(autouse=True)
     def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.git.skip_worktree")
+        return mocker.patch("git_workspace.workspace.assets.git.skip_worktree")
 
     @pytest.fixture
     def copier(self, mocker: MockerFixture) -> Copier:
@@ -225,7 +225,7 @@ class TestApplyCreatesParentDirs:
 class TestSkipExisting:
     @pytest.fixture(autouse=True)
     def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.git.skip_worktree")
+        return mocker.patch("git_workspace.workspace.assets.git.skip_worktree")
 
     @pytest.fixture
     def target_mock(self, copier: Copier) -> MagicMock:
@@ -314,7 +314,7 @@ class TestApplyWithOverwriteFalse:
 
     @pytest.fixture(autouse=True)
     def mock_git_skip_worktree(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("git_workspace.assets.git.skip_worktree")
+        return mocker.patch("git_workspace.workspace.assets.git.skip_worktree")
 
     @pytest.fixture
     def target_mock(self, copier: Copier) -> MagicMock:
@@ -508,7 +508,7 @@ class TestCopyWithSubstitution:
     def test_apply_returns_substitution_count(
         self, copier: Copier, fs: FakeFilesystem, mocker: MockerFixture
     ) -> None:
-        mocker.patch("git_workspace.assets.git.skip_worktree")
+        mocker.patch("git_workspace.workspace.assets.git.skip_worktree")
         fs.create_file(
             str(self.ASSETS_DIR / "template.txt.j2"), contents="{{ GIT_WORKSPACE_BRANCH }}"
         )

@@ -80,8 +80,8 @@ def test_on_detach_runs_before_on_teardown_on_remove(workspace_with_hooks: Works
     assert (workspace_with_hooks.dir / ".hook-on-teardown").exists()
 
 
-def test_hooks_do_not_run_on_prune(workspace_with_hooks: Workspace) -> None:
+def test_hooks_run_on_prune(workspace_with_hooks: Workspace) -> None:
     up(ctx=make_context(str(workspace_with_hooks.dir)), branch="feat")
     prune(ctx=make_context(str(workspace_with_hooks.dir)), older_than_days=-1, dry_run=False)
-    assert not (workspace_with_hooks.dir / ".hook-on-detach").exists()
-    assert not (workspace_with_hooks.dir / ".hook-on-teardown").exists()
+    assert (workspace_with_hooks.dir / ".hook-on-detach").exists()
+    assert (workspace_with_hooks.dir / ".hook-on-teardown").exists()

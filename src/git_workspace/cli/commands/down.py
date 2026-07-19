@@ -2,10 +2,10 @@ from typing import Annotated
 
 import typer
 
-from git_workspace import operations
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
+from git_workspace.workspace.service import WorkspaceService
 
 app = typer.Typer()
 
@@ -47,8 +47,8 @@ def down(
 
     console.print(f"Deactivating {styled_branch(worktree.branch)}")
 
-    operations.deactivate_worktree(
-        worktree,
+    WorkspaceService.create(workspace).down(
+        worktree.branch,
         runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         effective_branch=effective_branch,
     )

@@ -1,6 +1,5 @@
 import logging
 import re
-import subprocess
 from pathlib import Path
 
 from git_workspace.errors import (
@@ -11,6 +10,7 @@ from git_workspace.errors import (
     WorktreeListingError,
     WorktreeRemovalError,
 )
+from git_workspace.subprocesses.runner import DEFAULT_RUNNER, CommandRunner
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,8 @@ def clone(
     target: Path | None = None,
     branch: str | None = None,
     bare: bool = False,
+    *,
+    runner: CommandRunner = DEFAULT_RUNNER,
 ) -> None:
     """
     Clones a git repository
@@ -51,13 +53,13 @@ def clone(
         cmd.append(target)
 
     logger.debug("cloning %r -> %s", url, target or "(inferred)")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
+    result = runner.run(cmd, check=False)
+    if not result.ok:
         logger.error("git clone failed for %r: %s", url, result.stderr.strip())
         raise GitCloneError(f"Failed to clone {url!r}")
 
 
-def init(target: Path, bare: bool) -> None:
+def init(target: Path, bare: bool, *, runner: CommandRunner = DEFAULT_RUNNER) -> None:
     """
     Initializes a git repository at the provided target
 
@@ -74,17 +76,16 @@ def init(target: Path, bare: bool) -> None:
     cmd.append(target)
 
     logger.debug("initializing %s repo at %s", "bare" if bare else "non-bare", target)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
+    result = runner.run(cmd, check=False)
+    if not result.ok:
         logger.error("git init failed at %s: %s", target, result.stderr.strip())
         raise GitInitError(f"Failed to init repository at {target!r}: {result.stderr.strip()}")
 
 
-def list_worktrees(cwd: Path) -> list[dict[str, str]]:
+def list_worktrees(cwd: Path, *, runner: CommandRunner = DEFAULT_RUNNER) -> list[dict[str, str]]:
     logger.debug("listing worktrees in %s", cwd)
-    cmd = ["git", "worktree", "list", "--porcelain"]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
-    if result.returncode != 0:
+    result = runner.run(["git", "worktree", "list", "--porcelain"], cwd=cwd, check=False)
+    if not result.ok:
         logger.error("git worktree list failed in %s: %s", cwd, result.stderr.strip())
         raise WorktreeListingError(f"Failed to list worktrees in {cwd!r}: {result.stderr.strip()}")
 
@@ -97,7 +98,7 @@ def list_worktrees(cwd: Path) -> list[dict[str, str]]:
     return worktrees
 
 
-def configure_remote_fetch_refspec(cwd: Path) -> None:
+def configure_remote_fetch_refspec(cwd: Path, *, runner: CommandRunner = DEFAULT_RUNNER) -> None:
     """
     Sets the remote.origin.fetch refspec to use remote-tracking refs.
 
@@ -105,29 +106,27 @@ def configure_remote_fetch_refspec(cwd: Path) -> None:
     refs/remotes/origin/* and remote-branch lookups always fail. This sets it to
     '+refs/heads/*:refs/remotes/origin/*' (identical to a normal clone).
     """
-    subprocess.run(
+    runner.run(
         ["git", "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"],
         cwd=cwd,
-        capture_output=True,
-        text=True,
+        check=False,
     )
 
 
-def fetch_origin(cwd: Path) -> None:
+def fetch_origin(cwd: Path, *, runner: CommandRunner = DEFAULT_RUNNER) -> None:
     """
     Fetches from origin and prunes stale remote-tracking branches.
 
     :raises GitFetchError: If the fetch fails
     """
     logger.debug("fetching origin in %s", cwd)
-    cmd = ["git", "fetch", "origin", "--prune"]
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    if result.returncode != 0:
+    result = runner.run(["git", "fetch", "origin", "--prune"], cwd=cwd, check=False)
+    if not result.ok:
         logger.warning("git fetch failed in %s: %s", cwd, result.stderr.strip())
         raise GitFetchError(f"Failed to fetch from origin: {result.stderr.strip()}")
 
 
-def local_branch_exists(branch: str, cwd: Path) -> bool:
+def local_branch_exists(branch: str, cwd: Path, *, runner: CommandRunner = DEFAULT_RUNNER) -> bool:
     """
     Returns whether a local branch exists
 
@@ -136,13 +135,13 @@ def local_branch_exists(branch: str, cwd: Path) -> bool:
     :returns: True if the branch exists locally, False otherwise
     """
     cmd = ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"]
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True)
-    exists = result.returncode == 0
+    result = runner.run(cmd, cwd=cwd, check=False)
+    exists = result.ok
     logger.debug("local branch %r exists: %s", branch, exists)
     return exists
 
 
-def remote_branch_exists(branch: str, cwd: Path) -> bool:
+def remote_branch_exists(branch: str, cwd: Path, *, runner: CommandRunner = DEFAULT_RUNNER) -> bool:
     """
     Returns whether a branch exists on origin
 
@@ -151,13 +150,13 @@ def remote_branch_exists(branch: str, cwd: Path) -> bool:
     :returns: True if the branch exists on origin, False otherwise
     """
     cmd = ["git", "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}"]
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True)
-    exists = result.returncode == 0
+    result = runner.run(cmd, cwd=cwd, check=False)
+    exists = result.ok
     logger.debug("remote branch %r exists: %s", branch, exists)
     return exists
 
 
-def skip_worktree(path: Path) -> None:
+def skip_worktree(path: Path, *, runner: CommandRunner = DEFAULT_RUNNER) -> None:
     """
     Marks a file with git update-index --skip-worktree so local changes are ignored
 
@@ -167,14 +166,16 @@ def skip_worktree(path: Path) -> None:
     :param path: The file path to mark
     """
     logger.debug("marking %s as skip-worktree", path)
-    subprocess.run(
-        ["git", "update-index", "--skip-worktree", path],
-        capture_output=True,
-        text=True,
-    )
+    runner.run(["git", "update-index", "--skip-worktree", path], check=False)
 
 
-def create_worktree_from_local_branch(worktree_dir: Path, branch: str, cwd: Path) -> None:
+def create_worktree_from_local_branch(
+    worktree_dir: Path,
+    branch: str,
+    cwd: Path,
+    *,
+    runner: CommandRunner = DEFAULT_RUNNER,
+) -> None:
     """
     Creates a worktree for an existing local branch
 
@@ -184,9 +185,8 @@ def create_worktree_from_local_branch(worktree_dir: Path, branch: str, cwd: Path
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     logger.debug("creating worktree for local branch %r at %s", branch, worktree_dir)
-    cmd = ["git", "worktree", "add", worktree_dir, branch]
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    if result.returncode != 0:
+    result = runner.run(["git", "worktree", "add", worktree_dir, branch], cwd=cwd, check=False)
+    if not result.ok:
         logger.error(
             "failed to create worktree for local branch %r: %s", branch, result.stderr.strip()
         )
@@ -195,7 +195,13 @@ def create_worktree_from_local_branch(worktree_dir: Path, branch: str, cwd: Path
         )
 
 
-def create_worktree_from_remote_branch(worktree_dir: Path, branch: str, cwd: Path) -> None:
+def create_worktree_from_remote_branch(
+    worktree_dir: Path,
+    branch: str,
+    cwd: Path,
+    *,
+    runner: CommandRunner = DEFAULT_RUNNER,
+) -> None:
     """
     Creates a worktree with a new local branch tracking origin/<branch>
 
@@ -205,7 +211,7 @@ def create_worktree_from_remote_branch(worktree_dir: Path, branch: str, cwd: Pat
     :raises WorktreeCreationError: If the worktree cannot be created
     """
     logger.debug("creating worktree tracking remote branch %r at %s", branch, worktree_dir)
-    cmd = [
+    cmd: list[str | Path] = [
         "git",
         "worktree",
         "add",
@@ -215,8 +221,8 @@ def create_worktree_from_remote_branch(worktree_dir: Path, branch: str, cwd: Pat
         worktree_dir,
         f"origin/{branch}",
     ]
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    if result.returncode != 0:
+    result = runner.run(cmd, cwd=cwd, check=False)
+    if not result.ok:
         logger.error(
             "failed to create worktree for remote branch %r: %s", branch, result.stderr.strip()
         )
@@ -230,6 +236,8 @@ def create_worktree_new(
     branch: str,
     base_branch: str,
     cwd: Path,
+    *,
+    runner: CommandRunner = DEFAULT_RUNNER,
 ) -> None:
     """
     Creates a worktree with a brand new local branch from a base branch.
@@ -246,16 +254,24 @@ def create_worktree_new(
     logger.debug(
         "creating new worktree for branch %r from %r at %s", branch, base_branch, worktree_dir
     )
-    cmd = ["git", "worktree", "add", "-b", branch, worktree_dir, base_branch]
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    if result.returncode != 0:
+    cmd: list[str | Path] = ["git", "worktree", "add", "-b", branch, worktree_dir, base_branch]
+    result = runner.run(cmd, cwd=cwd, check=False)
+    if not result.ok:
         # Base ref doesn't exist — repo has no commits yet. Create an orphan worktree.
         logger.debug(
             "base branch %r not found, falling back to orphan worktree for %r", base_branch, branch
         )
-        orphan_cmd = ["git", "worktree", "add", "--orphan", "-b", branch, worktree_dir]
-        orphan_result = subprocess.run(orphan_cmd, cwd=cwd, capture_output=True, text=True)
-        if orphan_result.returncode != 0:
+        orphan_cmd: list[str | Path] = [
+            "git",
+            "worktree",
+            "add",
+            "--orphan",
+            "-b",
+            branch,
+            worktree_dir,
+        ]
+        orphan_result = runner.run(orphan_cmd, cwd=cwd, check=False)
+        if not orphan_result.ok:
             logger.error(
                 "failed to create orphan worktree for branch %r: %s",
                 branch,
@@ -266,42 +282,58 @@ def create_worktree_new(
             )
 
 
-def try_get_worktree_dir() -> str | None:
-    cmd = ["git", "rev-parse", "--show-toplevel"]
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-    )
-    worktree_dir = result.stdout.strip() if result.returncode == 0 else None
+def git_common_dir(path: Path, *, runner: CommandRunner = DEFAULT_RUNNER) -> Path | None:
+    """
+    Returns the main repository's git directory for a worktree path.
+
+    For a linked worktree this resolves to the main repo's git dir (not the
+    per-worktree admin dir). The output may be relative, so it is resolved
+    against ``path``.
+
+    :param path: A directory inside a worktree.
+    :returns: The resolved common git directory, or None when ``path`` is not
+        inside a git repository.
+    """
+    result = runner.run(["git", "rev-parse", "--git-common-dir"], cwd=path, check=False)
+    if not result.ok:
+        logger.debug("no git common dir for %s", path)
+        return None
+    common_dir = (path / result.stdout.strip()).resolve()
+    logger.debug("git common dir for %s: %s", path, common_dir)
+    return common_dir
+
+
+def try_get_worktree_dir(*, runner: CommandRunner = DEFAULT_RUNNER) -> str | None:
+    result = runner.run(["git", "rev-parse", "--show-toplevel"], check=False)
+    worktree_dir = result.stdout.strip() if result.ok else None
     logger.debug("cwd worktree dir: %s", worktree_dir or "(none)")
     return worktree_dir
 
 
-def get_worktree_branch(cwd: str) -> str:
-    cmd = ["git", "branch", "--show-current"]
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-    )
+def get_worktree_branch(cwd: str, *, runner: CommandRunner = DEFAULT_RUNNER) -> str:
+    result = runner.run(["git", "branch", "--show-current"], cwd=Path(cwd), check=False)
     branch = result.stdout.strip()
     logger.debug("current branch in %s: %r", cwd, branch)
     return branch
 
 
-def prune_worktrees(cwd: Path) -> None:
+def prune_worktrees(cwd: Path, *, runner: CommandRunner = DEFAULT_RUNNER) -> None:
     """
     Removes stale worktree administrative files via `git worktree prune`.
 
     :param cwd: The git repository directory.
     """
     logger.debug("pruning stale worktrees in %s", cwd)
-    subprocess.run(["git", "worktree", "prune"], cwd=cwd, capture_output=True, text=True)
+    runner.run(["git", "worktree", "prune"], cwd=cwd, check=False)
 
 
-def remove_worktree(worktree_dir: Path, force: bool = False, *, cwd: Path) -> None:
+def remove_worktree(
+    worktree_dir: Path,
+    force: bool = False,
+    *,
+    cwd: Path,
+    runner: CommandRunner = DEFAULT_RUNNER,
+) -> None:
     """
     Removes a git worktree without deleting the branch.
 
@@ -318,8 +350,8 @@ def remove_worktree(worktree_dir: Path, force: bool = False, *, cwd: Path) -> No
 
     cmd.append(worktree_dir)
 
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    if result.returncode != 0:
+    result = runner.run(cmd, cwd=cwd, check=False)
+    if not result.ok:
         logger.error("failed to remove worktree at %s: %s", worktree_dir, result.stderr.strip())
         raise WorktreeRemovalError(
             f"Failed to remove worktree at {worktree_dir!r}: {result.stderr.strip()}"

@@ -2,10 +2,10 @@ from typing import Annotated
 
 import typer
 
-from git_workspace import operations
 from git_workspace.cli.parsers import parse_vars
 from git_workspace.ui import console, styled_branch
 from git_workspace.workspace import Workspace
+from git_workspace.workspace.service import WorkspaceService
 
 app = typer.Typer()
 
@@ -58,10 +58,10 @@ def remove(
 
     console.print(f"Removing {styled_branch(worktree.branch)}")
 
-    operations.remove_worktree(
-        worktree,
-        runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
+    WorkspaceService.create(workspace).remove(
+        worktree.branch,
         force=force,
+        runtime_vars=dict(runtime_vars or []),  # ty:ignore[no-matching-overload]
         effective_branch=effective_branch,
     )
 

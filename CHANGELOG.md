@@ -7,6 +7,27 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- **Herdr plugin** (`integrations/herdr/`) — a thin herdr plugin that runs `git workspace prepare <path>` whenever herdr creates or opens a worktree (`worktree.created` / `worktree.opened` events), so worktrees born on the herdr side get their assets and setup hooks no matter who initiated them. Also registers `prepare` / `reprepare` plugin actions for the current worktree. Non-git-workspace repositories are skipped silently; failures raise a herdr notification with the retry command. Install with `herdr plugin link <repo>/integrations/herdr`.
+- Lock contention now exits with code 75 (`EX_TEMPFAIL`) instead of 1, so external hosts can distinguish "another operation is already running — retry later" from real failures. The herdr plugin uses this to skip benignly when `up --backend herdr` is still preparing the worktree it just created.
+- **Herdr backend** — `git workspace up` can now create worktrees through [herdr](https://herdr.dev) and present them as herdr workspaces. Inside a verified herdr session (`HERDR_ENV=1` with a reachable session socket), the backend is auto-detected: plain `up` creates the worktree via herdr, prepares it, opens it as a herdr workspace, and focuses it (unless `--no-focus` or `--detached`). `down` closes the workspace (worktree preserved); `rm` removes the worktree through herdr (branch preserved). Outside herdr — or with `--backend native` / `[workspace] backend = "native"` in the manifest — behavior is unchanged.
+- Backend selection surface: `up --backend <native|herdr|auto>`, `--provider <native-git|herdr>`, `--presenter <none|herdr>`, `--focus/--no-focus`, plus a `[workspace]` manifest table (`backend`, `provider`, `presenter`). Explicit provider/presenter values override the backend preset; a CLI `--backend` overrides manifest settings. The herdr executable resolves via explicit config → `HERDR_BIN_PATH` → `PATH`.
+- Reusable presenter contract tests (`tests/contracts/presenter.py`); herdr provider and presenter both pass their contracts against a fake herdr executable, so CI never needs herdr installed.
+- `prepare` (and the `reset` alias) always import worktrees through native git, so preparation keeps working in CI and external hosts regardless of the configured backend.
+- `git workspace prepare [PATH]` — prepares an existing worktree (assets + `on_setup` hooks) regardless of which tool created it, including worktrees created directly with `git worktree add` at arbitrary paths outside the workspace root. The owning workspace is discovered through the worktree's git metadata (`.workspace` lives as a sibling of the main git directory). No-ops when the worktree is already prepared; `--force` re-runs setup. This is the primitive external hosts (editor plugins, CI, other tools) should invoke.
+- Per-worktree lifecycle state under `<root>/.workspace/.state/` (`created` → `preparing` → `ready`/`preparation-failed`, plus `detached`/`tearing-down`). A failed `on_setup` is now remembered: the next `up` or `prepare` retries preparation instead of silently treating the worktree as healthy. Worktrees without a state file (created by older versions) remain fully supported.
+- Per-worktree operation locks: concurrent mutating operations (`up`, `prepare`, `down`, `rm`, `prune --apply`) on the same worktree now fail fast with a clear message instead of racing.
+- `doctor` now flags worktrees whose preparation failed (with the retry command) and stale state files whose worktree no longer exists (auto-fixable).
+- Internal provider/presenter architecture: worktree lifecycle is owned by a `WorktreeProvider` (native git today), presentation by an optional `WorkspacePresenter` (none today), orchestrated by a `WorkspaceService`. This is the seam future backends (editor/multiplexer integrations, alternative worktree managers) plug into; no user-facing backend selection exists yet.
+
+### Changed
+- **Breaking:** `git workspace prune --apply` now runs the full removal lifecycle per worktree — `on_detach` and `on_teardown` hooks execute before deletion (previously hooks were skipped). A failing worktree is skipped and pruning continues; failures are summarized and the command exits non-zero.
+- **Breaking:** the CLI now exits with a non-zero status code when a command fails with a git-workspace error (previously it printed the error but exited 0).
+- Failed preparation on `up` now leaves the worktree in place, records the failure, and prints a retry command (`git workspace prepare <path>`); it never cleans up automatically.
+
+### Deprecated
+- `git workspace reset` — use `git workspace prepare --force` instead. `reset` currently remains as an alias with identical behavior.
+
 ## [0.8.0] - 2026-05-04
 
 ### Added

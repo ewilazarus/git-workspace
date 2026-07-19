@@ -21,27 +21,27 @@ def mock_mkdir(mocker: MockerFixture) -> None:
 
 @pytest.fixture(autouse=True)
 def mock_manifest_load(mocker: MockerFixture) -> None:
-    mocker.patch("git_workspace.workspace.Manifest.load")
+    mocker.patch("git_workspace.workspace.core.Manifest.load")
 
 
 @pytest.fixture(autouse=True)
 def mock_rmtree(mocker: MockerFixture) -> None:
-    mocker.patch("git_workspace.workspace.shutil.rmtree")
+    mocker.patch("git_workspace.workspace.core.shutil.rmtree")
 
 
 @pytest.fixture(autouse=True)
 def mock_configure_remote_fetch_refspec(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.workspace.git.configure_remote_fetch_refspec")
+    return mocker.patch("git_workspace.workspace.core.git.configure_remote_fetch_refspec")
 
 
 @pytest.fixture
 def mock_git_clone(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.workspace.git.clone")
+    return mocker.patch("git_workspace.workspace.core.git.clone")
 
 
 @pytest.fixture
 def mock_git_init(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("git_workspace.workspace.git.init")
+    return mocker.patch("git_workspace.workspace.core.git.init")
 
 
 def test_clones_bare_repo_and_config_when_both_urls_provided(
